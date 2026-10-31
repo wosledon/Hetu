@@ -8,12 +8,21 @@ public class LlmProviderFactory : ILLMProviderFactory
     private readonly IUnitOfWork _unitOfWork;
     private readonly IDataProtector _protector;
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly IFoundryLocalService _foundry;
+    private readonly ILocalizer _localizer;
 
-    public LlmProviderFactory(IUnitOfWork unitOfWork, IDataProtectionProvider dataProtectionProvider, IHttpClientFactory httpClientFactory)
+    public LlmProviderFactory(
+        IUnitOfWork unitOfWork,
+        IDataProtectionProvider dataProtectionProvider,
+        IHttpClientFactory httpClientFactory,
+        IFoundryLocalService foundry,
+        ILocalizer localizer)
     {
         _unitOfWork = unitOfWork;
         _protector = dataProtectionProvider.CreateProtector("Hetu.AiProvider.ApiKey");
         _httpClientFactory = httpClientFactory;
+        _foundry = foundry;
+        _localizer = localizer;
     }
 
     public Task<ILLMProvider?> CreateChatProviderAsync(CancellationToken cancellationToken = default)
@@ -63,15 +72,16 @@ public class LlmProviderFactory : ILLMProviderFactory
     {
         var provider = await _unitOfWork.AiProviders.GetByIdAsync(model.ProviderId, cancellationToken);
         if (provider == null || !provider.IsEnabled) return null;
-        return CreateProvider(provider, model.ModelId);
+        return await CreateProviderAsync(provider, model.ModelId, cancellationToken);
     }
 
-    private ILLMProvider CreateProvider(Core.Entities.AiProvider provider, string modelId)
+    private async Task<ILLMProvider> CreateProviderAsync(Core.Entities.AiProvider provider, string modelId, CancellationToken cancellationToken)
     {
         var apiKey = UnprotectApiKey(provider);
+        var baseUrl = await ResolveBaseUrlAsync(provider, modelId, cancellationToken);
 
         var httpClient = _httpClientFactory.CreateClient();
-        httpClient.BaseAddress = new Uri(ResolveBaseUrl(provider));
+        httpClient.BaseAddress = new Uri(baseUrl);
 
         return provider.ProviderType.ToLowerInvariant() switch
         {
@@ -83,17 +93,30 @@ public class LlmProviderFactory : ILLMProviderFactory
         };
     }
 
-    /// <summary>本地运行时（Foundry Local）没有固定端口，BaseUrl 由用户按当前端点填；没填时用默认端口</summary>
-    private static string ResolveBaseUrl(Core.Entities.AiProvider provider)
+    /// <summary>
+    /// 解析 BaseUrl。Foundry Local 的端口是运行时动态分配的，写死必然过期，
+    /// 所以这类服务商没配 BaseUrl 时现场问运行时拿当前端点；用户手填了（跨机器指向）
+    /// 则尊重填写值。本地服务没起来时给出可操作的提示，而不是让调用方吃到连接被拒绝。
+    /// </summary>
+    private async Task<string> ResolveBaseUrlAsync(Core.Entities.AiProvider provider, string modelId, CancellationToken cancellationToken)
     {
         var configured = string.IsNullOrWhiteSpace(provider.BaseUrl)
             ? null
             : provider.BaseUrl.TrimEnd('/') + "/";
         if (configured != null) return configured;
 
-        return string.Equals(provider.ProviderType, "foundry", StringComparison.OrdinalIgnoreCase)
-            ? "http://127.0.0.1:5272/v1/"
-            : GetDefaultBaseUrl(provider.ProviderType);
+        if (!string.Equals(provider.ProviderType, "foundry", StringComparison.OrdinalIgnoreCase))
+            return GetDefaultBaseUrl(provider.ProviderType);
+
+        // 先把服务拉起来、模型加载好，再取端点：顺序反了会在服务没启动时直接抛，
+        // 而启动服务正是 EnsureLoadedAsync 的副作用
+        await _foundry.EnsureLoadedAsync(modelId, cancellationToken);
+
+        var endpoint = await _foundry.GetEndpointAsync(cancellationToken);
+        if (string.IsNullOrWhiteSpace(endpoint))
+            throw new InvalidOperationException(_localizer.T("foundry.serviceNotRunning"));
+
+        return endpoint.TrimEnd('/') + "/";
     }
 
     /// <summary>

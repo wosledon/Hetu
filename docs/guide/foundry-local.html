@@ -101,7 +101,7 @@
         <li>Embedding 用途同理：把本地的 embedding 模型注册进来，知识库的向量索引就能全本地跑</li>
         <li>服务商也可以手工添加：类型选「Foundry Local（本地）」，Base URL 填运行时给出的端点——跨机器指向另一台机器上的 Foundry Local 时走这条路</li>
       </ul>
-      <div class="note">本地服务重启后端口可能变化。如果对话时连不上，回本页看一眼当前端点，把服务商的 Base URL 更新成新值即可。</div>
+      <div class="note">本地服务的端口由运行时动态分配，重启后会变。 Hetu 不把端口写死：没配 Base URL 的 Foundry Local 服务商每次请求都现场取当前端点，你不需要手动改。</div>
 
       <h2>平台支持</h2>
       <p>Foundry Local 目前只支持 Windows（依赖 DirectML / WinML）。在 Linux 与 macOS 上入口仍在，但会整体置灰并说明原因；此时仍可通过手工添加 OpenAI 兼容服务商的方式，指向另一台 Windows 机器上的 Foundry Local 端点来使用。</p>

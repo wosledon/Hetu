@@ -33,6 +33,9 @@ public class FoundryLocalService : IFoundryLocalService
     /// <summary>变体 Id 探测缓存：null 表示该 Id 不存在。目录是静态的，探一次就够</summary>
     private readonly Dictionary<string, FoundrySdk.IModel?> _variantIdCache = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>本进程已加载过的变体：避免每次请求都去问 SDK「加载了没」</summary>
+    private readonly HashSet<string> _loadedVariants = new(StringComparer.OrdinalIgnoreCase);
+
     /// <summary>除 generic-cpu 外还要探测的设备段。实测只有这两个有命中（各覆盖 40/56 个模型），
     /// 其余拼法（npu / qnn / directml 等）全部扑空，不加进来免得白白拉慢首屏</summary>
     private static readonly string[] VariantDeviceTokens = ["cuda-gpu", "generic-gpu"];
@@ -198,6 +201,43 @@ public class FoundryLocalService : IFoundryLocalService
         return status;
     }
 
+    public async Task<string?> GetEndpointAsync(CancellationToken cancellationToken = default)
+    {
+        if (!IsSupported()) return null;
+
+        try
+        {
+            var manager = await GetManagerAsync(cancellationToken);
+            return manager == null ? null : FirstEndpoint(manager);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "读取 Foundry Local 端点失败");
+            return null;
+        }
+    }
+
+    public async Task EnsureLoadedAsync(string variantId, CancellationToken cancellationToken = default)
+    {
+        if (!IsSupported()) return;
+        if (string.IsNullOrWhiteSpace(variantId)) return;
+        if (_loadedVariants.Contains(variantId)) return;
+
+        // 服务没起就先拉起来：用户注册完模型直接对话，不该再弹「服务未启动」
+        await StartServiceAsync(cancellationToken);
+
+        var model = await GetVariantAsync(variantId, cancellationToken);
+        if (model == null) throw new InvalidOperationException(_localizer.T("foundry.modelNotFound", variantId));
+
+        if (!await model.IsCachedAsync(cancellationToken))
+            throw new InvalidOperationException(_localizer.T("foundry.notDownloaded"));
+
+        if (!await model.IsLoadedAsync(cancellationToken))
+            await LoadAsync(variantId, cancellationToken);
+
+        _loadedVariants.Add(variantId);
+    }
+
     public async Task<List<FoundryLocalModelDto>> GetModelsAsync(bool includeCachedOnly = false, CancellationToken cancellationToken = default)
     {
         var empty = new List<FoundryLocalModelDto>();
@@ -310,6 +350,7 @@ public class FoundryLocalService : IFoundryLocalService
         {
             _gate.Release();
         }
+        _loadedVariants.Remove(variantId);
     }
 
     public async Task LoadAsync(string variantId, CancellationToken cancellationToken = default)
@@ -344,6 +385,7 @@ public class FoundryLocalService : IFoundryLocalService
         {
             _gate.Release();
         }
+        _loadedVariants.Remove(variantId);
     }
 
     public async Task<List<FoundryLocalModelDto>> GetLoadedModelsAsync(CancellationToken cancellationToken = default)

@@ -20,9 +20,14 @@ public class FoundryLocalProviderFactoryTests
         var http = Substitute.For<IHttpClientFactory>();
         http.CreateClient(Arg.Any<string>()).Returns(new HttpClient());
         var protector = new PassthroughProtector();
+        var foundry = Substitute.For<IFoundryLocalService>();
+        // 端点未启动时返回 null：工厂应给出可操作提示，而不是落到写死的端口
+        foundry.GetEndpointAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult<string?>(null));
+        var localizer = Substitute.For<ILocalizer>();
+        localizer.T(Arg.Any<string>(), Arg.Any<object[]>()).Returns(callInfo => callInfo.Arg<string>());
         return (
-            new LlmProviderFactory(unitOfWork, new SingleProtectorProvider(protector), http),
-            new EmbeddingProviderFactory(unitOfWork, new SingleProtectorProvider(protector), http,
+            new LlmProviderFactory(unitOfWork, new SingleProtectorProvider(protector), http, foundry, localizer),
+            new EmbeddingProviderFactory(unitOfWork, new SingleProtectorProvider(protector), http, foundry, localizer,
                 NullLogger<EmbeddingProviderFactory>.Instance),
             unitOfWork);
     }
@@ -55,31 +60,6 @@ public class FoundryLocalProviderFactoryTests
         Assert.NotNull(created);
         Assert.Equal("openai", created!.ProviderType);
         Assert.True(created.SupportsStreaming);
-    }
-
-    [Fact]
-    public async Task CreateProviderAsync_FoundryLocal且未填BaseUrl_用本地默认端口而非官方地址()
-    {
-        var (chat, _, unitOfWork) = CreateFactories();
-        var provider = new AiProvider
-        {
-            Id = Guid.NewGuid(),
-            Name = "Foundry Local",
-            ProviderType = "foundry",
-            IsEnabled = true,
-            EncryptedApiKey = string.Empty,
-            BaseUrl = null,
-        };
-        var model = CreateModel(provider.Id, "phi-4-mini");
-        unitOfWork.AiModels.GetByIdAsync(model.Id, Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult<AiModel?>(model));
-        unitOfWork.AiProviders.GetByIdAsync(provider.Id, Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult<AiProvider?>(provider));
-
-        var created = await chat.CreateProviderAsync(model.Id);
-
-        // 只验证不会回落到 api.openai.com：真正发请求会在本地端口失败而不是打到官方地址
-        Assert.NotNull(created);
     }
 
     [Fact]
@@ -146,6 +126,59 @@ public class FoundryLocalProviderFactoryTests
         Assert.Null(await embedding.CreateEmbeddingProviderAsync());
     }
 
+    /// <summary>
+    /// 回归：Foundry Local 的端口由运行时动态分配，早期在工厂里写死 127.0.0.1:5272，
+    /// 用户一用就「目标计算机积极拒绝」。现在没配 BaseUrl 时必须现场问运行时。
+    /// </summary>
+    [Fact]
+    public async Task CreateProviderAsync_FoundryLocal未配BaseUrl_向运行时询问当前端点()
+    {
+        var (chat, _, unitOfWork) = CreateFactories();
+        var provider = new AiProvider
+        {
+            Id = Guid.NewGuid(),
+            Name = "Foundry Local",
+            ProviderType = "foundry",
+            IsEnabled = true,
+            EncryptedApiKey = string.Empty,
+            BaseUrl = null,
+        };
+        var model = CreateModel(provider.Id, "phi-4-mini");
+        unitOfWork.AiModels.GetByIdAsync(model.Id, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<AiModel?>(model));
+        unitOfWork.AiProviders.GetByIdAsync(provider.Id, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<AiProvider?>(provider));
+
+        // 本地服务没启动：必须抛可操作的提示，而不是静默连到写死的端口
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => chat.CreateProviderAsync(model.Id));
+        Assert.Equal("foundry.serviceNotRunning", ex.Message);
+    }
+
+    [Fact]
+    public async Task CreateProviderAsync_FoundryLocal配了BaseUrl_尊重填写值不问运行时()
+    {
+        var (chat, _, unitOfWork) = CreateFactories();
+        var provider = new AiProvider
+        {
+            Id = Guid.NewGuid(),
+            Name = "Foundry Local",
+            ProviderType = "foundry",
+            IsEnabled = true,
+            EncryptedApiKey = string.Empty,
+            // 跨机器指向另一台 Windows 上的 Foundry Local
+            BaseUrl = "http://192.168.1.20:5272/v1",
+        };
+        var model = CreateModel(provider.Id, "phi-4-mini");
+        unitOfWork.AiModels.GetByIdAsync(model.Id, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<AiModel?>(model));
+        unitOfWork.AiProviders.GetByIdAsync(provider.Id, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<AiProvider?>(provider));
+
+        var created = await chat.CreateProviderAsync(model.Id);
+
+        Assert.NotNull(created);
+    }
+
     /// <summary>把单个 protector 包成 provider，省掉真跑一遍 DataProtection 密钥环</summary>
     private sealed class SingleProtectorProvider : IDataProtectionProvider
     {
@@ -157,8 +190,7 @@ public class FoundryLocalProviderFactoryTests
     }
 
     /// <summary>透传 protector：测试只关心「有没有送进 Unprotect」，不关心加解密本身</summary>
-    private sealed class PassthroughProtector : IDataProtector
-    {
+    private sealed class PassthroughProtector : IDataProtector    {
         public IDataProtector CreateProtector(string purpose) => this;
 
         public byte[] Protect(byte[] plaintext) => plaintext;

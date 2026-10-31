@@ -282,6 +282,7 @@
   "whiteboard.nameTooLong": "Whiteboard name cannot exceed {0} characters",
   "foundry.windowsOnly": "The Foundry Local runtime currently supports Windows only (it needs DirectML / WinML). You can still add an OpenAI-compatible provider manually and point it at a Foundry Local endpoint on another machine.",
   "foundry.nativeMissing": "The Foundry Local native library (foundry_local.dll) was not found — the installation package may be incomplete.",
+  "foundry.serviceNotRunning": "The local model service is not running. Open the Local models page, click Start service, and try again.",
   "foundry.modelDirInvalid": "The model directory is not usable: {0}",
   "foundry.modelDirNotAbsolute": "The model directory must be an absolute path",
   "foundry.modelNotFound": "Model not found: {0}",

@@ -9,17 +9,23 @@ public class EmbeddingProviderFactory : IEmbeddingProviderFactory
     private readonly IUnitOfWork _unitOfWork;
     private readonly IDataProtector _protector;
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly IFoundryLocalService _foundry;
+    private readonly ILocalizer _localizer;
     private readonly ILogger<EmbeddingProviderFactory> _logger;
 
     public EmbeddingProviderFactory(
         IUnitOfWork unitOfWork,
         IDataProtectionProvider dataProtectionProvider,
         IHttpClientFactory httpClientFactory,
+        IFoundryLocalService foundry,
+        ILocalizer localizer,
         ILogger<EmbeddingProviderFactory> logger)
     {
         _unitOfWork = unitOfWork;
         _protector = dataProtectionProvider.CreateProtector("Hetu.AiProvider.ApiKey");
         _httpClientFactory = httpClientFactory;
+        _foundry = foundry;
+        _localizer = localizer;
         _logger = logger;
     }
 
@@ -32,7 +38,7 @@ public class EmbeddingProviderFactory : IEmbeddingProviderFactory
         if (provider == null || !provider.IsEnabled) return null;
 
         var dimensions = model.Dimensions ?? 1536;
-        return CreateProvider(provider, model.ModelId, dimensions);
+        return await CreateProviderAsync(provider, model.ModelId, dimensions, cancellationToken);
     }
 
     public async Task<IEmbeddingProvider?> CreateProviderAsync(Guid modelId, CancellationToken cancellationToken = default)
@@ -44,7 +50,7 @@ public class EmbeddingProviderFactory : IEmbeddingProviderFactory
         if (provider == null || !provider.IsEnabled) return null;
 
         var dimensions = model.Dimensions ?? 1536;
-        return CreateProvider(provider, model.ModelId, dimensions);
+        return await CreateProviderAsync(provider, model.ModelId, dimensions, cancellationToken);
     }
 
     /// <summary>
@@ -52,7 +58,8 @@ public class EmbeddingProviderFactory : IEmbeddingProviderFactory
     /// 不抛异常——调用方一律把 null 当作「没有可用的 Embedding」，否则状态页、搜索、索引任务
     /// 会因为一个密钥问题直接 500。
     /// </summary>
-    private IEmbeddingProvider? CreateProvider(Core.Entities.AiProvider provider, string modelId, int dimensions)
+    private async Task<IEmbeddingProvider?> CreateProviderAsync(
+        Core.Entities.AiProvider provider, string modelId, int dimensions, CancellationToken cancellationToken)
     {
         string apiKey;
         try
@@ -72,9 +79,7 @@ public class EmbeddingProviderFactory : IEmbeddingProviderFactory
         }
 
         var httpClient = _httpClientFactory.CreateClient();
-        httpClient.BaseAddress = new Uri(string.IsNullOrWhiteSpace(provider.BaseUrl)
-            ? GetDefaultBaseUrl(provider.ProviderType)
-            : provider.BaseUrl.TrimEnd('/') + "/");
+        httpClient.BaseAddress = new Uri(await ResolveBaseUrlAsync(provider, cancellationToken));
 
         switch (provider.ProviderType.ToLowerInvariant())
         {
@@ -90,12 +95,31 @@ public class EmbeddingProviderFactory : IEmbeddingProviderFactory
         }
     }
 
+    /// <summary>
+    /// 解析 BaseUrl。Foundry Local 的端口由运行时动态分配，写死必然过期，
+    /// 所以这类服务商没配 BaseUrl 时现场问运行时拿当前端点；用户手填了（跨机器指向）则尊重填写值。
+    /// </summary>
+    private async Task<string> ResolveBaseUrlAsync(Core.Entities.AiProvider provider, CancellationToken cancellationToken)
+    {
+        var configured = string.IsNullOrWhiteSpace(provider.BaseUrl)
+            ? null
+            : provider.BaseUrl.TrimEnd('/') + "/";
+        if (configured != null) return configured;
+
+        if (!string.Equals(provider.ProviderType, "foundry", StringComparison.OrdinalIgnoreCase))
+            return GetDefaultBaseUrl(provider.ProviderType);
+
+        var endpoint = await _foundry.GetEndpointAsync(cancellationToken);
+        if (string.IsNullOrWhiteSpace(endpoint))
+            throw new InvalidOperationException(_localizer.T("foundry.serviceNotRunning"));
+
+        return endpoint.TrimEnd('/') + "/";
+    }
+
     private static string GetDefaultBaseUrl(string providerType)
         => providerType.ToLowerInvariant() switch
         {
             "anthropic" => "https://api.anthropic.com/v1/",
-            // Foundry Local 本地 Web 服务的默认端口
-            "foundry" => "http://127.0.0.1:5272/v1/",
             _ => "https://api.openai.com/v1/"
         };
 }

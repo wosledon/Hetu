@@ -96,13 +96,13 @@
       <p>A row of filter dropdowns sits above the catalog, with options and counts generated from the catalog data itself: task, input modality, device (CPU / GPU / NPU), tool-calling support and download state; sorting on the right switches between name, size and context length. The search box filters by alias, display name, publisher and type.</p><p><strong>About the device filter:</strong> the catalog is flattened by model × device variant, so one model spans several rows — phi-4-mini, for example, has GPU (CUDA), GPU (WebGPU) and CPU rows, each with a different size (the GPU builds are smaller). The counts on the device filter come from the catalog data; currently GPU 71 / CPU 56.</p><p>The execution-providers card at the top lists the GPU/NPU backends available on this machine and their registration status, and can download and register them in one click — that is a prerequisite for running the GPU/NPU variants.</p><p>For a downloaded variant whose provider is not registered, the Load button becomes「Register XX」. When this machine has no such provider at all — there is no CUDA on an AMD graphics card, for instance — the row is marked「No XX here」instead, so you are not sent off to fail.</p>
 
       <h2>Wiring into Hetu models</h2>
-      <p><strong>Wire into Hetu</strong> does two things: creates a <code>foundry</code> provider (no API key; the base URL is the current endpoint) and registers the model as a chat model. After that:</p>
+      <p><strong>Wire into Hetu</strong> does two things: creates a <code>foundry</code> provider (no API key; the base URL is left empty so the live endpoint is resolved on each request) and registers the model as a chat model. After that:</p>
       <ul>
         <li>Under <strong>Settings → Models</strong> you can make it the default chat model, or change its purpose, context length and so on</li>
         <li>Embedding works the same way: register a local embedding model and knowledge-base vector indexing runs entirely locally</li>
         <li>A provider can also be added by hand: pick <strong>Foundry Local (local)</strong> as the type and fill in the base URL the runtime reports — that is the path for pointing at a Foundry Local instance on another machine</li>
       </ul>
-      <div class="note">The port can change when the local service restarts. If a chat request fails to connect, come back here, check the current endpoint and update the provider's base URL.</div>
+      <div class="note">The local service port is assigned by the runtime and changes on restart. Hetu never hardcodes it: a Foundry Local provider without a base URL resolves the current endpoint on every request, so there is nothing to update by hand.</div>
 
       <h2>Platform support</h2>
       <p>Foundry Local currently supports Windows only (it depends on DirectML / WinML). On Linux and macOS the entry point stays but is greyed out with an explanation; in that case you can still add an OpenAI-compatible provider by hand, pointing at a Foundry Local endpoint on a Windows machine.</p>

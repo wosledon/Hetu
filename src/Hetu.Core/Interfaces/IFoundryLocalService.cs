@@ -10,6 +10,18 @@ public interface IFoundryLocalService
 {
     /// <summary>运行时状态：平台支持性、端点、当前模型保存路径、已加载/已缓存数量</summary>
     Task<FoundryLocalStatusDto> GetStatusAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 当前本地 OpenAI 兼容端点（如 http://127.0.0.1:53465/v1）；服务未启动或平台不支持时为 null。
+    /// 端口由运行时动态分配，调用方不要写死。
+    /// </summary>
+    Task<string?> GetEndpointAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 确保某个变体可用于推理：本地服务没起就拉起来，模型没加载就加载。
+    /// 已加载过的变体走进程内缓存，不会每次请求都去问 SDK。
+    /// </summary>
+    Task EnsureLoadedAsync(string variantId, CancellationToken cancellationToken = default);
     /// <summary>
     /// 模型目录。同一模型按设备分多个变体，这里把变体摊平成一列——
     /// SDK 的 ListModelsAsync 只返回与当前硬件匹配的那一个，GPU/NPU 变体要按 Id 另取。
