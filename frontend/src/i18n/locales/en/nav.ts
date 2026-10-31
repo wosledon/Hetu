@@ -31,4 +31,5 @@ export default {
   github: 'GitHub repository',
   githubShort: 'GitHub',
   githubWithStars: 'View {{repo}} on GitHub ({{count}} stars)',
+  beta: 'BETA',
 }

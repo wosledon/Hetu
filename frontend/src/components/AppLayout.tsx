@@ -71,6 +71,15 @@ function NavUnreadBadge() {
   )
 }
 
+/** 导航项状态角标（如实验性入口的 BETA），跟在标题后面不抢焦点 */
+function NavBadge({ label }: { label: string }) {
+  return (
+    <span className="ml-0.5 shrink-0 rounded border border-amber-300/70 bg-amber-50 px-1 text-[9px] font-semibold leading-[14px] tracking-wide text-amber-600 dark:border-amber-400/30 dark:bg-amber-950/40 dark:text-amber-300">
+      {label}
+    </span>
+  )
+}
+
 export default function AppLayout({ children, mainContent, showSidebar = true }: AppLayoutProps) {
   const { t } = useTranslation()
   const navigate = useNavigate()
@@ -151,7 +160,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
     return () => observer.disconnect()
   }, [isVertical, dynamicNavPaths.length, pinnedItems.length, unpinnedItems.length, lastMoreItemData])
 
-  const renderNavButton = (item: { path: string; labelKey: string; icon: React.ComponentType<{ size?: number }> }) => {
+  const renderNavButton = (item: { path: string; labelKey: string; icon: React.ComponentType<{ size?: number }>; badgeKey?: string }) => {
     const Icon = item.icon
     const label = t(item.labelKey)
     const isActive = location.pathname === item.path
@@ -165,13 +174,14 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
         <Icon size={14} />
         {label}
         {item.path === '/inbox' && <NavUnreadBadge />}
+        {item.badgeKey && <NavBadge label={t(item.badgeKey)} />}
       </button>
     )
   }
 
   // 垂直胶囊：图标 + 小字标签，纵向堆叠于最左侧
   // 垂直列表：图标 + 标题同一行，左对齐铺满导轨
-  const renderVerticalNavButton = (item: { path: string; labelKey: string; icon: React.ComponentType<{ size?: number }> }) => {
+  const renderVerticalNavButton = (item: { path: string; labelKey: string; icon: React.ComponentType<{ size?: number }>; badgeKey?: string }) => {
     const Icon = item.icon
     const label = t(item.labelKey)
     const isActive = location.pathname === item.path
@@ -191,6 +201,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
         <Icon size={isVerticalList ? 16 : 18} />
         <span className="max-w-full truncate">{label}</span>
         {item.path === '/inbox' && <NavUnreadBadge />}
+        {item.badgeKey && <NavBadge label={t(item.badgeKey)} />}
       </button>
     )
   }
@@ -251,6 +262,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
             >
               <Icon size={14} />
               {t(item.labelKey)}
+              {item.badgeKey && <NavBadge label={t(item.badgeKey)} />}
             </button>
           )
         })}
@@ -425,6 +437,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
             onSelect={(key) => navigate(key)}
             items={secondaryNavItems.map((item) => {
               const Icon = item.icon
+              const badgeKey = getNavItem(item.path)?.badgeKey
               return {
                 key: item.path,
                 label: (
@@ -432,6 +445,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
                     <Icon size={14} />
                     {t(item.labelKey)}
                     {item.path === '/inbox' && <NavUnreadBadge />}
+                    {badgeKey && <NavBadge label={t(badgeKey)} />}
                   </>
                 ),
               }

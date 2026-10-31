@@ -8,6 +8,8 @@ export interface NavItem {
   /** 文案 key（nav 命名空间，如 'nav:notes'） */
   labelKey: string
   icon: typeof BookOpen
+  /** 可选的角标文案 key（如 'nav:beta'），用于标记实验性入口 */
+  badgeKey?: string
 }
 
 /**
@@ -33,7 +35,7 @@ export const NAV_ITEMS: NavItem[] = [
   { path: '/tasks/scheduled', labelKey: 'nav:tasksScheduled', icon: CalendarClock },
   { path: '/memories', labelKey: 'nav:memories', icon: Atom },
   { path: '/models', labelKey: 'nav:models', icon: Cpu },
-  { path: '/foundry-local', labelKey: 'nav:foundryLocal', icon: Boxes },
+  { path: '/foundry-local', labelKey: 'nav:foundryLocal', icon: Boxes, badgeKey: 'nav:beta' },
   { path: '/workflows', labelKey: 'nav:workflows', icon: GitBranch },
 ]
 

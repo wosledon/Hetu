@@ -36,9 +36,14 @@ public class FoundryLocalService : IFoundryLocalService
     /// <summary>本进程已加载过的变体：避免每次请求都去问 SDK「加载了没」</summary>
     private readonly HashSet<string> _loadedVariants = new(StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>除 generic-cpu 外还要探测的设备段。实测只有这两个有命中（各覆盖 40/56 个模型），
-    /// 其余拼法（npu / qnn / directml 等）全部扑空，不加进来免得白白拉慢首屏</summary>
-    private static readonly string[] VariantDeviceTokens = ["cuda-gpu", "generic-gpu"];
+    /// <summary>除 generic-cpu 外还要探测的 GPU 设备段。实测只有这两个有命中（各覆盖 40/56 个模型）。</summary>
+    private static readonly string[] GpuVariantDeviceTokens = ["cuda-gpu", "generic-gpu"];
+
+    /// <summary>
+    /// NPU 设备段的两种官方拼法（Qualcomm QNN / 通用 NPU）。只在「本机 DiscoverEps 里有 NPU EP」时才探测：
+    /// 目录里绝大多数机器看不到 NPU 变体，没有 NPU 的机器探了也纯属白拖慢首屏。
+    /// </summary>
+    private static readonly string[] NpuVariantDeviceTokens = ["qnn-npu", "generic-npu"];
 
     private FoundrySdk.FoundryLocalManager? _manager;
     private bool _platformChecked;
@@ -123,6 +128,22 @@ public class FoundryLocalService : IFoundryLocalService
             if (!string.IsNullOrEmpty(normalized)) result.Add(normalized);
         }
         return result;
+    }
+
+    /// <summary>
+    /// 本机要探测哪些设备段的变体。NPU 段只在 DiscoverEps 报得出 NPU EP 时才探：
+    /// 没 NPU 的机器（如 AMD 集显本）目录里压根不发布 NPU 变体，探了也跑不了。
+    /// </summary>
+    private static Task<IReadOnlyList<string>> GetVariantDeviceTokensAsync(
+        FoundrySdk.FoundryLocalManager manager,
+        CancellationToken cancellationToken)
+    {
+        var hasNpu = manager.DiscoverEps()
+            .Any(ep => string.Equals(DescribeEpDevice(ep.Name), "NPU", StringComparison.OrdinalIgnoreCase));
+        IReadOnlyList<string> tokens = hasNpu
+            ? [.. GpuVariantDeviceTokens, .. NpuVariantDeviceTokens]
+            : GpuVariantDeviceTokens;
+        return Task.FromResult(tokens);
     }
 
     private static bool IsEpRegistered(string? epName, HashSet<string> registeredEps)
@@ -257,9 +278,10 @@ public class FoundryLocalService : IFoundryLocalService
 
         // 每个模型的变体探测与状态读取都并发跑：串行要 60s+，并发几秒
         var registeredEps = await GetRegisteredEpNamesAsync(cancellationToken);
+        var deviceTokens = await GetVariantDeviceTokensAsync(manager, cancellationToken);
         var perModel = models.Select(async model =>
         {
-            var devices = await ResolveDeviceVariantsAsync(catalog, model, cancellationToken);
+            var devices = await ResolveDeviceVariantsAsync(catalog, model, deviceTokens, cancellationToken);
             var rows = new List<FoundryLocalModelDto>(devices.Count);
             foreach (var variant in devices)
                 rows.Add(await MapAsync(variant, registered, devices, registeredEps, cancellationToken));
@@ -282,6 +304,7 @@ public class FoundryLocalService : IFoundryLocalService
     private async Task<List<FoundrySdk.IModel>> ResolveDeviceVariantsAsync(
         FoundrySdk.ICatalog catalog,
         FoundrySdk.IModel model,
+        IReadOnlyList<string> deviceTokens,
         CancellationToken cancellationToken)
     {
         var variants = new List<FoundrySdk.IModel> { model };
@@ -291,7 +314,7 @@ public class FoundryLocalService : IFoundryLocalService
         var prefix = model.Id[..idx];
         var suffix = model.Id[(idx + "-generic-cpu".Length)..]; // 形如 ":4"
 
-        var probes = VariantDeviceTokens.Select(async token =>
+        var probes = deviceTokens.Select(async token =>
         {
             var candidateId = $"{prefix}-{token}{suffix}";
             if (_variantIdCache.TryGetValue(candidateId, out var cached)) return cached;
