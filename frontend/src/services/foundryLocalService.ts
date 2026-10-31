@@ -37,6 +37,13 @@ export interface FoundryLocalModel {
   contextLength?: number;
   maxOutputTokens?: number;
   supportsToolCalling: boolean;
+  supportsReasoning: boolean;
+  /** 输入模态（逗号分隔，如 text,image） */
+  inputModalities?: string;
+  /** 输出模态（逗号分隔） */
+  outputModalities?: string;
+  deviceType?: string;
+  executionProvider?: string;
   isCached: boolean;
   isLoaded: boolean;
   variants: string[];
@@ -46,6 +53,7 @@ export interface FoundryLocalModel {
 
 export interface FoundryLocalDownloadProgress {
   alias: string;
+  /** 百分比 0~100 */
   progress?: number;
   state: 'queued' | 'downloading' | 'completed' | 'failed' | 'cancelled';
   error?: string;

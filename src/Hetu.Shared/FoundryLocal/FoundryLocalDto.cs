@@ -50,6 +50,15 @@ public class FoundryLocalModelDto
     public long? ContextLength { get; set; }
     public long? MaxOutputTokens { get; set; }
     public bool SupportsToolCalling { get; set; }
+    public bool SupportsReasoning { get; set; }
+    /// <summary>输入模态（逗号分隔，如 text,image）</summary>
+    public string? InputModalities { get; set; }
+    /// <summary>输出模态（逗号分隔）</summary>
+    public string? OutputModalities { get; set; }
+    /// <summary>目标设备（CPU / GPU / NPU），来自模型目录的 Runtime 信息</summary>
+    public string? DeviceType { get; set; }
+    /// <summary>执行提供程序（如 CPU / CUDA / WebGPU）</summary>
+    public string? ExecutionProvider { get; set; }
     /// <summary>是否已下载到本地</summary>
     public bool IsCached { get; set; }
     /// <summary>是否已加载进内存</summary>
@@ -64,7 +73,7 @@ public class FoundryLocalModelDto
 public class FoundryLocalDownloadProgressDto
 {
     public string Alias { get; set; } = string.Empty;
-    /// <summary>0~1；未知进度时为 null</summary>
+    /// <summary>百分比，0~100；未知进度时为 null</summary>
     public double? Progress { get; set; }
     /// <summary>queued / downloading / completed / failed / cancelled</summary>
     public string State { get; set; } = "queued";

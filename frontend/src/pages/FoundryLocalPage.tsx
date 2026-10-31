@@ -6,7 +6,8 @@ import {
   Search, Square, Trash2, TriangleAlert, X,
 } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
-import { Button, Card, PageContainer, SearchInput } from '../components/ui'
+import { Button, Card, Input, PageContainer, SearchInput } from '../components/ui'
+import Select from '../components/Select'
 import { foundryLocalService, type FoundryLocalDownloadProgress, type FoundryLocalModel } from '../services/foundryLocalService'
 import { confirm } from '../components/confirm'
 
@@ -19,11 +20,46 @@ function formatSize(mb?: number): string {
   return mb >= 1024 ? `${(mb / 1024).toFixed(1)} GB` : `${mb} MB`
 }
 
+/** 目录里的 task 是英文枚举值，转成界面文案；未知值原样显示 */
+const TASK_LABELS: Record<string, [string, string]> = {
+  'chat-completion': ['filter.taskChat', 'filter.taskChatEn'],
+  'vision-language-chat': ['filter.taskVision', 'filter.taskVisionEn'],
+  'automatic-speech-recognition': ['filter.taskSpeech', 'filter.taskSpeechEn'],
+  embeddings: ['filter.taskEmbedding', 'filter.taskEmbeddingEn'],
+}
+
+const MODALITY_LABELS: Record<string, [string, string]> = {
+  text: ['filter.modalityText', 'filter.modalityTextEn'],
+  image: ['filter.modalityImage', 'filter.modalityImageEn'],
+  audio: ['filter.modalityAudio', 'filter.modalityAudioEn'],
+}
+
+type TFunc = (key: string) => string
+
+/** 筛选下拉的紧凑触发器：一行放五六个，不能占用通用 Select 默认的大尺寸 */
+const SELECT_TRIGGER =
+  'flex w-full items-center justify-between gap-1.5 rounded-lg border border-gray-200 bg-gray-50/70 px-2.5 py-1.5 text-[12px] outline-none transition-all hover:border-gray-300 focus:border-cyan-400 dark:border-white/[0.08] dark:bg-white/[0.03] dark:hover:border-white/[0.16] dark:focus:border-cyan-500'
+
+function taskLabel(value: string, t: TFunc): string {
+  const key = TASK_LABELS[value]
+  return key ? t(key[0]) : value
+}
+
+function modalityLabel(value: string, t: TFunc): string {
+  const key = MODALITY_LABELS[value]
+  return key ? t(key[0]) : value
+}
+
 export default function FoundryLocalPage() {
   const { t } = useTranslation('foundry')
   const queryClient = useQueryClient()
   const [keyword, setKeyword] = useState('')
   const [cachedOnly, setCachedOnly] = useState(false)
+  const [taskFilter, setTaskFilter] = useState<string | null>(null)
+  const [modalityFilter, setModalityFilter] = useState<string | null>(null)
+  const [deviceFilter, setDeviceFilter] = useState<string | null>(null)
+  const [toolsOnly, setToolsOnly] = useState(false)
+  const [sortBy, setSortBy] = useState<'name' | 'sizeDesc' | 'sizeAsc' | 'ctxDesc'>('name')
   const [downloads, setDownloads] = useState<DownloadMap>({})
   const [dirDraft, setDirDraft] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
@@ -113,11 +149,52 @@ export default function FoundryLocalPage() {
   const models = useMemo(() => {
     const list = modelsQuery.data ?? []
     const kw = keyword.trim().toLowerCase()
-    if (!kw) return list
-    return list.filter((m) =>
-      [m.alias, m.displayName, m.publisher, m.modelType].some((v) => v?.toLowerCase().includes(kw)),
-    )
-  }, [modelsQuery.data, keyword])
+    const filtered = list.filter((m) => {
+      if (kw && ![m.alias, m.displayName, m.publisher, m.modelType].some((v) => v?.toLowerCase().includes(kw))) return false
+      if (taskFilter && m.task !== taskFilter) return false
+      if (modalityFilter && !(m.inputModalities?.split(',').map((s) => s.trim()) ?? []).includes(modalityFilter)) return false
+      if (deviceFilter && m.deviceType !== deviceFilter) return false
+      if (toolsOnly && !m.supportsToolCalling) return false
+      return true
+    })
+    const sorted = [...filtered]
+    switch (sortBy) {
+      case 'sizeDesc':
+        sorted.sort((a, b) => (b.fileSizeMb ?? 0) - (a.fileSizeMb ?? 0))
+        break
+      case 'sizeAsc':
+        sorted.sort((a, b) => (a.fileSizeMb ?? 0) - (b.fileSizeMb ?? 0))
+        break
+      case 'ctxDesc':
+        sorted.sort((a, b) => (b.contextLength ?? 0) - (a.contextLength ?? 0))
+        break
+      default:
+        sorted.sort((a, b) => (a.displayName ?? a.alias).localeCompare(b.displayName ?? b.alias))
+    }
+    // 已下载的始终排在最前，方便直接找到能用的
+    return sorted.sort((a, b) => Number(b.isCached) - Number(a.isCached))
+  }, [modelsQuery.data, keyword, taskFilter, modalityFilter, deviceFilter, toolsOnly, sortBy])
+
+  // 筛选项从数据里长出来：目录变了选项自动跟着变，不写死
+  const facets = useMemo(() => {
+    const list = modelsQuery.data ?? []
+    const countBy = (pick: (m: FoundryLocalModel) => string | undefined) => {
+      const map = new Map<string, number>()
+      for (const m of list) {
+        for (const v of (pick(m) ?? '').split(',').map((s) => s.trim())) {
+          if (v) map.set(v, (map.get(v) ?? 0) + 1)
+        }
+      }
+      return [...map.entries()].sort((a, b) => b[1] - a[1])
+    }
+    return {
+      tasks: countBy((m) => m.task),
+      modalities: countBy((m) => m.inputModalities),
+      devices: countBy((m) => m.deviceType),
+      tools: list.filter((m) => m.supportsToolCalling).length,
+      total: list.length,
+    }
+  }, [modelsQuery.data])
 
   const unsupported = status && !status.supported
   const modelDir = dirDraft ?? status?.pendingModelDir ?? status?.modelDir ?? ''
@@ -154,19 +231,19 @@ export default function FoundryLocalPage() {
               <Card padded={false} className="flex flex-wrap items-center gap-x-6 gap-y-3 px-5 py-4">
                 <StatusDot ok={status?.running === true} label={t('status.running')} offLabel={t('status.stopped')} />
                 <div className="min-w-0">
-                  <div className="text-[11px] uppercase tracking-wider text-gray-400">{t('status.endpoint')}</div>
+                  <div className="text-[11px] text-gray-400">{t('status.endpoint')}</div>
                   <div className="truncate text-[13px] font-medium text-gray-700 dark:text-gray-200">
                     {status?.endpoint ?? '—'}
                   </div>
                 </div>
                 <div>
-                  <div className="text-[11px] uppercase tracking-wider text-gray-400">{t('status.loaded')}</div>
+                  <div className="text-[11px] text-gray-400">{t('status.loaded')}</div>
                   <div className="text-[13px] font-medium tabular-nums text-gray-700 dark:text-gray-200">
                     {status?.loadedCount ?? 0}
                   </div>
                 </div>
                 <div>
-                  <div className="text-[11px] uppercase tracking-wider text-gray-400">{t('status.cached')}</div>
+                  <div className="text-[11px] text-gray-400">{t('status.cached')}</div>
                   <div className="text-[13px] font-medium tabular-nums text-gray-700 dark:text-gray-200">
                     {status?.cachedCount ?? 0}
                   </div>
@@ -193,51 +270,51 @@ export default function FoundryLocalPage() {
                 </div>
               </Card>
 
-              {/* 模型保存路径 */}
+              {/* 模型保存路径：标题行 + 输入与保存紧挨着的一组 + 通栏说明 */}
               <Card padded={false} className="px-5 py-4">
-                <div className="flex flex-wrap items-end gap-3">
-                  <div className="min-w-[280px] flex-1">
-                    <label className="mb-1.5 block text-[11px] font-medium uppercase tracking-wider text-gray-400">
-                      <HardDrive size={11} className="mr-1 inline" />
-                      {t('modelDir.label')}
-                    </label>
-                    <input
-                      value={modelDir}
-                      onChange={(e) => setDirDraft(e.target.value)}
-                      placeholder={status?.defaultModelDir}
-                      spellCheck={false}
-                      className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-[13px] outline-none transition-all focus:border-cyan-400 focus:bg-white focus:ring-2 focus:ring-cyan-500/10 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-gray-200"
-                    />
-                    <p className="mt-1.5 text-[11px] text-gray-400">{t('modelDir.hint')}</p>
-                    {status?.restartRequired && (
-                      <p className="mt-1.5 flex items-center gap-1 text-[11px] font-medium text-amber-600 dark:text-amber-400">
-                        <RotateCcw size={11} />
-                        {t('modelDir.restartHint')}
-                      </p>
-                    )}
-                  </div>
+                <div className="mb-2.5 flex items-center justify-between gap-3">
+                  <h3 className="flex items-center gap-1.5 text-[13px] font-medium text-gray-700 dark:text-gray-200">
+                    <HardDrive size={13} className="text-gray-400" />
+                    {t('modelDir.label')}
+                  </h3>
+                  <button
+                    onClick={() => dirMutation.mutate(null)}
+                    disabled={dirMutation.isPending}
+                    title={t('modelDir.reset')}
+                    className="flex shrink-0 items-center gap-1 rounded-md px-1.5 py-1 text-[11px] text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 disabled:opacity-50 dark:hover:bg-white/[0.06] dark:hover:text-gray-300"
+                  >
+                    <RotateCcw size={11} /> {t('modelDir.reset')}
+                  </button>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Input
+                    tone="cyan"
+                    size="sm"
+                    glass
+                    value={modelDir}
+                    onChange={(e) => setDirDraft(e.target.value)}
+                    placeholder={status?.defaultModelDir}
+                    spellCheck={false}
+                    className="h-8 min-w-0 flex-1"
+                  />
                   <Button
                     variant="secondary"
                     size="sm"
-                    className="gap-1.5"
+                    className="h-8 shrink-0 gap-1.5"
                     disabled={dirMutation.isPending || dirDraft === null || dirDraft === (status?.pendingModelDir ?? status?.modelDir)}
                     onClick={() => dirMutation.mutate(dirDraft)}
                   >
                     {dirMutation.isPending ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
                     {t('modelDir.save')}
                   </Button>
-                  <Button
-                    variant="ghost"
-                    tone="gray"
-                    size="sm"
-                    className="gap-1.5"
-                    disabled={dirMutation.isPending}
-                    onClick={() => dirMutation.mutate(null)}
-                    title={t('modelDir.reset')}
-                  >
-                    <RotateCcw size={13} /> {t('modelDir.reset')}
-                  </Button>
                 </div>
+                <p className="mt-2 text-[11px] leading-relaxed text-gray-400">{t('modelDir.hint')}</p>
+                {status?.restartRequired && (
+                  <p className="mt-1.5 flex items-center gap-1 text-[11px] font-medium text-amber-600 dark:text-amber-400">
+                    <RotateCcw size={11} />
+                    {t('modelDir.restartHint')}
+                  </p>
+                )}
               </Card>
 
               {message && (
@@ -255,28 +332,94 @@ export default function FoundryLocalPage() {
                   <h2 className="flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-gray-100">
                     <Cpu size={15} className="text-cyan-500" />
                     {t('catalog.title')}
+                    <span className="text-[11px] font-normal tabular-nums text-gray-400">
+                      {models.length}/{facets.total}
+                    </span>
                   </h2>
-                  <div className="ml-auto flex items-center gap-2">
-                    <button
-                      onClick={() => setCachedOnly((v) => !v)}
-                      className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ${
-                        cachedOnly
-                          ? 'border-cyan-300 bg-cyan-50 text-cyan-700 dark:border-cyan-500/40 dark:bg-cyan-950/40 dark:text-cyan-200'
-                          : 'border-gray-200 text-gray-500 hover:bg-gray-50 dark:border-white/10 dark:text-gray-400'
-                      }`}
-                    >
-                      {t('catalog.cachedOnly')}
-                    </button>
-                    <div className="w-52">
-                      <SearchInput
-                        tone="cyan"
-                        size="sm"
-                        value={keyword}
-                        onChange={(e) => setKeyword(e.target.value)}
-                        placeholder={t('catalog.search')}
-                      />
-                    </div>
+                  <div className="w-52">
+                    <SearchInput
+                      tone="cyan"
+                      size="sm"
+                      value={keyword}
+                      onChange={(e) => setKeyword(e.target.value)}
+                      placeholder={t('catalog.search')}
+                    />
                   </div>
+                </div>
+
+                {/* 筛选：一律用通用 Select 收进下拉，平铺的 chip 视觉噪音太大 */}
+                <div className="flex flex-wrap items-center gap-2 border-b border-gray-100 px-5 py-2.5 dark:border-white/[0.06]">
+                  <Select
+                    className="w-32"
+                    value={taskFilter ?? ''}
+                    onChange={(v) => setTaskFilter(v || null)}
+                    options={[
+                      { value: '', label: `${t('filter.task')}：${t('filter.all')}` },
+                      ...facets.tasks.map(([value, count]) => ({
+                        value,
+                        label: `${taskLabel(value, t)} · ${count}`,
+                      })),
+                    ]}
+                    triggerClassName={SELECT_TRIGGER}
+                  />
+                  <Select
+                    className="w-32"
+                    value={modalityFilter ?? ''}
+                    onChange={(v) => setModalityFilter(v || null)}
+                    options={[
+                      { value: '', label: `${t('filter.modality')}：${t('filter.all')}` },
+                      ...facets.modalities.map(([value, count]) => ({
+                        value,
+                        label: `${modalityLabel(value, t)} · ${count}`,
+                      })),
+                    ]}
+                    triggerClassName={SELECT_TRIGGER}
+                  />
+                  <Select
+                    className="w-28"
+                    value={deviceFilter ?? ''}
+                    onChange={(v) => setDeviceFilter(v || null)}
+                    options={[
+                      { value: '', label: `${t('filter.device')}：${t('filter.all')}` },
+                      ...facets.devices.map(([value, count]) => ({
+                        value,
+                        label: `${value} · ${count}`,
+                      })),
+                    ]}
+                    triggerClassName={SELECT_TRIGGER}
+                  />
+                  <Select
+                    className="w-32"
+                    value={toolsOnly ? 'tools' : ''}
+                    onChange={(v) => setToolsOnly(v === 'tools')}
+                    options={[
+                      { value: '', label: `${t('filter.capability')}：${t('filter.all')}` },
+                      { value: 'tools', label: `${t('filter.toolCalling')} · ${facets.tools}` },
+                    ]}
+                    triggerClassName={SELECT_TRIGGER}
+                  />
+                  <Select
+                    className="w-32"
+                    value={cachedOnly ? 'cached' : ''}
+                    onChange={(v) => setCachedOnly(v === 'cached')}
+                    options={[
+                      { value: '', label: `${t('filter.state')}：${t('filter.all')}` },
+                      { value: 'cached', label: t('catalog.cachedOnly') },
+                    ]}
+                    triggerClassName={SELECT_TRIGGER}
+                  />
+                  <Select
+                    className="ml-auto w-36"
+                    value={sortBy}
+                    onChange={(v) => setSortBy(v as typeof sortBy)}
+                    options={[
+                      { value: 'name', label: t('sort.name') },
+                      { value: 'sizeDesc', label: t('sort.sizeDesc') },
+                      { value: 'sizeAsc', label: t('sort.sizeAsc') },
+                      { value: 'ctxDesc', label: t('sort.ctxDesc') },
+                    ]}
+                    triggerClassName={SELECT_TRIGGER}
+                  />
                 </div>
 
                 {modelsQuery.isLoading ? (
@@ -313,11 +456,11 @@ export default function FoundryLocalPage() {
                               <div className="h-1.5 overflow-hidden rounded-full bg-gray-100 dark:bg-white/[0.06]">
                                 <div
                                   className="h-full rounded-full bg-cyan-500 transition-all"
-                                  style={{ width: `${Math.round((progress.progress ?? 0) * 100)}%` }}
+                                  style={{ width: `${Math.min(100, Math.round(progress.progress ?? 0))}%` }}
                                 />
                               </div>
                               <div className="mt-1 text-[10px] tabular-nums text-gray-400">
-                                {Math.round((progress.progress ?? 0) * 100)}%
+                                {Math.min(100, Math.round(progress.progress ?? 0))}%
                               </div>
                             </div>
                           )}

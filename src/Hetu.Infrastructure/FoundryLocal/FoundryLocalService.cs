@@ -139,8 +139,8 @@ public class FoundryLocalService : IFoundryLocalService
         await _gate.WaitAsync(cancellationToken);
         try
         {
-            // SDK 的进度回调给的是 0~1 的 float，直接透出；百分比由前端算
-            await model.DownloadAsync(p => progress?.Report(p), cancellationToken);
+            // SDK 的进度回调给的是百分比（0~100），直接透出；不要在这里再乘 100
+            await model.DownloadAsync(p => progress?.Report(Math.Clamp(p, 0f, 100f)), cancellationToken);
         }
         finally
         {
@@ -487,6 +487,13 @@ public class FoundryLocalService : IFoundryLocalService
             ContextLength = contextLength,
             MaxOutputTokens = maxOutputTokens,
             SupportsToolCalling = info.SupportsToolCalling ?? ParseBool(model.GetStringProperty(FoundrySdk.ModelInfoPropertyKeys.SupportsToolCalling)),
+            SupportsReasoning = ParseBool(model.GetStringProperty(FoundrySdk.ModelInfoPropertyKeys.SupportsReasoning)),
+            InputModalities = info.InputModalities ?? model.GetStringProperty(FoundrySdk.ModelInfoPropertyKeys.InputModalities),
+            OutputModalities = info.OutputModalities ?? model.GetStringProperty(FoundrySdk.ModelInfoPropertyKeys.OutputModalities),
+            DeviceType = DescribeDevice(info.Runtime),
+            // 目录给的是 "CPUExecutionProvider" 这种类名，去掉后缀才是人看的 "CPU / CUDA"
+            ExecutionProvider = NormalizeExecutionProvider(
+                info.Runtime?.ExecutionProvider ?? model.GetStringProperty(FoundrySdk.ModelInfoPropertyKeys.ExecutionProvider)),
             IsCached = cached,
             IsLoaded = loaded,
             Variants = model.Variants.Select(v => v.Alias).Where(a => !string.IsNullOrWhiteSpace(a)).ToList(),
@@ -499,4 +506,18 @@ public class FoundryLocalService : IFoundryLocalService
 
     private static bool ParseBool(string? value)
         => bool.TryParse(value, out var parsed) && parsed;
+
+    /// <summary>Runtime.DeviceType 是枚举，目录里没带 Runtime 信息时返回 null</summary>
+    private static string? DescribeDevice(FoundrySdk.Runtime? runtime)
+        => runtime == null || runtime.DeviceType == FoundrySdk.DeviceType.Invalid
+            ? null
+            : runtime.DeviceType.ToString();
+
+    private static string? NormalizeExecutionProvider(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        return value.EndsWith("ExecutionProvider", StringComparison.Ordinal)
+            ? value[..^"ExecutionProvider".Length]
+            : value;
+    }
 }
