@@ -68,6 +68,7 @@ export default {
     epMissingHint: '该变体需要 {{ep}} 执行提供程序，尚未注册；下载注册后才能加载',
     epUnavailable: '本机无 {{ep}}',
     epUnavailableHint: '本机没有可用的 {{ep}} 执行提供程序（例如 AMD 显卡机器上没有 CUDA），该变体无法加载；可改用同一模型的其他设备变体',
+    needsEp: '需注册 {{ep}}',
   },
   badge: {
     cached: '已下载',

@@ -208,9 +208,16 @@ export default function FoundryLocalPage() {
       default:
         sorted.sort((a, b) => (a.displayName ?? a.alias).localeCompare(b.displayName ?? b.alias))
     }
+    // 排序优先级：已下载 > 本机可用 > 注册 EP 后可用 > 本机跑不了。
+    // 最后一级很关键：AMD 机器上 CUDA 变体有 40 个，不压到后面用户很容易下载错
+    const rank = (m: FoundryLocalModel) => {
+      if (m.isCached) return 0
+      const a = epAvailability(m, eps)
+      return a === 'ready' ? 1 : a === 'needsEp' ? 2 : 3
+    }
     // 已下载的始终排在最前，方便直接找到能用的
-    return sorted.sort((a, b) => Number(b.isCached) - Number(a.isCached))
-  }, [modelsQuery.data, keyword, taskFilter, modalityFilter, deviceFilter, toolsOnly, sortBy])
+    return sorted.sort((a, b) => rank(a) - rank(b))
+  }, [modelsQuery.data, keyword, taskFilter, modalityFilter, deviceFilter, toolsOnly, sortBy, eps])
 
   // 筛选项从数据里长出来：目录变了选项自动跟着变，不写死
   const facets = useMemo(() => {
@@ -542,16 +549,28 @@ export default function FoundryLocalPage() {
                     {models.map((model) => {
                       const progress = downloads[model.id]
                       const downloading = downloadMutation.isPending && downloadMutation.variables === model.id
+                      // 三种可用性：直接能跑 / 注册 EP 后能跑 / 本机压根跑不了（AMD 上的 CUDA）
+                      const availability = epAvailability(model, eps)
                       return (
                         <div key={model.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3">
                           <div className="min-w-[220px] flex-1">
                             <div className="flex flex-wrap items-center gap-2">
-                              <span className="truncate text-[13px] font-medium text-gray-800 dark:text-gray-100">
+                              <span className={`truncate text-[13px] font-medium ${availability === 'blocked' ? 'text-gray-400 dark:text-gray-500' : 'text-gray-800 dark:text-gray-100'}`}>
                                 {model.displayName ?? model.alias}
                               </span>
                               <span className={`shrink-0 rounded-full border px-1.5 py-px text-[10px] font-medium ${deviceBadgeClass(model.deviceType)}`}>
                                 {model.deviceType ?? '—'}
                               </span>
+                              {availability === 'blocked' && (
+                                <span className="shrink-0 rounded-full border border-gray-200 bg-gray-50 px-1.5 py-px text-[10px] font-medium text-gray-400 dark:border-white/10 dark:bg-white/[0.04] dark:text-gray-500">
+                                  {t('row.epUnavailable', { ep: model.executionProvider })}
+                                </span>
+                              )}
+                              {availability === 'needsEp' && (
+                                <span className="shrink-0 rounded-full border border-amber-200 bg-amber-50 px-1.5 py-px text-[10px] font-medium text-amber-600 dark:border-amber-500/30 dark:bg-amber-950/40 dark:text-amber-300">
+                                  {t('row.needsEp', { ep: model.executionProvider })}
+                                </span>
+                              )}
                               {model.isCached && <Badge tone="emerald">{t('badge.cached')}</Badge>}
                               {model.isLoaded && <Badge tone="blue">{t('badge.loaded')}</Badge>}
                               {model.isRegistered && <Badge tone="violet">{t('badge.registered')}</Badge>}
@@ -600,7 +619,7 @@ export default function FoundryLocalPage() {
                                 >
                                   <Play size={13} /> {t('action.load')}
                                 </Button>
-                              ) : epAvailableFor(model.executionProvider, eps) ? (
+                              ) : epAvailability(model, eps) === 'needsEp' ? (
                                 <Button
                                   variant="secondary"
                                   size="sm"
@@ -732,4 +751,18 @@ function epAvailableFor(executionProvider: string | undefined, available: Foundr
   if (!executionProvider) return false
   const target = executionProvider.replace(/ExecutionProvider$/i, '').toLowerCase()
   return available.some((ep) => ep.name.replace(/ExecutionProvider$/i, '').toLowerCase() === target)
+}
+
+/**
+ * 变体在本机的可用性：
+ * - ready：所需 EP 已注册（CPU 恒成立），可以直接下载加载
+ * - needsEp：本机有该 EP 但没注册，注册后可用（AMD 上的 WebGPU / MIGraphX）
+ * - blocked：本机没有该 EP，下载了也跑不起来（AMD 上的 CUDA）
+ */
+function epAvailability(
+  model: FoundryLocalModel,
+  available: FoundryLocalEp[],
+): 'ready' | 'needsEp' | 'blocked' {
+  if (model.executionProviderRegistered) return 'ready'
+  return epAvailableFor(model.executionProvider, available) ? 'needsEp' : 'blocked'
 }

@@ -68,6 +68,7 @@ export default {
     epMissingHint: 'This variant needs the {{ep}} execution provider, which is not registered yet. Download and register it before loading.',
     epUnavailable: 'No {{ep}} here',
     epUnavailableHint: 'This machine has no usable {{ep}} execution provider (for example there is no CUDA on an AMD graphics card), so this variant cannot be loaded. Try another device variant of the same model.',
+    needsEp: 'Needs {{ep}}',
   },
   badge: {
     cached: 'Downloaded',
