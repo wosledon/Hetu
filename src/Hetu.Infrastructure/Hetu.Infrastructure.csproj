@@ -7,16 +7,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!--
-      Foundry Local 本地模型运行时 SDK（Microsoft.AI.Foundry.Local）。
-      包本身不带平台条件，Linux/macOS 也能正常 restore；原生库由它依赖的
-      Microsoft.AI.Foundry.Local.Runtime 按 RuntimeIdentifier 自动拷贝
-      （runtimes\&lt;rid&gt;\native\*.*），Windows 之外的可用性由运行时守卫决定。
-      之所以要在 src/Directory.Build.props 里声明 RuntimeIdentifiers，是因为该 Runtime 包的
-      buildTransitive 会把空的 RuntimeIdentifier 强写成 $(NETCoreSdkRuntimeIdentifier)，
-      restore 不带 RID 时就对不上资产文件，报 NETSDK1047。
-    -->
-    <PackageReference Include="Microsoft.AI.Foundry.Local" Version="2.2.1" />
     <PackageReference Include="Cronos" Version="0.8.4" />
     <PackageReference Include="DocumentFormat.OpenXml" Version="3.5.1" />
     <PackageReference Include="HtmlAgilityPack" Version="1.12.4" />

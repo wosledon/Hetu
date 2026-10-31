@@ -94,8 +94,8 @@ public class LlmProviderFactory : ILLMProviderFactory
     }
 
     /// <summary>
-    /// 解析 BaseUrl。Foundry Local 的端口是运行时动态分配的，写死必然过期，
-    /// 所以这类服务商没配 BaseUrl 时现场问运行时拿当前端点；用户手填了（跨机器指向）
+    /// 解析 BaseUrl。Foundry Local 的端口由 CLI 动态分配，写死必然过期，
+    /// 所以这类服务商没配 BaseUrl 时现场问 CLI 拿当前端点；用户手填了（跨机器指向）
     /// 则尊重填写值。本地服务没起来时给出可操作的提示，而不是让调用方吃到连接被拒绝。
     /// </summary>
     private async Task<string> ResolveBaseUrlAsync(Core.Entities.AiProvider provider, string modelId, CancellationToken cancellationToken)

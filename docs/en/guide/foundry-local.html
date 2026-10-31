@@ -8,17 +8,17 @@
 <meta name="color-scheme" content="light dark">
 
 <title>Local models · Hetu</title>
-<meta name="description" content="The Foundry Local runtime inside Hetu: browse the model catalog, download, load and unload models, move the model directory, and wire models straight into chat and the knowledge base.">
+<meta name="description" content="Local models explained: run open-source models on your own machine through the Foundry Local CLI, browse the catalog, download, load, and wire them into Hetu chat and the knowledge base.">
 <link rel="canonical" href="https://wosledon.github.io/Hetu/en/guide/foundry-local.html">
-<link rel="alternate" hreflang="zh-CN" href="https://wosledon.github.io/Hetu/guide/foundry-local.html">
 <link rel="alternate" hreflang="en" href="https://wosledon.github.io/Hetu/en/guide/foundry-local.html">
+<link rel="alternate" hreflang="zh-CN" href="https://wosledon.github.io/Hetu/guide/foundry-local.html">
 <link rel="alternate" hreflang="x-default" href="https://wosledon.github.io/Hetu/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Hetu">
 <meta property="og:title" content="Local models · Hetu">
-<meta property="og:description" content="The Foundry Local runtime inside Hetu: browse the model catalog, download, load and unload models, move the model directory, and wire models straight into chat and the knowledge base.">
+<meta property="og:description" content="Local models explained: run open-source models on your own machine through the Foundry Local CLI, browse the catalog, download, load, and wire them into Hetu chat and the knowledge base.">
 <meta property="og:url" content="https://wosledon.github.io/Hetu/en/guide/foundry-local.html">
-<meta property="og:image" content="https://wosledon.github.io/Hetu/screenshots/04-graph.png">
+<meta property="og:image" content="https://wosledon.github.io/Hetu/screenshots/07-models.png">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="../../assets/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://api.github.com">
@@ -32,13 +32,13 @@
   <div class="wrap header-inner">
     <a class="brand" href="../../index.html" aria-label="Hetu home">
       <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><path d="M9 11h14M9 16h9M9 21h14" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="23" cy="16" r="1.8" fill="currentColor"/></svg></span>
-      <span class="brand-text">Hetu<small>河图</small></span>
+      <span class="brand-text">Hetu<small>LOCAL FIRST</small></span>
     </a>
     <button class="icon-btn nav-toggle" data-nav-toggle aria-expanded="false" aria-label="Toggle navigation" aria-controls="site-nav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
     <nav class="site-nav" id="site-nav" aria-label="Main navigation"><a href="../../index.html">Home</a><a href="index.html" aria-current="page">Docs</a><a href="architecture.html">Architecture</a><a href="getting-started.html">Start</a><a href="faq.html">FAQ</a><a class="nav-lang" href="../../guide/foundry-local.html" hreflang="zh-CN">中文</a></nav>
     <div class="header-actions">
       <button class="search-btn" data-search-open type="button" aria-label="Search docs" title="Search docs (Ctrl K)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/></svg><span>Search docs</span><kbd data-search-kbd>Ctrl K</kbd></button>
-      <span class="lang" role="group" aria-label="Language"><a href="../../guide/foundry-local.html" hreflang="zh-CN" title="中文版">中文</a><a href="#" aria-current="true">EN</a></span>
+      <span class="lang" role="group" aria-label="Language"><a href="#" aria-current="true">EN</a><a href="../../guide/foundry-local.html" hreflang="zh-CN" title="中文版本">中文</a></span>
       <button class="icon-btn theme-toggle" data-theme-toggle type="button" aria-label="Toggle theme" title="Toggle theme"><svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 3v2m0 14v2M5.6 5.6 7 7m10 10 1.4 1.4M3 12h2m14 0h2M5.6 18.4 7 17m10-10 1.4-1.4"/><circle cx="12" cy="12" r="3.2"/></svg><svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4 8.5 8.5 0 1 0 20 14.5z"/></svg></button>
       <a class="btn btn-primary header-cta" href="https://github.com/wosledon/Hetu/releases/latest"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></svg><span class="header-cta-label">Download</span> <span data-latest-version>v0.3.34</span></a>
     </div>
@@ -49,90 +49,94 @@
   <div class="wrap docs">
   <aside class="docs-side">
   <button class="side-search" data-search-open type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/></svg><span>Search docs</span><kbd>/</kbd></button>
-  <nav class="side-nav" aria-label="Docs navigation">
-    <details class="side-group" open><summary>Start</summary><ul><li><a href="index.html">Docs index</a></li><li><a href="getting-started.html">Getting started</a></li></ul></details><details class="side-group" open><summary>Usage</summary><ul><li><a href="notes.html">Notes</a></li><li><a href="workspace.html">Agent workspace</a></li><li><a href="code-sessions.html">Code sessions</a></li><li><a href="knowledge.html">Knowledge base</a></li><li><a href="graph-wiki.html">Graph &amp; Wiki</a></li><li><a href="memories.html">Memories &amp; Dream</a></li><li><a href="organize.html">Kanban &amp; automation</a></li><li><a href="whiteboard.html">Whiteboard</a></li><li><a href="extensions.html">Extensions &amp; MCP</a></li><li><a href="models.html">Models &amp; usage</a></li><li><a href="foundry-local.html" aria-current="page">Local models</a></li><li><a href="theme.html">Theme &amp; appearance</a></li></ul></details><details class="side-group" open><summary>Platform</summary><ul><li><a href="desktop.html">Desktop app</a></li><li><a href="data.html">Data &amp; security</a></li><li><a href="architecture.html">Architecture</a></li><li><a href="faq.html">FAQ</a></li><li><a href="dev.html">Development</a></li></ul></details><details class="side-group" open><summary>Deep dives</summary><ul><li><a href="agent-loop.html">Agent loop</a></li><li><a href="permissions.html">Permissions &amp; approvals</a></li><li><a href="context.html">Context &amp; compaction</a></li><li><a href="compression.html">Compression pipeline</a></li><li><a href="sse.html">SSE event protocol</a></li><li><a href="chunking.html">Chunking &amp; vector index</a></li><li><a href="retrieval.html">Semantic retrieval</a></li><li><a href="graph-extraction.html">Graph extraction</a></li><li><a href="wiki-generation.html">Wiki generation</a></li><li><a href="memory-recall.html">Memory write &amp; recall</a></li><li><a href="dream.html">Dream consolidation</a></li><li><a href="kanban.html">Task board &amp; automation</a></li><li><a href="workflows.html">Workflow engine</a></li><li><a href="background-tasks.html">Background &amp; scheduled tasks</a></li><li><a href="inbox.html">Inbox &amp; notifications</a></li></ul></details>
+  <nav class="side-nav" aria-label="Documentation navigation">
+    <details class="side-group" open><summary>Start</summary><ul><li><a href="index.html">Documentation</a></li><li><a href="getting-started.html">Getting started</a></li></ul></details><details class="side-group" open><summary>Use</summary><ul><li><a href="foundry-local.html" aria-current="page">Notes</a></li><li><a href="workspace.html">Agent workspace</a></li><li><a href="code-sessions.html">Code sessions</a></li><li><a href="knowledge.html">Knowledge base</a></li><li><a href="graph-wiki.html">Graph & Wiki</a></li><li><a href="memories.html">Memories & Dream</a></li><li><a href="organize.html">Kanban & automation</a></li><li><a href="whiteboard.html">Whiteboard</a></li><li><a href="extensions.html">Extensions & MCP</a></li><li><a href="models.html">Models & usage</a><li><a href="foundry-local.html">Local models</a></li></li><li><a href="theme.html">Theme & appearance</a></li></ul></details><details class="side-group" open><summary>Platform</summary><ul><li><a href="desktop.html">Desktop app</a></li><li><a href="data.html">Data & security</a></li><li><a href="architecture.html">Architecture</a></li><li><a href="faq.html">FAQ</a></li><li><a href="dev.html">Development</a></li></ul></details><details class="side-group" open><summary>Deep dives</summary><ul><li><a href="agent-loop.html">Agent loop</a></li><li><a href="permissions.html">Permission modes & approvals</a></li><li><a href="context.html">Context & auto compaction</a></li><li><a href="compression.html">Compression pipeline</a></li><li><a href="sse.html">SSE event protocol</a></li><li><a href="chunking.html">Chunking & vector index</a></li><li><a href="retrieval.html">Semantic retrieval</a></li><li><a href="graph-extraction.html">Knowledge graph extraction</a></li><li><a href="wiki-generation.html">Wiki generation</a></li><li><a href="memory-recall.html">Memory write & recall</a></li><li><a href="dream.html">Dream consolidation</a></li><li><a href="kanban.html">Task board & automation</a></li><li><a href="workflows.html">Workflow engine</a></li><li><a href="background-tasks.html">Background & scheduled tasks</a></li><li><a href="inbox.html">Inbox & notifications</a></li></ul></details>
   </nav>
 </aside>
     <aside class="docs-toc" data-docs-toc aria-label="On this page"></aside>
-    <div class="docs-body">
-      <h1>Local models</h1>
-      <p class="lede">The Foundry Local runtime inside Hetu: browse the model catalog, download, load and unload models, move the model directory, and wire models straight into chat and the knowledge base.</p>
-<h2>What it is</h2>
-      <p>Local models plug the <a href="https://learn.microsoft.com/azure/foundry-local/overview">Foundry Local</a> inference runtime into Hetu: run open-source models on your own GPU/NPU with no API key and no network. It covers the main surface of the <code>foundry</code> command line tool, and chat, Code sessions, knowledge-base chunking and embeddings can all switch to these models.</p>
-      <p>Entry point: the <strong>Local models</strong> item in the left navigation (<code>/foundry-local</code>). It is off by default in the dynamic zone — turn it on under <strong>Settings → Navigation</strong> to keep it pinned.</p>
+          <h1>Local models</h1>
+      <p class="lede">Reached from the left nav "Local models" (route <code>/foundry-local</code>). Hetu runs open-source models locally by driving Microsoft's official <a href="https://learn.microsoft.com/windows/ai/foundry-local/get-started">Foundry Local CLI</a>: browse the catalog, download, load, and wire models straight into Hetu chat and the knowledge base. Hetu bundles no model runtime of its own.</p>
+
+      <h2>What it is</h2>
+      <p>Foundry Local is Microsoft's local inference runtime, exposing an OpenAI-compatible HTTP service. Hetu wraps it in a management page:</p>
+      <ul>
+        <li><strong>Offline and private</strong>: once a model is downloaded, inference happens entirely on your machine.</li>
+        <li><strong>No API key</strong>: the local service has no auth, and Hetu does not ask for one.</li>
+        <li><strong>Hetu is only a shell</strong>: the CLI does the heavy lifting (download, load, execution-provider registration) while Hetu calls it and parses its JSON output. This keeps Hetu's installer over 40 MB smaller and removes the native-library compatibility problems that came with bundling the SDK.</li>
+      </ul>
+
+      <h2>Install the CLI</h2>
+      <p>On first open, if the <code>foundry</code> command is not detected, the whole page shows install guidance instead of an error. To install (requires Windows 10 / 11):</p>
+      <pre><code>winget install Microsoft.FoundryLocal</code></pre>
+      <p>Refresh the page afterwards and Hetu picks it up automatically. On its first run the CLI downloads and registers the execution providers available on your machine (CPU / WebGPU / AMD MIGraphX, etc.).</p>
 
       <h2>Runtime status</h2>
-      <p>A status card at the top of the page reflects the local runtime in real time:</p>
       <div class="table-wrap"><table>
-        <thead><tr><th>Field</th><th>Meaning</th></tr></thead>
+        <thead><tr><th>Item</th><th>Notes</th></tr></thead>
         <tbody>
-          <tr><td>Run state</td><td>Whether the local OpenAI-compatible service is listening; <strong>Start service / Stop service</strong> map to <code>foundry service start/stop</code></td></tr>
-          <tr><td>Endpoint</td><td>Something like <code>http://127.0.0.1:5272/v1</code>. The port is assigned by the runtime, so it is not fixed</td></tr>
-          <tr><td>Loaded</td><td>How many models are resident in memory (maps to <code>foundry service ps</code>) — these are the ones holding VRAM/RAM</td></tr>
-          <tr><td>Downloaded</td><td>How many models are cached locally (maps to <code>foundry cache list</code>)</td></tr>
+          <tr><td>Service controls</td><td>Start / stop / restart the local service. The port is assigned dynamically by the CLI and Hetu asks for it every time rather than hardcoding it</td></tr>
+          <tr><td>Endpoint</td><td>The OpenAI-compatible service root, e.g. <code>http://127.0.0.1:62645</code>; the provider factory appends <code>/v1</code></td></tr>
+          <tr><td>CLI version</td><td>The installed <code>foundry</code> version</td></tr>
+          <tr><td>Loaded / downloaded</td><td>Models resident in memory / models cached locally</td></tr>
+          <tr><td>CLI warnings</td><td>Problems the CLI reports itself (such as a failed execution-provider registration) are surfaced verbatim, not swallowed</td></tr>
         </tbody>
       </table></div>
 
-      <h2>Model directory</h2>
-      <p>Models run to several GB, so the location is configurable right on the page: enter an absolute path, save, and restart Hetu.</p>
+      <h2>Hardware</h2>
+      <p>The status card lists your CPU model, detected GPUs / NPUs, available memory and free disk space. What you can run — and which device variant to pick — depends on this: downloading a CUDA variant on a machine without an NVIDIA GPU will not work.</p>
+
+      <h2>Model cache path</h2>
       <ul>
-        <li>The default is <code>foundry-models</code> inside the Hetu data directory, following the same precedence as SQLite and logs (<code>Hetu:DataDir</code> → <code>HETU_DATA_DIR</code> → the OS local app-data folder)</li>
-        <li><strong>Reset to default</strong> returns to that directory in one click</li>
-        <li>Saving takes effect only after you restart Hetu — the local runtime is a process-wide singleton that cannot be rebuilt in place. The page shows a restart prompt</li>
-        <li>Changing the path does <strong>not</strong> migrate downloaded files: copy the old directory's contents to the new one with File Explorer before restarting, or delete the old cache and download again</li>
+        <li>Defaults to <code>~/.foundry/cache/models</code>; point it at a disk with room if needed.</li>
+        <li>Changes apply <strong>immediately</strong> — no Hetu restart required. Already-downloaded models are not migrated.</li>
+        <li>"Reset to default" restores the CLI's initial value in one click.</li>
       </ul>
 
       <h2>Model catalog</h2>
-      <p>The middle of the page is the model catalog, sorted by downloaded-first then name, with publisher, model type, context length and size on each row.</p>
+      <p>The catalog lists one row per device variant of each model (CPU / GPU / NPU), showing the execution provider, size and license. Filter by task, device and state, search by keyword, and sort by size or name; downloaded models always sort first.</p>
+
+      <h3>Row actions</h3>
       <div class="table-wrap"><table>
-        <thead><tr><th>Action</th><th>Meaning</th></tr></thead>
+        <thead><tr><th>Action</th><th>Notes</th></tr></thead>
         <tbody>
-          <tr><td>Download</td><td>The first download needs network access to the model source; the progress bar updates live. Files land in the directory above</td></tr>
-          <tr><td>Load / Unload</td><td>Maps to <code>foundry model load/unload</code>. Only a loaded model actually takes VRAM; unloading releases it immediately</td></tr>
-          <tr><td>Delete</td><td>Deletes the local files (maps to <code>foundry cache remove</code>); you will need to download again to use it</td></tr>
-          <tr><td>Wire into Hetu</td><td>Registers the model as a chat model under the <strong>Foundry Local</strong> provider, after which you can pick it in chat and Code sessions</td></tr>
+          <tr><td>Download</td><td>Needs network access the first time; the progress bar is parsed live from the CLI's output</td></tr>
+          <tr><td>Load / unload</td><td>Bring a model into memory or release it; a model must be loaded before chat can use it</td></tr>
+          <tr><td>Wire into Hetu</td><td>Registers the variant as a chat model under the local provider so you can pick it in chat</td></tr>
+          <tr><td>Delete</td><td>Removes the local files; you will need to download again</td></tr>
         </tbody>
       </table></div>
-      <p>A row of filter dropdowns sits above the catalog, with options and counts generated from the catalog data itself: task, input modality, device (CPU / GPU / NPU), tool-calling support and download state; sorting on the right switches between name, size and context length. The search box filters by alias, display name, publisher and type.</p><p><strong>About the device filter:</strong> the catalog is flattened by model × device variant, so one model spans several rows — phi-4-mini, for example, has GPU (CUDA), GPU (WebGPU) and CPU rows, each with a different size (the GPU builds are smaller). The counts on the device filter come from the catalog data; currently GPU 71 / CPU 56.</p><p>The execution-providers card at the top lists the GPU/NPU backends available on this machine and their registration status, and can download and register them in one click — that is a prerequisite for running the GPU/NPU variants.</p><p>For a downloaded variant whose provider is not registered, the Load button becomes「Register XX」. When this machine has no such provider at all — there is no CUDA on an AMD graphics card, for instance — the row is marked「No XX here」instead, so you are not sent off to fail.</p>
+
+      <h3>When loading fails</h3>
+      <p>The most common cause is that <strong>the variant needs an execution provider this machine lacks</strong>. For example, AMD GPU machines have no CUDA, so a CUDA variant will always fail to load. The CLI's raw error is passed through — switch to another device variant of the same model (usually CPU or WebGPU) and it will work. Separately, a few catalog entries have metadata that disagrees with the actual binary (a model labelled CPU that is really a CUDA model); that is an upstream catalog issue and Hetu cannot correct it for you.</p>
+
+      <h3>Registering a local model directory</h3>
+      <p>If you already have an ONNX Runtime GenAI model directory (containing <code>genai_config.json</code> and its assets), register it at the bottom of the page. No files are copied.</p>
 
       <h2>Wiring into Hetu models</h2>
-      <p><strong>Wire into Hetu</strong> does two things: creates a <code>foundry</code> provider (no API key; the base URL is left empty so the live endpoint is resolved on each request) and registers the model as a chat model. After that:</p>
       <ul>
-        <li>Under <strong>Settings → Models</strong> you can make it the default chat model, or change its purpose, context length and so on</li>
-        <li>Embedding works the same way: register a local embedding model and knowledge-base vector indexing runs entirely locally</li>
-        <li>A provider can also be added by hand: pick <strong>Foundry Local (local)</strong> as the type and fill in the base URL the runtime reports — that is the path for pointing at a Foundry Local instance on another machine</li>
+        <li>Click "Wire into Hetu" on a catalog row to register that variant as a chat model under the <code>Foundry Local</code> provider.</li>
+        <li>Then set it as the default under Settings → Models; chat, knowledge-base indexing and Wiki generation can all use it.</li>
+        <li>When you send a message, if the service is not running or the model is not loaded, Hetu starts the service and loads the model first, then sends the request.</li>
       </ul>
-      <div class="note">The local service port is assigned by the runtime and changes on restart. Hetu never hardcodes it: a Foundry Local provider without a base URL resolves the current endpoint on every request, so there is nothing to update by hand.</div>
 
       <h2>Platform support</h2>
-      <p>Foundry Local currently supports Windows only (it depends on DirectML / WinML). On Linux and macOS the entry point stays but is greyed out with an explanation; in that case you can still add an OpenAI-compatible provider by hand, pointing at a Foundry Local endpoint on a Windows machine.</p>
+      <ul>
+        <li><strong>Windows</strong>: fully supported; the CLI ships a Windows build.</li>
+        <li><strong>Linux / macOS</strong>: no CLI is published, so the local models page reports unsupported. You can still add an OpenAI-compatible provider manually under Models and point it at a Foundry Local endpoint on another Windows machine.</li>
+      </ul>
 
       <h2>Data and API</h2>
-      <p>The management endpoints follow the unified response convention, with short-lived response caching on read-only lists:</p>
-      <div class="table-wrap"><table>
-        <thead><tr><th>Method</th><th>Path</th><th>Notes</th></tr></thead>
-        <tbody>
-          <tr><td>GET</td><td><code>/api/foundry-local/status</code></td><td>Run state, endpoint, model directory, loaded/downloaded counts</td></tr>
-          <tr><td>GET</td><td><code>/api/foundry-local/models?cachedOnly=false</code></td><td>Model catalog, flattened by model × device variant; <code>cachedOnly=true</code> for what is already local</td></tr>
-          <tr><td>GET</td><td><code>/api/foundry-local/models/loaded</code></td><td>Models currently resident in memory</td></tr>
-          <tr><td>POST</td><td><code>/api/foundry-local/models/{alias}/download</code></td><td>Download; SSE frames <code>{alias, progress, state, error}</code></td></tr>
-          <tr><td>POST</td><td><code>/api/foundry-local/models/{alias}/load</code> / <code>unload</code></td><td>Load / unload</td></tr>
-          <tr><td>POST</td><td><code>/api/foundry-local/models/{alias}/register?purpose=chat</code></td><td>Register as a Hetu model; returns the model id</td></tr>
-          <tr><td>DELETE</td><td><code>/api/foundry-local/models/{alias}</code></td><td>Delete the local cache</td></tr>
-          <tr><td>POST</td><td><code>/api/foundry-local/service/start</code> / <code>stop</code></td><td>Start / stop the local OpenAI-compatible service</td></tr>
-          <tr><td>PUT</td><td><code>/api/foundry-local/model-dir</code></td><td>Set the model directory; empty restores the default</td></tr>
-        </tbody>
-      </table></div>
-      <p>Inference itself uses the OpenAI-compatible protocol, dispatched by the existing LLM / Embedding factories on the <code>foundry</code> provider type — no second inference protocol is introduced.</p>
-      <div class="docs-pager"><a href="models.html">← Models &amp; usage</a><a href="theme.html">Theme &amp; appearance →</a></div>
-    </div>
-  </div>
-</main>
+      <ul>
+        <li>The model cache is managed by the CLI at <code>~/.foundry/cache/models</code>, outside Hetu's data directory.</li>
+        <li>Hetu only records which variant was wired in (an AiModel row); uninstalling Hetu does not delete downloaded models.</li>
+        <li>Endpoints live under <code>/api/foundry-local</code>: <code>status</code>, <code>models</code>, <code>models/{id}/download</code> (SSE progress), <code>load</code> / <code>unload</code> / <code>register</code>, <code>service/start</code> / <code>stop</code> / <code>restart</code>, <code>cache-dir</code>.</li>
+      </ul>
+    <div class="docs-pager"><a href="models.html">← Models &amp; usage</a><a href="theme.html">Theme &amp; appearance →</a></div>
 <footer class="site-footer">
   <div class="wrap footer-grid">
     <div class="footer-brand">
-      <a class="brand" href="../../index.html"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><path d="M9 11h14M9 16h9M9 21h14" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="23" cy="16" r="1.8" fill="currentColor"/></svg></span><span class="brand-text">Hetu<small>河图</small></span></a>
-      <p>A local-first AI knowledge and agent workspace. Notes, chat and code sessions share one local database.</p>
+      <a class="brand" href="../../index.html"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><path d="M9 11h14M9 16h9M9 21h14" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="23" cy="16" r="1.8" fill="currentColor"/></svg></span><span class="brand-text">Hetu<small>LOCAL FIRST</small></span></a>
+      <p>A local-first AI knowledge and agent workspace. Notes, conversations and coding sessions share one local database.</p>
     </div>
     <nav class="footer-col" aria-label="Product">
       <h2>Product</h2>
@@ -143,22 +147,22 @@
     </nav>
     <nav class="footer-col" aria-label="Resources">
       <h2>Resources</h2>
-      <a href="index.html">Docs</a>
+      <a href="index.html">Documentation</a>
       <a href="architecture.html">Architecture</a>
       <a href="faq.html">FAQ</a>
       <a href="dev.html">Development</a>
       <a href="https://github.com/wosledon/Hetu/blob/main/AGENTS.md">Conventions</a>
     </nav>
-    <nav class="footer-col" aria-label="Get">
-      <h2>Get</h2>
-      <a href="https://github.com/wosledon/Hetu/releases/latest">Download latest</a>
+    <nav class="footer-col" aria-label="Get Hetu">
+      <h2>Get Hetu</h2>
+      <a href="https://github.com/wosledon/Hetu/releases/latest">Latest release</a>
       <a href="https://github.com/wosledon/Hetu/releases">Changelog</a>
       <a href="https://github.com/wosledon/Hetu">Source repository</a>
     </nav>
   </div>
   <div class="wrap footer-bottom">
     <span>© 2026 Hetu Contributors · Apache-2.0</span>
-    <span class="visit-counter" data-visit-counter title="Anonymous counts only — no cookies, just visitors and page views."><span class="vc-seg" data-visit-segment="visitors" hidden><span class="vc-label">Visitors</span> <b data-visit-visitors>–</b></span><span class="vc-sep" data-visit-sep hidden aria-hidden="true">·</span><span class="vc-seg" data-visit-segment="views" hidden><span class="vc-label">Views</span> <b data-visit-views>–</b></span></span>
+    <span class="visit-counter" data-visit-counter title="Anonymous counts only: no cookies, just visitors and page views."><span class="vc-seg" data-visit-segment="visitors" hidden><span class="vc-label">Visitors</span> <b data-visit-visitors>–</b></span><span class="vc-sep" data-visit-sep hidden aria-hidden="true">·</span><span class="vc-seg" data-visit-segment="views" hidden><span class="vc-label">Views</span> <b data-visit-views>–</b></span></span>
   </div>
 </footer>
 <div class="lightbox" data-lightbox aria-hidden="true">
@@ -168,12 +172,20 @@
   <img alt="">
   <span class="lightbox-caption"></span>
 </div>
-<div class="search-modal" data-search-modal role="dialog" aria-modal="true" aria-label="Search docs" aria-hidden="true">
+<div class="search-modal" data-search-modal role="dialog" aria-modal="true" aria-label="Search documentation" aria-hidden="true">
   <div class="search-panel">
-    <div class="search-field"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/></svg><input type="search" name="q" data-search-input placeholder="Search titles, features or settings…" autocomplete="off" spellcheck="false" aria-label="Search docs"><button class="search-close" data-search-close type="button" aria-label="Close search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button><kbd>Esc</kbd></div>
+    <div class="search-field"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/></svg><input type="search" name="q" data-search-input placeholder="Search titles, features or settings…" autocomplete="off" spellcheck="false" aria-label="Search documentation"><button class="search-close" data-search-close type="button" aria-label="Close search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button><kbd>Esc</kbd></div>
     <div class="search-results" data-search-results></div>
-    <div class="search-foot"><span>↑↓ navigate</span><span>Enter open</span><span>Esc close</span><span class="sr-only" data-search-status aria-live="polite"></span></div>
+    <div class="search-foot"><span>↑↓ to select</span><span>Enter to open</span><span>Esc to close</span><span class="sr-only" data-search-status aria-live="polite"></span></div>
   </div>
 </div>
 </body>
 </html>
+
+
+
+
+
+
+
+

@@ -1,63 +1,54 @@
 import { get, post, put, del } from './api';
 import { consumeSseStream, SSE_ERROR_PREFIX } from '../utils/sse';
 
-/** Foundry Local 运行时状态 */
+/** Foundry Local 运行时状态。整个模块是 foundry CLI 的一层壳，cliInstalled 是第一道判断 */
 export interface FoundryLocalStatus {
-  /** 当前平台是否支持（原生库在位） */
+  /** 是否找得到 foundry CLI；false 时页面应展示安装引导 */
+  cliInstalled: boolean;
+  /** CLI 版本，如 0.12.1 */
+  cliVersion?: string;
+  /** 当前平台是否支持（CLI 只在 Windows 上提供） */
   supported: boolean;
   /** 不支持时的原因（后端已本地化） */
   unsupportedReason?: string;
-  /** 本地 OpenAI 兼容服务是否在监听 */
+  /** 本地 OpenAI 兼容服务是否在跑 */
   running: boolean;
-  /** OpenAI 兼容端点 */
+  /** 服务根地址（不含 /v1），如 http://127.0.0.1:62645 */
   endpoint?: string;
-  /** 当前生效的模型保存路径 */
-  modelDir?: string;
-  /** 未配置时的默认保存路径 */
-  defaultModelDir?: string;
-  /** 已保存但尚未生效的路径（重启后生效）；与生效路径相同时为空 */
-  pendingModelDir?: string;
+  /** 模型缓存目录 */
+  cacheDir?: string;
+  /** 本机 GPU 摘要 */
+  gpus: string[];
+  /** 本机 NPU 摘要 */
+  npus: string[];
+  cpu?: string;
+  availableMemoryBytes?: number;
+  diskFreeBytes?: number;
+  availableCount: number;
   loadedCount: number;
   cachedCount: number;
-  /** 可用的执行提供程序；未注册的 EP 对应设备不会出现在模型目录里 */
-  executionProviders: FoundryLocalEp[];
-  /** 改了保存路径但尚未生效，需要重启 Hetu */
-  restartRequired: boolean;
+  /** CLI 自己给出的警告（如某个 EP 注册失败） */
+  warnings: string[];
 }
 
-/** 执行提供程序（决定目录里出现哪些设备的模型） */
-export interface FoundryLocalEp {
-  name: string;
-  /** CPU / GPU / NPU / Unknown */
-  deviceType: string;
-  isRegistered: boolean;
-}
-
-/** Foundry Local 目录中的一个模型 */
+/** Foundry Local 目录中的一个模型变体（同一模型按设备分多个变体） */
 export interface FoundryLocalModel {
   alias: string;
+  /** 变体 Id，CLI 与本地端点都用它寻址，如 qwen3-0.6b-pp-finetuned-generic-cpu:4 */
   id: string;
   displayName?: string;
   publisher?: string;
-  modelType?: string;
+  /** 来源：Public / Local */
+  source?: string;
+  /** 任务类型：Chat / Embedding / Speech / Multimodal */
   task?: string;
   license?: string;
-  uri?: string;
+  /** 模型体积（MB） */
   fileSizeMb?: number;
-  contextLength?: number;
-  maxOutputTokens?: number;
-  supportsToolCalling: boolean;
-  supportsReasoning: boolean;
-  /** 输入模态（逗号分隔，如 text,image） */
-  inputModalities?: string;
-  /** 输出模态（逗号分隔） */
-  outputModalities?: string;
   /** 该变体的目标设备：CPU / GPU / NPU */
   deviceType?: string;
-  /** 该变体归一化后的执行提供程序（如 CPU / CUDA / WebGPU） */
+  /** 该变体归一化后的执行提供程序（如 CPU / WebGPU / CUDA） */
   executionProvider?: string;
-  /** 该变体所需的执行提供程序是否已注册；未注册时无法加载 */
-  executionProviderRegistered: boolean;
   isCached: boolean;
   isLoaded: boolean;
   /** 该模型还有哪些设备的变体，如 ['GPU','CPU'] */
@@ -74,8 +65,8 @@ export interface FoundryLocalDownloadProgress {
   error?: string;
 }
 
-/** 执行提供程序下载进度的占位 alias（后端复用同一套进度帧） */
-export const EP_PROGRESS_KEY = '__ep__';
+/** 下载进度帧的占位 alias（后端复用同一套帧结构） */
+export const PROGRESS_KEY = '__model__';
 
 /**
  * 消费 SSE 进度流。后端以 data: {alias,progress,state,error} 推送，
@@ -97,7 +88,7 @@ async function streamProgress(
   }
   await consumeSseStream(response, ({ data }) => {
     if (!data || data.startsWith(SSE_ERROR_PREFIX)) {
-      onProgress({ alias: EP_PROGRESS_KEY, state: 'failed', error: data.replace(SSE_ERROR_PREFIX, '').trim() });
+      onProgress({ alias: PROGRESS_KEY, state: 'failed', error: data.replace(SSE_ERROR_PREFIX, '').trim() });
       return;
     }
     try {
@@ -121,21 +112,15 @@ export const foundryLocalService = {
     post<void>(`/foundry-local/models/${encodeURIComponent(variantId)}/unload`),
   remove: (variantId: string) =>
     del<void>(`/foundry-local/models/${encodeURIComponent(variantId)}`),
+  /** 把本地 ONNX Runtime GenAI 模型目录注册进 CLI */
+  registerLocalModel: (path: string, modelId: string, task: string) =>
+    post<void>('/foundry-local/models/local', { path, modelId, task }),
   startService: () => post<void>('/foundry-local/service/start'),
   stopService: () => post<void>('/foundry-local/service/stop'),
-  setModelDir: (path: string | null) =>
-    put<string>('/foundry-local/model-dir', { path: path ?? '' }),
+  restartService: () => post<void>('/foundry-local/service/restart'),
+  setCacheDir: (path: string | null) =>
+    put<string>('/foundry-local/cache-dir', { path: path ?? '' }),
   /** 下载模型，SSE 推进度 */
   download: (variantId: string, onProgress: (p: FoundryLocalDownloadProgress) => void, signal?: AbortSignal) =>
     streamProgress(`/api/foundry-local/models/${encodeURIComponent(variantId)}/download`, onProgress, signal),
-  /** 下载并注册执行提供程序（GPU/NPU 后端），SSE 推进度；eps 省略表示全部 */
-  downloadExecutionProviders: (
-    onProgress: (p: FoundryLocalDownloadProgress) => void,
-    signal?: AbortSignal,
-    /** 要注册的 EP 名（SDK 原始名，如 CUDAExecutionProvider） */
-    eps?: string[],
-  ) => {
-    const query = eps && eps.length > 0 ? `?eps=${eps.map(encodeURIComponent).join(',')}` : ''
-    return streamProgress(`/api/foundry-local/execution-providers/download${query}`, onProgress, signal)
-  },
 };
