@@ -30,6 +30,13 @@ public class FoundryLocalService : IFoundryLocalService
     /// <summary>SDK 调用互斥门</summary>
     private readonly SemaphoreSlim _gate = new(1, 1);
 
+    /// <summary>变体 Id 探测缓存：null 表示该 Id 不存在。目录是静态的，探一次就够</summary>
+    private readonly Dictionary<string, FoundrySdk.IModel?> _variantIdCache = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>除 generic-cpu 外还要探测的设备段。实测只有这两个有命中（各覆盖 40/56 个模型），
+    /// 其余拼法（npu / qnn / directml 等）全部扑空，不加进来免得白白拉慢首屏</summary>
+    private static readonly string[] VariantDeviceTokens = ["cuda-gpu", "generic-gpu"];
+
     private FoundrySdk.FoundryLocalManager? _manager;
     private bool _platformChecked;
     private string? _unsupportedReason;
@@ -171,23 +178,71 @@ public class FoundryLocalService : IFoundryLocalService
             ? await catalog.GetCachedModelsAsync(cancellationToken)
             : await catalog.ListModelsAsync(cancellationToken);
 
-        var result = new List<FoundryLocalModelDto>(models.Count);
-        foreach (var model in models)
+        // 每个模型的变体探测与状态读取都并发跑：串行要 60s+，并发几秒
+        var perModel = models.Select(async model =>
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            result.Add(await MapAsync(model, registered, cancellationToken));
-        }
-        // 已下载的排前面，再按名字，方便直接找到能用的
+            var devices = await ResolveDeviceVariantsAsync(catalog, model, cancellationToken);
+            var rows = new List<FoundryLocalModelDto>(devices.Count);
+            foreach (var variant in devices)
+                rows.Add(await MapAsync(variant, registered, devices, cancellationToken));
+            return rows;
+        }).ToList();
+
+        var result = (await Task.WhenAll(perModel)).SelectMany(r => r).ToList();        // 已下载的排前面，再按名字，方便直接找到能用的
         return result
             .OrderByDescending(m => m.IsCached)
             .ThenBy(m => m.DisplayName ?? m.Alias, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(m => m.DeviceType, StringComparer.Ordinal)
             .ToList();
     }
 
-    public async Task DownloadAsync(string alias, IProgress<double>? progress = null, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// 列出某个模型的全部设备变体。SDK 的 ListModelsAsync 每个模型只给与当前硬件匹配的那一个，
+    /// GPU/NPU 变体得把 Id 里的设备段换掉再按 Id 取。结果按进程缓存：探测是 N 次 SDK 往返，
+    /// 没必要每次拉目录都重跑。并发探测：串行要 60s+，并发 3s 左右。
+    /// </summary>
+    private async Task<List<FoundrySdk.IModel>> ResolveDeviceVariantsAsync(
+        FoundrySdk.ICatalog catalog,
+        FoundrySdk.IModel model,
+        CancellationToken cancellationToken)
     {
-        var model = await GetModelAsync(alias, cancellationToken);
-        if (model == null) return;
+        var variants = new List<FoundrySdk.IModel> { model };
+        var idx = model.Id.LastIndexOf("-generic-cpu", StringComparison.OrdinalIgnoreCase);
+        if (idx < 0) return variants;
+
+        var prefix = model.Id[..idx];
+        var suffix = model.Id[(idx + "-generic-cpu".Length)..]; // 形如 ":4"
+
+        var probes = VariantDeviceTokens.Select(async token =>
+        {
+            var candidateId = $"{prefix}-{token}{suffix}";
+            if (_variantIdCache.TryGetValue(candidateId, out var cached)) return cached;
+
+            FoundrySdk.IModel? variant = null;
+            try
+            {
+                variant = await catalog.GetModelVariantAsync(candidateId, cancellationToken);
+                if (variant is { Id.Length: 0 }) variant = null;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "探测变体 {Id} 失败", candidateId);
+            }
+            lock (_variantIdCache) _variantIdCache[candidateId] = variant;
+            return variant;
+        }).ToList();
+
+        foreach (var variant in await Task.WhenAll(probes))
+        {
+            if (variant != null) variants.Add(variant);
+        }
+        return variants;
+    }
+
+    public async Task DownloadAsync(string variantId, IProgress<double>? progress = null, CancellationToken cancellationToken = default)
+    {
+        var model = await GetVariantAsync(variantId, cancellationToken);
+        if (model == null) throw new InvalidOperationException(_localizer.T("foundry.modelNotFound", variantId));
 
         await _gate.WaitAsync(cancellationToken);
         try
@@ -201,9 +256,9 @@ public class FoundryLocalService : IFoundryLocalService
         }
     }
 
-    public async Task RemoveFromCacheAsync(string alias, CancellationToken cancellationToken = default)
+    public async Task RemoveFromCacheAsync(string variantId, CancellationToken cancellationToken = default)
     {
-        var model = await GetModelAsync(alias, cancellationToken);
+        var model = await GetVariantAsync(variantId, cancellationToken);
         if (model == null) return;
 
         await _gate.WaitAsync(cancellationToken);
@@ -219,10 +274,10 @@ public class FoundryLocalService : IFoundryLocalService
         }
     }
 
-    public async Task LoadAsync(string alias, CancellationToken cancellationToken = default)
+    public async Task LoadAsync(string variantId, CancellationToken cancellationToken = default)
     {
-        var model = await GetModelAsync(alias, cancellationToken);
-        if (model == null) throw new InvalidOperationException(_localizer.T("foundry.modelNotFound", alias));
+        var model = await GetVariantAsync(variantId, cancellationToken);
+        if (model == null) throw new InvalidOperationException(_localizer.T("foundry.modelNotFound", variantId));
 
         await _gate.WaitAsync(cancellationToken);
         try
@@ -237,9 +292,9 @@ public class FoundryLocalService : IFoundryLocalService
         }
     }
 
-    public async Task UnloadAsync(string alias, CancellationToken cancellationToken = default)
+    public async Task UnloadAsync(string variantId, CancellationToken cancellationToken = default)
     {
-        var model = await GetModelAsync(alias, cancellationToken);
+        var model = await GetVariantAsync(variantId, cancellationToken);
         if (model == null) return;
 
         await _gate.WaitAsync(cancellationToken);
@@ -268,7 +323,7 @@ public class FoundryLocalService : IFoundryLocalService
         var loaded = await catalog.GetLoadedModelsAsync(cancellationToken);
         var result = new List<FoundryLocalModelDto>(loaded.Count);
         foreach (var model in loaded)
-            result.Add(await MapAsync(model, registered, cancellationToken));
+            result.Add(await MapAsync(model, registered, [model], cancellationToken));
         return result;
     }
 
@@ -349,10 +404,10 @@ public class FoundryLocalService : IFoundryLocalService
     public async Task<string> ResetModelDirAsync(CancellationToken cancellationToken = default)
         => await SetModelDirAsync(null, cancellationToken);
 
-    public async Task<Guid> RegisterAsProviderModelAsync(string alias, string purpose, CancellationToken cancellationToken = default)
+    public async Task<Guid> RegisterAsProviderModelAsync(string variantId, string purpose, CancellationToken cancellationToken = default)
     {
-        var model = await GetModelAsync(alias, cancellationToken)
-            ?? throw new InvalidOperationException(_localizer.T("foundry.modelNotFound", alias));
+        var model = await GetVariantAsync(variantId, cancellationToken)
+            ?? throw new InvalidOperationException(_localizer.T("foundry.modelNotFound", variantId));
 
         var providerId = await WithScopedServicesAsync(async (_, providers, _) =>
         {
@@ -372,16 +427,17 @@ public class FoundryLocalService : IFoundryLocalService
         var modelId = await WithScopedServicesAsync(async (_, _, models) =>
         {
             var info = model.Info;
+            // ModelId 用变体 Id：本地端点按它寻址，注册哪个变体就跑哪个
             var created = await models.CreateAsync(new Hetu.Shared.AI.CreateAiModelRequest
             {
                 ProviderId = providerId,
-                ModelId = model.Alias,
-                DisplayName = info.DisplayName ?? info.Name ?? model.Alias,
+                ModelId = model.Id,
+                DisplayName = $"{info.DisplayName ?? info.Name ?? model.Alias} ({DescribeDevice(info.Runtime)})",
                 Purpose = purpose,
                 ContextWindow = info.ContextLength is > 0 and < int.MaxValue ? (int?)info.ContextLength : null,
                 SupportsTools = info.SupportsToolCalling ?? false,
             }, cancellationToken);
-            return created.Data?.Id ?? throw new InvalidOperationException(_localizer.T("foundry.registerFailed", alias));
+            return created.Data?.Id ?? throw new InvalidOperationException(_localizer.T("foundry.registerFailed", variantId));
         }, cancellationToken);
 
         return modelId;
@@ -477,6 +533,18 @@ public class FoundryLocalService : IFoundryLocalService
         }
     }
 
+    private async Task<FoundrySdk.IModel?> GetVariantAsync(string variantId, CancellationToken cancellationToken)
+    {
+        var manager = await GetManagerAsync(cancellationToken);
+        if (manager == null) return null;
+
+        var catalog = await manager.GetCatalogAsync(FoundrySdk.CatalogType.Public, cancellationToken);
+        if (catalog == null) return null;
+
+        var variant = await catalog.GetModelVariantAsync(variantId, cancellationToken);
+        return variant is { Id.Length: > 0 } ? variant : null;
+    }
+
     private async Task<FoundrySdk.IModel?> GetModelAsync(string alias, CancellationToken cancellationToken)
     {
         var manager = await GetManagerAsync(cancellationToken);
@@ -518,6 +586,7 @@ public class FoundryLocalService : IFoundryLocalService
     private static async Task<FoundryLocalModelDto> MapAsync(
         FoundrySdk.IModel model,
         HashSet<string> registered,
+        List<FoundrySdk.IModel> deviceVariants,
         CancellationToken cancellationToken)
     {
         var info = model.Info;
@@ -544,13 +613,18 @@ public class FoundryLocalService : IFoundryLocalService
             InputModalities = info.InputModalities ?? model.GetStringProperty(FoundrySdk.ModelInfoPropertyKeys.InputModalities),
             OutputModalities = info.OutputModalities ?? model.GetStringProperty(FoundrySdk.ModelInfoPropertyKeys.OutputModalities),
             DeviceType = DescribeDevice(info.Runtime),
-            // 目录给的是 "CPUExecutionProvider" 这种类名，去掉后缀才是人看的 "CPU / CUDA"
+            // 目录给的是 "CPUExecutionProvider" 这种类名，去掉后缀才是人看的 "CPU / WebGPU"
             ExecutionProvider = NormalizeExecutionProvider(
                 info.Runtime?.ExecutionProvider ?? model.GetStringProperty(FoundrySdk.ModelInfoPropertyKeys.ExecutionProvider)),
             IsCached = cached,
             IsLoaded = loaded,
-            Variants = model.Variants.Select(v => v.Alias).Where(a => !string.IsNullOrWhiteSpace(a)).ToList(),
-            IsRegistered = registered.Contains(model.Alias),
+            DeviceVariants = deviceVariants
+                .Select(v => DescribeDevice(v.Info.Runtime))
+                .Where(d => !string.IsNullOrEmpty(d))
+                .Select(d => d!)
+                .Distinct(StringComparer.Ordinal)
+                .ToList(),
+            IsRegistered = registered.Contains(model.Id) || registered.Contains(model.Alias),
         };
     }
 

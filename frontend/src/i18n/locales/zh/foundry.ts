@@ -60,6 +60,9 @@ export default {
     sizeAsc: '体积从小到大',
     ctxDesc: '上下文从长到短',
   },
+  row: {
+    deviceVariants: '可用设备',
+  },
   badge: {
     cached: '已下载',
     loaded: '已加载',

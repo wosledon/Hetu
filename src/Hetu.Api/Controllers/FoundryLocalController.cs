@@ -39,24 +39,24 @@ public class FoundryLocalController : ControllerBase
         => ApiResponse<List<FoundryLocalModelDto>>.Ok(await _service.GetLoadedModelsAsync(cancellationToken));
 
     /// <summary>下载模型，进度经 SSE 推送</summary>
-    [HttpPost("models/{alias}/download")]
-    public async Task Download(string alias, CancellationToken cancellationToken)
+    [HttpPost("models/{id}/download")]
+    public async Task Download(string id, CancellationToken cancellationToken)
     {
         Response.StartSseStream();
         var writer = new SseStreamWriter(Response, cancellationToken);
         var progress = new Progress<double>(p => _ = writer.WriteJsonAsync(new FoundryLocalDownloadProgressDto
         {
-            Alias = alias,
+            Alias = id,
             Progress = p,
             State = "downloading",
         }));
 
         try
         {
-            await _service.DownloadAsync(alias, progress, cancellationToken);
+            await _service.DownloadAsync(id, progress, cancellationToken);
             await writer.WriteJsonAsync(new FoundryLocalDownloadProgressDto
             {
-                Alias = alias,
+                Alias = id,
                 Progress = 1,
                 State = "completed",
             });
@@ -65,7 +65,7 @@ public class FoundryLocalController : ControllerBase
         {
             await writer.WriteJsonAsync(new FoundryLocalDownloadProgressDto
             {
-                Alias = alias,
+                Alias = id,
                 State = "cancelled",
             });
         }
@@ -74,7 +74,7 @@ public class FoundryLocalController : ControllerBase
             // 不向客户端泄漏堆栈，只给首行消息
             await writer.WriteJsonAsync(new FoundryLocalDownloadProgressDto
             {
-                Alias = alias,
+                Alias = id,
                 State = "failed",
                 Error = ex.Message.Split('\n')[0],
             });
@@ -82,12 +82,12 @@ public class FoundryLocalController : ControllerBase
     }
 
     /// <summary>加载进内存</summary>
-    [HttpPost("models/{alias}/load")]
-    public async Task<ActionResult<ApiResponse>> Load(string alias, CancellationToken cancellationToken)
+    [HttpPost("models/{id}/load")]
+    public async Task<ActionResult<ApiResponse>> Load(string id, CancellationToken cancellationToken)
     {
         try
         {
-            await _service.LoadAsync(alias, cancellationToken);
+            await _service.LoadAsync(id, cancellationToken);
             return Ok(ApiResponse.Ok());
         }
         catch (Exception ex)
@@ -97,29 +97,29 @@ public class FoundryLocalController : ControllerBase
     }
 
     /// <summary>从内存卸载</summary>
-    [HttpPost("models/{alias}/unload")]
-    public async Task<ActionResult<ApiResponse>> Unload(string alias, CancellationToken cancellationToken)
+    [HttpPost("models/{id}/unload")]
+    public async Task<ActionResult<ApiResponse>> Unload(string id, CancellationToken cancellationToken)
     {
-        await _service.UnloadAsync(alias, cancellationToken);
+        await _service.UnloadAsync(id, cancellationToken);
         return Ok(ApiResponse.Ok());
     }
 
     /// <summary>删除本地缓存</summary>
-    [HttpDelete("models/{alias}")]
-    public async Task<ActionResult<ApiResponse>> Remove(string alias, CancellationToken cancellationToken)
+    [HttpDelete("models/{id}")]
+    public async Task<ActionResult<ApiResponse>> Remove(string id, CancellationToken cancellationToken)
     {
-        await _service.RemoveFromCacheAsync(alias, cancellationToken);
+        await _service.RemoveFromCacheAsync(id, cancellationToken);
         return Ok(ApiResponse.Ok());
     }
 
     /// <summary>把模型注册成 Hetu 的 Provider 模型，返回 AiModel Id</summary>
-    [HttpPost("models/{alias}/register")]
-    public async Task<ActionResult<ApiResponse<Guid>>> Register(string alias, [FromQuery] string purpose = "chat", CancellationToken cancellationToken = default)
+    [HttpPost("models/{id}/register")]
+    public async Task<ActionResult<ApiResponse<Guid>>> Register(string id, [FromQuery] string purpose = "chat", CancellationToken cancellationToken = default)
     {
         try
         {
-            var id = await _service.RegisterAsProviderModelAsync(alias, purpose, cancellationToken);
-            return Ok(ApiResponse<Guid>.Ok(id));
+            var modelId = await _service.RegisterAsProviderModelAsync(id, purpose, cancellationToken);
+            return Ok(ApiResponse<Guid>.Ok(modelId));
         }
         catch (Exception ex)
         {
@@ -127,7 +127,7 @@ public class FoundryLocalController : ControllerBase
         }
     }
 
-    /// <summary>下载并注册执行提供程序（GPU/NPU 后端），进度经 SSE 推送。注册后需重启 Hetu 才生效</summary>
+    /// <summary>下载并注册执行提供程序（GPU/NPU 后端），进度经 SSE 推送</summary>
     [HttpPost("execution-providers/download")]
     public async Task DownloadExecutionProviders(CancellationToken cancellationToken)
     {

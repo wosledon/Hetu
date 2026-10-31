@@ -93,7 +93,7 @@
           <tr><td>Wire into Hetu</td><td>Registers the model as a chat model under the <strong>Foundry Local</strong> provider, after which you can pick it in chat and Code sessions</td></tr>
         </tbody>
       </table></div>
-      <p>A row of filter dropdowns sits above the catalog, with options and counts generated from the catalog data itself: task, input modality, device (CPU / GPU / NPU), tool-calling support and download state; sorting on the right switches between name, size and context length. The search box filters by alias, display name, publisher and type.</p><p><strong>Why the device filter only offers CPU:</strong> the catalog lists one variant per model, and they are all CPU (ONNX <code>generic-cpu</code> builds) right now. Which device variants appear depends on which variants the model itself publishes and which execution providers this machine has. The execution-providers card at the top lists the GPU/NPU backends available on this machine and their registration status, and can download and register them in one click — that is a prerequisite for running those variants, but it does not add variants to the catalog.</p>
+      <p>A row of filter dropdowns sits above the catalog, with options and counts generated from the catalog data itself: task, input modality, device (CPU / GPU / NPU), tool-calling support and download state; sorting on the right switches between name, size and context length. The search box filters by alias, display name, publisher and type.</p><p><strong>About the device filter:</strong> the catalog is flattened by model × device variant, so one model spans several rows — phi-4-mini, for example, has GPU (CUDA), GPU (WebGPU) and CPU rows, each with a different size (the GPU builds are smaller). The counts on the device filter come from the catalog data; currently GPU 71 / CPU 56.</p><p>The execution-providers card at the top lists the GPU/NPU backends available on this machine and their registration status, and can download and register them in one click — that is a prerequisite for running the GPU/NPU variants.</p>
 
       <h2>Wiring into Hetu models</h2>
       <p><strong>Wire into Hetu</strong> does two things: creates a <code>foundry</code> provider (no API key; the base URL is the current endpoint) and registers the model as a chat model. After that:</p>
@@ -113,7 +113,7 @@
         <thead><tr><th>Method</th><th>Path</th><th>Notes</th></tr></thead>
         <tbody>
           <tr><td>GET</td><td><code>/api/foundry-local/status</code></td><td>Run state, endpoint, model directory, loaded/downloaded counts</td></tr>
-          <tr><td>GET</td><td><code>/api/foundry-local/models?cachedOnly=false</code></td><td>Model catalog; <code>cachedOnly=true</code> for what is already local</td></tr>
+          <tr><td>GET</td><td><code>/api/foundry-local/models?cachedOnly=false</code></td><td>Model catalog, flattened by model × device variant; <code>cachedOnly=true</code> for what is already local</td></tr>
           <tr><td>GET</td><td><code>/api/foundry-local/models/loaded</code></td><td>Models currently resident in memory</td></tr>
           <tr><td>POST</td><td><code>/api/foundry-local/models/{alias}/download</code></td><td>Download; SSE frames <code>{alias, progress, state, error}</code></td></tr>
           <tr><td>POST</td><td><code>/api/foundry-local/models/{alias}/load</code> / <code>unload</code></td><td>Load / unload</td></tr>

@@ -146,7 +146,7 @@ export default function FoundryLocalPage() {
 
   const registerMutation = useMutation({
     mutationFn: (model: FoundryLocalModel) =>
-      foundryLocalService.register(model.alias, 'chat').then(() =>
+      foundryLocalService.register(model.id, 'chat').then(() =>
         // 注册完顺手刷新大模型列表，设置页立刻能看到
         queryClient.invalidateQueries({ queryKey: ['aiModels'] }),
       ),
@@ -524,14 +524,17 @@ export default function FoundryLocalPage() {
                 ) : (
                   <div className="divide-y divide-gray-100 dark:divide-white/[0.06]">
                     {models.map((model) => {
-                      const progress = downloads[model.alias]
-                      const downloading = downloadMutation.isPending && downloadMutation.variables === model.alias
+                      const progress = downloads[model.id]
+                      const downloading = downloadMutation.isPending && downloadMutation.variables === model.id
                       return (
-                        <div key={model.alias} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3">
-                          <div className="min-w-[180px] flex-1">
-                            <div className="flex items-center gap-2">
+                        <div key={model.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3">
+                          <div className="min-w-[220px] flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
                               <span className="truncate text-[13px] font-medium text-gray-800 dark:text-gray-100">
                                 {model.displayName ?? model.alias}
+                              </span>
+                              <span className={`shrink-0 rounded-full border px-1.5 py-px text-[10px] font-medium ${deviceBadgeClass(model.deviceType)}`}>
+                                {model.deviceType ?? '—'}
                               </span>
                               {model.isCached && <Badge tone="emerald">{t('badge.cached')}</Badge>}
                               {model.isLoaded && <Badge tone="blue">{t('badge.loaded')}</Badge>}
@@ -541,6 +544,7 @@ export default function FoundryLocalPage() {
                               {[model.publisher, model.modelType, model.task].filter(Boolean).join(' · ')}
                               {model.contextLength ? ` · ${Math.round(model.contextLength / 1024)}k ctx` : ''}
                               {` · ${formatSize(model.fileSizeMb)}`}
+                              {model.deviceVariants.length > 1 && ` · ${t('row.deviceVariants')}: ${model.deviceVariants.join(' / ')}`}
                             </div>
                           </div>
 
@@ -565,7 +569,7 @@ export default function FoundryLocalPage() {
                                 size="sm"
                                 className="gap-1.5"
                                 disabled={downloadMutation.isPending}
-                                onClick={() => downloadMutation.mutate(model.alias)}
+                                onClick={() => downloadMutation.mutate(model.id)}
                               >
                                 <Download size={13} /> {t('action.download')}
                               </Button>
@@ -575,7 +579,7 @@ export default function FoundryLocalPage() {
                                 variant="secondary"
                                 size="sm"
                                 className="gap-1.5"
-                                onClick={() => void runAction(() => foundryLocalService.load(model.alias), 'loaded')}
+                                onClick={() => void runAction(() => foundryLocalService.load(model.id), 'loaded')}
                               >
                                 <Play size={13} /> {t('action.load')}
                               </Button>
@@ -586,7 +590,7 @@ export default function FoundryLocalPage() {
                                 tone="gray"
                                 size="sm"
                                 className="gap-1.5"
-                                onClick={() => void runAction(() => foundryLocalService.unload(model.alias), 'unloaded')}
+                                onClick={() => void runAction(() => foundryLocalService.unload(model.id), 'unloaded')}
                               >
                                 <Square size={13} /> {t('action.unload')}
                               </Button>
@@ -608,9 +612,11 @@ export default function FoundryLocalPage() {
                                 onClick={() => {
                                   void confirm({
                                     title: t('action.remove'),
-                                    message: t('action.removeConfirm', { name: model.displayName ?? model.alias }),
+                                    message: t('action.removeConfirm', {
+                                      name: `${model.displayName ?? model.alias} (${model.deviceType ?? '—'})`,
+                                    }),
                                     onConfirm: () => void runAction(
-                                      () => foundryLocalService.remove(model.alias),
+                                      () => foundryLocalService.remove(model.id),
                                       'removed',
                                     ),
                                   })
@@ -662,4 +668,15 @@ function Badge({ tone, children }: { tone: string; children: React.ReactNode }) 
       {children}
     </span>
   )
+}
+
+/** 设备徽底色：GPU/NPU 用同色系淡底，CPU 走中性灰 */
+const DEVICE_BADGE: Record<string, string> = {
+  GPU: 'border-cyan-200 bg-cyan-50 text-cyan-700 dark:border-cyan-500/30 dark:bg-cyan-950/40 dark:text-cyan-300',
+  NPU: 'border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-500/30 dark:bg-violet-950/40 dark:text-violet-300',
+  CPU: 'border-gray-200 bg-gray-50 text-gray-500 dark:border-white/10 dark:bg-white/[0.04] dark:text-gray-400',
+}
+
+function deviceBadgeClass(device?: string): string {
+  return DEVICE_BADGE[device ?? ''] ?? DEVICE_BADGE.CPU
 }

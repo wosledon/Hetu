@@ -52,11 +52,14 @@ export interface FoundryLocalModel {
   inputModalities?: string;
   /** 输出模态（逗号分隔） */
   outputModalities?: string;
+  /** 该变体的目标设备：CPU / GPU / NPU */
   deviceType?: string;
+  /** 该变体的执行提供程序（如 CPU / WebGPU） */
   executionProvider?: string;
   isCached: boolean;
   isLoaded: boolean;
-  variants: string[];
+  /** 该模型还有哪些设备的变体，如 ['GPU','CPU'] */
+  deviceVariants: string[];
   /** 是否已注册为 Hetu 的 Provider 模型 */
   isRegistered: boolean;
 }
@@ -108,21 +111,21 @@ export const foundryLocalService = {
   getModels: (cachedOnly = false) =>
     get<FoundryLocalModel[]>(`/foundry-local/models?cachedOnly=${cachedOnly}`),
   getLoadedModels: () => get<FoundryLocalModel[]>('/foundry-local/models/loaded'),
-  register: (alias: string, purpose: 'chat' | 'embedding' = 'chat') =>
-    post<string>(`/foundry-local/models/${encodeURIComponent(alias)}/register?purpose=${purpose}`),
-  load: (alias: string) =>
-    post<void>(`/foundry-local/models/${encodeURIComponent(alias)}/load`),
-  unload: (alias: string) =>
-    post<void>(`/foundry-local/models/${encodeURIComponent(alias)}/unload`),
-  remove: (alias: string) =>
-    del<void>(`/foundry-local/models/${encodeURIComponent(alias)}`),
+  register: (variantId: string, purpose: 'chat' | 'embedding' = 'chat') =>
+    post<string>(`/foundry-local/models/${encodeURIComponent(variantId)}/register?purpose=${purpose}`),
+  load: (variantId: string) =>
+    post<void>(`/foundry-local/models/${encodeURIComponent(variantId)}/load`),
+  unload: (variantId: string) =>
+    post<void>(`/foundry-local/models/${encodeURIComponent(variantId)}/unload`),
+  remove: (variantId: string) =>
+    del<void>(`/foundry-local/models/${encodeURIComponent(variantId)}`),
   startService: () => post<void>('/foundry-local/service/start'),
   stopService: () => post<void>('/foundry-local/service/stop'),
   setModelDir: (path: string | null) =>
     put<string>('/foundry-local/model-dir', { path: path ?? '' }),
   /** 下载模型，SSE 推进度 */
-  download: (alias: string, onProgress: (p: FoundryLocalDownloadProgress) => void, signal?: AbortSignal) =>
-    streamProgress(`/api/foundry-local/models/${encodeURIComponent(alias)}/download`, onProgress, signal),
+  download: (variantId: string, onProgress: (p: FoundryLocalDownloadProgress) => void, signal?: AbortSignal) =>
+    streamProgress(`/api/foundry-local/models/${encodeURIComponent(variantId)}/download`, onProgress, signal),
   /** 下载并注册执行提供程序（GPU/NPU 后端），SSE 推进度 */
   downloadExecutionProviders: (onProgress: (p: FoundryLocalDownloadProgress) => void, signal?: AbortSignal) =>
     streamProgress('/api/foundry-local/execution-providers/download', onProgress, signal),

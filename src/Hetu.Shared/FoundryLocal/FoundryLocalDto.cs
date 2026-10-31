@@ -36,10 +36,12 @@ public class FoundryLocalStatusDto
     public bool RestartRequired { get; set; }
 }
 
-/// <summary>Foundry Local 目录中的一个模型</summary>
+/// <summary>Foundry Local 目录中的一个模型变体（同一模型按设备分多个变体）</summary>
 public class FoundryLocalModelDto
 {
+    /// <summary>模型别名（人看的那个，如 phi-4-mini）</summary>
     public string Alias { get; set; } = string.Empty;
+    /// <summary>变体 Id（SDK 与本地端点都用它寻址，如 Phi-4-mini-instruct-generic-gpu:5）</summary>
     public string Id { get; set; } = string.Empty;
     public string? DisplayName { get; set; }
     public string? Publisher { get; set; }
@@ -57,16 +59,16 @@ public class FoundryLocalModelDto
     public string? InputModalities { get; set; }
     /// <summary>输出模态（逗号分隔）</summary>
     public string? OutputModalities { get; set; }
-    /// <summary>目标设备（CPU / GPU / NPU），来自模型目录的 Runtime 信息</summary>
+    /// <summary>该变体的目标设备：CPU / GPU / NPU</summary>
     public string? DeviceType { get; set; }
-    /// <summary>执行提供程序（如 CPU / CUDA / WebGPU）</summary>
+    /// <summary>该变体的执行提供程序（如 CPU / WebGPU）</summary>
     public string? ExecutionProvider { get; set; }
     /// <summary>是否已下载到本地</summary>
     public bool IsCached { get; set; }
     /// <summary>是否已加载进内存</summary>
     public bool IsLoaded { get; set; }
-    /// <summary>可选的量化/设备变体 alias 列表</summary>
-    public List<string> Variants { get; set; } = [];
+    /// <summary>该模型还有哪些设备的变体（用于行内展示「GPU · CPU」）</summary>
+    public List<string> DeviceVariants { get; set; } = [];
     /// <summary>该模型在 Hetu 里是否已注册为 Provider 模型（供 UI 显示「已加入」）</summary>
     public bool IsRegistered { get; set; }
 }

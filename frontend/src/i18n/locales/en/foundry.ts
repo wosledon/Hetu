@@ -60,6 +60,9 @@ export default {
     sizeAsc: 'Smallest first',
     ctxDesc: 'Longest context',
   },
+  row: {
+    deviceVariants: 'Devices',
+  },
   badge: {
     cached: 'Downloaded',
     loaded: 'Loaded',
