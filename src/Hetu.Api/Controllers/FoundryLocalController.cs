@@ -8,7 +8,8 @@ using Microsoft.AspNetCore.Mvc;
 namespace Hetu.Api.Controllers;
 
 /// <summary>
-/// Foundry Local 本地模型运行时管理面。对应 `foundry` CLI 的 model / service / cache 三组命令。
+/// Foundry Local 本地模型运行时管理面。实现是 <c>foundry</c> CLI 的一层壳，
+/// 对应 CLI 的 model / server / cache 三组命令。
 /// </summary>
 [ApiController]
 [Route("api/foundry-local")]
@@ -23,7 +24,7 @@ public class FoundryLocalController : ControllerBase
         _localizer = localizer;
     }
 
-    /// <summary>运行时状态：平台支持性、端点、模型保存路径、已加载/已缓存数量</summary>
+    /// <summary>运行时状态：CLI 是否安装、服务是否在跑、端点、缓存目录、本机硬件摘要</summary>
     [HttpGet("status")]
     public async Task<ApiResponse<FoundryLocalStatusDto>> Status(CancellationToken cancellationToken)
         => ApiResponse<FoundryLocalStatusDto>.Ok(await _service.GetStatusAsync(cancellationToken));
@@ -57,21 +58,16 @@ public class FoundryLocalController : ControllerBase
             await writer.WriteJsonAsync(new FoundryLocalDownloadProgressDto
             {
                 Alias = id,
-                Progress = 1,
+                Progress = 100,
                 State = "completed",
             });
         }
         catch (OperationCanceledException)
         {
-            await writer.WriteJsonAsync(new FoundryLocalDownloadProgressDto
-            {
-                Alias = id,
-                State = "cancelled",
-            });
+            await writer.WriteJsonAsync(new FoundryLocalDownloadProgressDto { Alias = id, State = "cancelled" });
         }
         catch (Exception ex)
         {
-            // 不向客户端泄漏堆栈，只给首行消息
             await writer.WriteJsonAsync(new FoundryLocalDownloadProgressDto
             {
                 Alias = id,
@@ -100,19 +96,33 @@ public class FoundryLocalController : ControllerBase
     [HttpPost("models/{id}/unload")]
     public async Task<ActionResult<ApiResponse>> Unload(string id, CancellationToken cancellationToken)
     {
-        await _service.UnloadAsync(id, cancellationToken);
-        return Ok(ApiResponse.Ok());
+        try
+        {
+            await _service.UnloadAsync(id, cancellationToken);
+            return Ok(ApiResponse.Ok());
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(ApiResponse.Fail(ex.Message.Split('\n')[0]));
+        }
     }
 
     /// <summary>删除本地缓存</summary>
     [HttpDelete("models/{id}")]
     public async Task<ActionResult<ApiResponse>> Remove(string id, CancellationToken cancellationToken)
     {
-        await _service.RemoveFromCacheAsync(id, cancellationToken);
-        return Ok(ApiResponse.Ok());
+        try
+        {
+            await _service.RemoveFromCacheAsync(id, cancellationToken);
+            return Ok(ApiResponse.Ok());
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(ApiResponse.Fail(ex.Message.Split('\n')[0]));
+        }
     }
 
-    /// <summary>把模型注册成 Hetu 的 Provider 模型，返回 AiModel Id</summary>
+    /// <summary>注册成 Hetu 的 Provider 模型；purpose: chat / completion / embedding</summary>
     [HttpPost("models/{id}/register")]
     public async Task<ActionResult<ApiResponse<Guid>>> Register(string id, [FromQuery] string purpose = "chat", CancellationToken cancellationToken = default)
     {
@@ -127,49 +137,9 @@ public class FoundryLocalController : ControllerBase
         }
     }
 
-    /// <summary>下载并注册执行提供程序（GPU/NPU 后端），进度经 SSE 推送。eps 为空表示全部</summary>
-    [HttpPost("execution-providers/download")]
-    public async Task DownloadExecutionProviders([FromQuery] string? eps, CancellationToken cancellationToken)
-    {
-        Response.StartSseStream();
-        var writer = new SseStreamWriter(Response, cancellationToken);
-        var progress = new Progress<double>(p => _ = writer.WriteJsonAsync(new FoundryLocalDownloadProgressDto
-        {
-            Alias = "__ep__",
-            Progress = p,
-            State = "downloading",
-        }));
-
-        try
-        {
-            var names = string.IsNullOrWhiteSpace(eps)
-                ? null
-                : eps.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-            await _service.DownloadAndRegisterExecutionProvidersAsync(names, progress, cancellationToken);
-            await writer.WriteJsonAsync(new FoundryLocalDownloadProgressDto
-            {
-                Alias = "__ep__",
-                Progress = 100,
-                State = "completed",
-            });
-        }
-        catch (OperationCanceledException)
-        {
-            await writer.WriteJsonAsync(new FoundryLocalDownloadProgressDto { Alias = "__ep__", State = "cancelled" });
-        }
-        catch (Exception ex)
-        {
-            await writer.WriteJsonAsync(new FoundryLocalDownloadProgressDto
-            {
-                Alias = "__ep__",
-                State = "failed",
-                Error = ex.Message.Split('\n')[0],
-            });
-        }
-    }
-
-    /// <summary>启动 OpenAI 兼容 Web 服务</summary>
-    [HttpPost("service/start")]    public async Task<ActionResult<ApiResponse>> StartService(CancellationToken cancellationToken)
+    /// <summary>启动本地服务</summary>
+    [HttpPost("service/start")]
+    public async Task<ActionResult<ApiResponse>> StartService(CancellationToken cancellationToken)
     {
         try
         {
@@ -182,17 +152,41 @@ public class FoundryLocalController : ControllerBase
         }
     }
 
-    /// <summary>停止 Web 服务</summary>
+    /// <summary>停止本地服务</summary>
     [HttpPost("service/stop")]
     public async Task<ActionResult<ApiResponse>> StopService(CancellationToken cancellationToken)
     {
-        await _service.StopServiceAsync(cancellationToken);
-        return Ok(ApiResponse.Ok());
+        try
+        {
+            await _service.StopServiceAsync(cancellationToken);
+            return Ok(ApiResponse.Ok());
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(ApiResponse.Fail(ex.Message.Split('\n')[0]));
+        }
     }
 
-    /// <summary>设置模型保存路径；传空恢复默认。改完会重建运行时</summary>
-    [HttpPut("model-dir")]
-    public async Task<ActionResult<ApiResponse<string>>> SetModelDir([FromBody] UpdateFoundryLocalModelDirRequest request, CancellationToken cancellationToken)
+    /// <summary>重启本地服务</summary>
+    [HttpPost("service/restart")]
+    public async Task<ActionResult<ApiResponse>> RestartService(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _service.RestartServiceAsync(cancellationToken);
+            return Ok(ApiResponse.Ok());
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(ApiResponse.Fail(ex.Message.Split('\n')[0]));
+        }
+    }
+
+    /// <summary>设置模型缓存目录；传空恢复默认</summary>
+    [HttpPut("cache-dir")]
+    public async Task<ActionResult<ApiResponse<string>>> SetCacheDir(
+        [FromBody] UpdateFoundryLocalCacheDirRequest request,
+        CancellationToken cancellationToken)
     {
         var path = request?.Path?.Trim();
         if (!string.IsNullOrWhiteSpace(path))
@@ -209,7 +203,7 @@ public class FoundryLocalController : ControllerBase
             }
         }
 
-        var applied = await _service.SetModelDirAsync(string.IsNullOrWhiteSpace(path) ? null : path, cancellationToken);
+        var applied = await _service.SetCacheDirAsync(string.IsNullOrWhiteSpace(path) ? null : path, cancellationToken);
         return Ok(ApiResponse<string>.Ok(applied));
     }
 }

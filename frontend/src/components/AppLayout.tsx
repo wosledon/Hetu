@@ -71,11 +71,19 @@ function NavUnreadBadge() {
   )
 }
 
-/** 导航项状态角标（如实验性入口的 BETA），跟在标题后面不抢焦点 */
-function NavBadge({ label }: { label: string }) {
+/** 徽标配色：BETA 走琥珀（实验性），NEW 走蓝（新功能） */
+const NAV_BADGE_TONES: Record<string, string> = {
+  'nav:beta': 'border-amber-300/70 bg-amber-50 text-amber-600 dark:border-amber-400/30 dark:bg-amber-950/40 dark:text-amber-300',
+  'nav:new': 'border-blue-300/70 bg-blue-50 text-blue-600 dark:border-blue-400/30 dark:bg-blue-950/40 dark:text-blue-300',
+}
+
+/** 导航项状态角标（如实验性入口的 BETA / 新功能 NEW），跟在标题后面不抢焦点 */
+function NavBadge({ badgeKey }: { badgeKey: string }) {
+  const { t } = useTranslation()
+  const tone = NAV_BADGE_TONES[badgeKey] ?? NAV_BADGE_TONES['nav:beta']
   return (
-    <span className="ml-0.5 shrink-0 rounded border border-amber-300/70 bg-amber-50 px-1 text-[9px] font-semibold leading-[14px] tracking-wide text-amber-600 dark:border-amber-400/30 dark:bg-amber-950/40 dark:text-amber-300">
-      {label}
+    <span className={`ml-0.5 shrink-0 rounded border px-1 text-[9px] font-semibold leading-[14px] tracking-wide ${tone}`}>
+      {t(badgeKey)}
     </span>
   )
 }
@@ -174,7 +182,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
         <Icon size={14} />
         {label}
         {item.path === '/inbox' && <NavUnreadBadge />}
-        {item.badgeKey && <NavBadge label={t(item.badgeKey)} />}
+        {item.badgeKey && <NavBadge badgeKey={item.badgeKey} />}
       </button>
     )
   }
@@ -201,7 +209,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
         <Icon size={isVerticalList ? 16 : 18} />
         <span className="max-w-full truncate">{label}</span>
         {item.path === '/inbox' && <NavUnreadBadge />}
-        {item.badgeKey && <NavBadge label={t(item.badgeKey)} />}
+        {item.badgeKey && <NavBadge badgeKey={item.badgeKey} />}
       </button>
     )
   }
@@ -262,7 +270,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
             >
               <Icon size={14} />
               {t(item.labelKey)}
-              {item.badgeKey && <NavBadge label={t(item.badgeKey)} />}
+              {item.badgeKey && <NavBadge badgeKey={item.badgeKey} />}
             </button>
           )
         })}
@@ -445,7 +453,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
                     <Icon size={14} />
                     {t(item.labelKey)}
                     {item.path === '/inbox' && <NavUnreadBadge />}
-                    {badgeKey && <NavBadge label={t(badgeKey)} />}
+                    {badgeKey && <NavBadge badgeKey={badgeKey} />}
                   </>
                 ),
               }

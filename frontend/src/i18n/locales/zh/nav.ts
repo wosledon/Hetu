@@ -32,4 +32,5 @@ export default {
   githubShort: 'GitHub',
   githubWithStars: '在 GitHub 上查看 {{repo}}（Star {{count}}）',
   beta: 'BETA',
+  new: 'NEW',
 }

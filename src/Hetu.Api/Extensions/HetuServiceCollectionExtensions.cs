@@ -144,8 +144,8 @@ public static class HetuServiceCollectionExtensions
         services.AddScoped<IMcpService, McpService>();
         services.AddScoped<IWhiteboardService, WhiteboardService>();
 
-        // Foundry Local 本地模型运行时：单例（内部还包着 SDK 自己的单例，且带并发门）
-        services.AddSingleton<IFoundryLocalService, FoundryLocalService>();
+        // Foundry Local 本地模型运行时：单例（内部串行化 CLI 调用，避免并发抢缓存锁）
+        services.AddSingleton<IFoundryLocalService, FoundryLocalCliService>();
 
         AddChatServices(services);
         AddProxyServices(services);

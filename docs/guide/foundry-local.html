@@ -8,17 +8,17 @@
 <meta name="color-scheme" content="light dark">
 
 <title>本地模型 · Hetu</title>
-<meta name="description" content="Foundry Local 本地模型运行时：浏览模型目录、下载、加载与卸载，自定义模型保存路径，并一键接入 Hetu 的对话与知识库。">
+<meta name="description" content="本地模型功能详解：通过 Foundry Local CLI 在本地运行开源模型，浏览目录、下载、加载，并接入 Hetu 的对话与知识库。">
 <link rel="canonical" href="https://wosledon.github.io/Hetu/guide/foundry-local.html">
-<link rel="alternate" hreflang="zh-CN" href="https://wosledon.github.io/Hetu/guide/foundry-local.html">
-<link rel="alternate" hreflang="en" href="https://wosledon.github.io/Hetu/en/guide/foundry-local.html">
+<link rel="alternate" hreflang="zh-CN" href="https://wosledon.github.io/Hetu/guide/notes.html">
+<link rel="alternate" hreflang="en" href="https://wosledon.github.io/Hetu/en/guide/notes.html">
 <link rel="alternate" hreflang="x-default" href="https://wosledon.github.io/Hetu/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Hetu">
 <meta property="og:title" content="本地模型 · Hetu">
-<meta property="og:description" content="Foundry Local 本地模型运行时：浏览模型目录、下载、加载与卸载，自定义模型保存路径，并一键接入 Hetu 的对话与知识库。">
+<meta property="og:description" content="本地模型功能详解：通过 Foundry Local CLI 在本地运行开源模型，浏览目录、下载、加载，并接入 Hetu 的对话与知识库。">
 <meta property="og:url" content="https://wosledon.github.io/Hetu/guide/foundry-local.html">
-<meta property="og:image" content="https://wosledon.github.io/Hetu/screenshots/04-graph.png">
+<meta property="og:image" content="https://wosledon.github.io/Hetu/screenshots/07-models.png">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://api.github.com">
@@ -50,83 +50,85 @@
   <aside class="docs-side">
   <button class="side-search" data-search-open type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/></svg><span>搜索文档</span><kbd>/</kbd></button>
   <nav class="side-nav" aria-label="文档目录">
-    <details class="side-group" open><summary>开始</summary><ul><li><a href="index.html">文档索引</a></li><li><a href="getting-started.html">快速开始</a></li></ul></details><details class="side-group" open><summary>使用</summary><ul><li><a href="notes.html">笔记</a></li><li><a href="workspace.html">Agent 工作台</a></li><li><a href="code-sessions.html">Code 会话</a></li><li><a href="knowledge.html">知识库</a></li><li><a href="graph-wiki.html">知识图谱与 Wiki</a></li><li><a href="memories.html">记忆与 Dream</a></li><li><a href="organize.html">看板与自动化</a></li><li><a href="whiteboard.html">画板</a></li><li><a href="extensions.html">扩展与集成</a></li><li><a href="models.html">模型与用量</a></li><li><a href="foundry-local.html" aria-current="page">本地模型</a></li><li><a href="theme.html">主题与外观</a></li></ul></details><details class="side-group" open><summary>平台</summary><ul><li><a href="desktop.html">桌面应用</a></li><li><a href="data.html">数据与安全</a></li><li><a href="architecture.html">架构与实现</a></li><li><a href="faq.html">常见问题</a></li><li><a href="dev.html">参与开发</a></li></ul></details><details class="side-group" open><summary>深入实现</summary><ul><li><a href="agent-loop.html">Agent 循环</a></li><li><a href="permissions.html">权限与审批</a></li><li><a href="context.html">上下文与自动压缩</a></li><li><a href="compression.html">压缩管道</a></li><li><a href="sse.html">SSE 事件协议</a></li><li><a href="chunking.html">分块与向量索引</a></li><li><a href="retrieval.html">语义检索</a></li><li><a href="graph-extraction.html">知识图谱抽取</a></li><li><a href="wiki-generation.html">Wiki 生成</a></li><li><a href="memory-recall.html">记忆写入与召回</a></li><li><a href="dream.html">Dream 巩固</a></li><li><a href="kanban.html">任务看板与自动化</a></li><li><a href="workflows.html">工作流引擎</a></li><li><a href="background-tasks.html">后台与定时任务</a></li><li><a href="inbox.html">收件箱与通知</a></li></ul></details>
+    <details class="side-group" open><summary>开始</summary><ul><li><a href="index.html">文档索引</a></li><li><a href="getting-started.html">快速开始</a></li></ul></details><details class="side-group" open><summary>使用</summary><ul><li><a href="foundry-local.html" aria-current="page">笔记</a></li><li><a href="workspace.html">Agent 工作台</a></li><li><a href="code-sessions.html">Code 会话</a></li><li><a href="knowledge.html">知识库</a></li><li><a href="graph-wiki.html">知识图谱与 Wiki</a></li><li><a href="memories.html">记忆与 Dream</a></li><li><a href="organize.html">看板与自动化</a></li><li><a href="whiteboard.html">画板</a></li><li><a href="extensions.html">扩展与集成</a></li><li><a href="models.html">模型与用量</a></li><li><a href="foundry-local.html">本地模型</a></li><li><a href="theme.html">主题与外观</a></li></ul></details><details class="side-group" open><summary>平台</summary><ul><li><a href="desktop.html">桌面应用</a></li><li><a href="data.html">数据与安全</a></li><li><a href="architecture.html">架构与实现</a></li><li><a href="faq.html">常见问题</a></li><li><a href="dev.html">参与开发</a></li></ul></details><details class="side-group" open><summary>深入实现</summary><ul><li><a href="agent-loop.html">Agent 循环</a></li><li><a href="permissions.html">权限与审批</a></li><li><a href="context.html">上下文与自动压缩</a></li><li><a href="compression.html">压缩管道</a></li><li><a href="sse.html">SSE 事件协议</a></li><li><a href="chunking.html">分块与向量索引</a></li><li><a href="retrieval.html">语义检索</a></li><li><a href="graph-extraction.html">知识图谱抽取</a></li><li><a href="wiki-generation.html">Wiki 生成</a></li><li><a href="memory-recall.html">记忆写入与召回</a></li><li><a href="dream.html">Dream 巩固</a></li><li><a href="kanban.html">任务看板与自动化</a></li><li><a href="workflows.html">工作流引擎</a></li><li><a href="background-tasks.html">后台与定时任务</a></li><li><a href="inbox.html">收件箱与通知</a></li></ul></details>
   </nav>
 </aside>
     <aside class="docs-toc" data-docs-toc aria-label="本页目录"></aside>
-    <div class="docs-body">
-      <h1>本地模型</h1>
-      <p class="lede">Foundry Local 本地模型运行时：浏览模型目录、下载、加载与卸载，自定义模型保存路径，并一键接入 Hetu 的对话与知识库。</p>
-<h2>是什么</h2>
-      <p>「本地模型」把 <a href="https://learn.microsoft.com/azure/foundry-local/overview">Foundry Local</a> 这套本地推理运行时接进了 Hetu：不用 API Key、不联网，用自己机器上的 GPU/NPU 跑开源模型。它覆盖 <code>foundry</code> 命令行工具的主要能力面，对话、Code 会话、知识库分块与 Embedding 都能直接切到这些模型上。</p>
-      <p>入口：左侧导航「本地模型」（<code>/foundry-local</code>），默认在动态区关闭，去「设置 → 导航菜单」里打开即可固定显示。</p>
+          <h1>本地模型</h1>
+      <p class="lede">入口是左侧导航「本地模型」（路由 <code>/foundry-local</code>）。Hetu 通过调用微软官方的 <a href="https://learn.microsoft.com/windows/ai/foundry-local/get-started">Foundry Local CLI</a> 在本地跑开源模型：浏览目录、下载、加载，并直接接入 Hetu 的对话与知识库。Hetu 自身不内置任何模型运行时。</p>
+
+      <h2>是什么</h2>
+      <p>Foundry Local 是微软的本地推理运行时，提供一个 OpenAI 兼容的 HTTP 服务。Hetu 把它的能力包装成一个管理页：</p>
+      <ul>
+        <li><strong>不联网、不上传</strong>：模型下载完后，推理完全在本机完成。</li>
+        <li><strong>无需 API Key</strong>：本地服务没有鉴权，Hetu 也不要求填。</li>
+        <li><strong>Hetu 只做壳</strong>：所有重活（下载、加载、执行提供程序注册）都由 CLI 负责，Hetu 通过命令行调用它并解析 JSON 输出。这让 Hetu 的安装包小了 40 MB 以上，也不再受原生库兼容性问题困扰。</li>
+      </ul>
+
+      <h2>安装 CLI</h2>
+      <p>首次打开页面时，如果没检测到 <code>foundry</code> 命令，整页会显示安装引导而不是报错。安装方式（需要 Windows 10 / 11）：</p>
+      <pre><code>winget install Microsoft.FoundryLocal</code></pre>
+      <p>装完刷新页面即可，Hetu 会自动识别。CLI 首次运行时会自行下载并注册本机可用的执行提供程序（CPU / WebGPU / AMD MIGraphX 等）。</p>
 
       <h2>运行状态</h2>
-      <p>页面顶部一张状态卡，实时反映本地运行时：</p>
       <div class="table-wrap"><table>
-        <thead><tr><th>字段</th><th>说明</th></tr></thead>
+        <thead><tr><th>项</th><th>说明</th></tr></thead>
         <tbody>
-          <tr><td>运行状态</td><td>本地 OpenAI 兼容服务是否在监听；「启动服务 / 停止服务」对应 <code>foundry service start/stop</code></td></tr>
-          <tr><td>服务端点</td><td>形如 <code>http://127.0.0.1:5272/v1</code>。端口由运行时分配，不是固定的</td></tr>
-          <tr><td>已加载</td><td>常驻内存的模型数（对应 <code>foundry service ps</code>），占显存/内存的正是这些</td></tr>
-          <tr><td>已下载</td><td>本地有缓存的模型数（对应 <code>foundry cache list</code>）</td></tr>
+          <tr><td>服务开关</td><td>启动 / 停止 / 重启本地服务。端口由 CLI 动态分配，Hetu 每次现问，不写死</td></tr>
+          <tr><td>端点</td><td>OpenAI 兼容服务根地址，如 <code>http://127.0.0.1:62645</code>；Provider 工厂会自动补上 <code>/v1</code></td></tr>
+          <tr><td>CLI 版本</td><td>当前安装的 <code>foundry</code> 版本</td></tr>
+          <tr><td>已加载 / 已下载</td><td>常驻内存的模型数 / 本地已缓存的模型数</td></tr>
+          <tr><td>CLI 警告</td><td>CLI 自己报的问题（如某个执行提供程序注册失败）原样展示，不吞掉</td></tr>
         </tbody>
       </table></div>
 
-      <h2>模型保存路径</h2>
-      <p>模型动辄数 GB，存放位置可以在页面里直接改：填一个绝对路径保存即可，重启 Hetu 后生效。</p>
+      <h2>本机硬件</h2>
+      <p>状态卡会列出 CPU 型号、检测到的 GPU / NPU、可用内存与磁盘剩余空间。哪些模型能跑、跑哪个设备变体，取决于这里——没有 NVIDIA 显卡的机器上下载 CUDA 变体是跑不起来的。</p>
+
+      <h2>模型缓存路径</h2>
       <ul>
-        <li>默认路径是 Hetu 数据目录下的 <code>foundry-models</code>，与 SQLite、日志同一套优先级（<code>Hetu:DataDir</code> → <code>HETU_DATA_DIR</code> → 系统本地应用数据目录）</li>
-        <li>「恢复默认」一键回到上述目录</li>
-        <li>保存后<strong>需要重启 Hetu 才会切换</strong>：本地运行时是进程级单例，初始化后无法原地重建，页面会给出重启提示</li><li>换路径<strong>不会自动迁移</strong>已下载的文件：想搬就在重启前把旧目录里的内容复制到新目录，或先删旧缓存再重新下载</li>
+        <li>默认在 <code>~/.foundry/cache/models</code>，可改成空间充足的磁盘。</li>
+        <li>修改后<strong>立即生效</strong>，不需要重启 Hetu；已下载的模型不会自动迁移。</li>
+        <li>「恢复默认」一键改回 CLI 的初始值。</li>
       </ul>
 
       <h2>模型目录</h2>
-      <p>中间是模型目录列表，按「已下载 → 名称」排序，每条显示发布方、模型类型、上下文长度与体积。</p>
+      <p>目录把同一模型的每个设备变体各列一行（CPU / GPU / NPU），并标注每个变体的执行提供程序、体积、授权协议。支持按任务、设备、状态筛选，以及关键词搜索和按体积 / 名称排序；已下载的始终排在最前。</p>
+
+      <h3>行内操作</h3>
       <div class="table-wrap"><table>
         <thead><tr><th>操作</th><th>说明</th></tr></thead>
         <tbody>
-          <tr><td>下载</td><td>首次需要联网从模型源拉取，进度条实时推进；下完即落在上面的保存路径里</td></tr>
-          <tr><td>加载 / 卸载</td><td>对应 <code>foundry model load/unload</code>。加载才真正占用显存，用完后卸载可立刻释放</td></tr>
-          <tr><td>删除</td><td>删掉本地文件（对应 <code>foundry cache remove</code>），下次使用需重新下载</td></tr>
-          <tr><td>接入 Hetu</td><td>一键把该变体注册成「Foundry Local」服务商下的对话模型，之后就能在对话与 Code 会话里选它</td></tr>
+          <tr><td>下载</td><td>首次下载需要联网；进度条由 CLI 的输出实时解析而来</td></tr>
+          <tr><td>加载 / 卸载</td><td>把模型载入内存或释放；加载后才能被对话使用</td></tr>
+          <tr><td>接入 Hetu</td><td>注册为大模型服务商下的对话模型，之后就能在对话里选它</td></tr>
+          <tr><td>删除</td><td>清除本地文件，下次使用需重新下载</td></tr>
         </tbody>
       </table></div>
-      <p>目录上方一排筛选下拉（选项与计数由目录数据自动生成）：任务类型、输入模态、设备（CPU / GPU / NPU）、是否支持工具调用、是否已下载；右侧可切换排序（名称 / 体积 / 上下文长度）。搜索框按别名、显示名、发布方与类型过滤。</p><p><strong>关于「设备」筛选</strong>：目录按「模型 × 设备变体」平铺，同一个模型会有多行——例如 phi-4-mini 同时有 GPU（CUDA）、GPU（WebGPU）与 CPU 三行，体积各不相同（GPU 更小）。设备筛选项的计数由目录数据生成，当前为 GPU 71 / CPU 56。</p><p>页面顶部的「执行提供程序」卡片列出本机可用的 GPU/NPU 后端及注册状态，可一键下载注册——这是跑 GPU/NPU 变体的前提。已下载但所需 EP 未注册的变体，「加载」会变成「注册 XX」；本机压根没有该 EP 时（例如 AMD 显卡机器上没有 CUDA）会直接标注「本机无 XX」，不会让你白点。</p>
 
-      <h2>接入 Hetu 大模型</h2>
-      <p>点「接入 Hetu」会做两件事：创建一个 <code>foundry</code> 类型的服务商（没有 API Key，Base URL 填当前端点），再把该模型注册为对话模型。之后：</p>
+      <h3>加载失败怎么办</h3>
+      <p>最常见的失败原因是<strong>该变体需要本机没有的执行提供程序</strong>。例如 AMD 显卡的机器上没有 CUDA，下载了 CUDA 变体必然加载失败。CLI 会把原始错误透出来，照着它换同一模型的其他设备变体（通常是 CPU 或 WebGPU）即可。另外，目录里个别条目的元数据与实际二进制不一致（例如标注 CPU 实际是 CUDA 模型），这是上游目录的问题，Hetu 无法代为修正。</p>
+
+            <h2>接入 Hetu 大模型</h2>
       <ul>
-        <li>在「设置 → 大模型」里可以把它设为默认对话模型，或改用途、调上下文长度等</li>
-        <li>Embedding 用途同理：把本地的 embedding 模型注册进来，知识库的向量索引就能全本地跑</li>
-        <li>服务商也可以手工添加：类型选「Foundry Local（本地）」，Base URL 填运行时给出的端点——跨机器指向另一台机器上的 Foundry Local 时走这条路</li>
+        <li>在目录行点「接入 Hetu」，会把该变体注册成 <code>Foundry Local</code> 服务商下的对话模型。</li>
+        <li>之后在「设置 → 大模型」里可把它设为默认模型，对话、知识库索引、Wiki 生成等都能用它。</li>
+        <li>发送消息时若服务没起或模型没加载，Hetu 会先自动拉起服务和加载模型，再发请求。</li>
       </ul>
-      <div class="note">本地服务的端口由运行时动态分配，重启后会变。 Hetu 不把端口写死：没配 Base URL 的 Foundry Local 服务商每次请求都现场取当前端点，你不需要手动改。</div>
 
       <h2>平台支持</h2>
-      <p>Foundry Local 目前只支持 Windows（依赖 DirectML / WinML）。在 Linux 与 macOS 上入口仍在，但会整体置灰并说明原因；此时仍可通过手工添加 OpenAI 兼容服务商的方式，指向另一台 Windows 机器上的 Foundry Local 端点来使用。</p>
+      <ul>
+        <li><strong>Windows</strong>：完整支持，CLI 官方提供 Windows 版本。</li>
+        <li><strong>Linux / macOS</strong>：CLI 未提供，本地模型页会提示不支持。你仍可以在「大模型」里手动添加一个 OpenAI 兼容服务商，指向另一台 Windows 机器上的 Foundry Local 端点。</li>
+      </ul>
 
       <h2>数据与接口</h2>
-      <p>管理面接口遵循统一响应约定，只读列表带短时响应缓存：</p>
-      <div class="table-wrap"><table>
-        <thead><tr><th>方法</th><th>路径</th><th>说明</th></tr></thead>
-        <tbody>
-          <tr><td>GET</td><td><code>/api/foundry-local/status</code></td><td>运行状态、端点、保存路径、已加载/已下载数量</td></tr>
-          <tr><td>GET</td><td><code>/api/foundry-local/models?cachedOnly=false</code></td><td>模型目录（按模型 × 设备变体平铺）；<code>cachedOnly=true</code> 只看本地已有</td></tr>
-          <tr><td>GET</td><td><code>/api/foundry-local/models/loaded</code></td><td>当前常驻内存的模型</td></tr>
-          <tr><td>POST</td><td><code>/api/foundry-local/models/{alias}/download</code></td><td>下载；SSE 推进度帧 <code>{alias, progress, state, error}</code></td></tr>
-          <tr><td>POST</td><td><code>/api/foundry-local/models/{alias}/load</code> / <code>unload</code></td><td>加载 / 卸载</td></tr>
-          <tr><td>POST</td><td><code>/api/foundry-local/models/{alias}/register?purpose=chat</code></td><td>注册为 Hetu 模型，返回模型 Id</td></tr>
-          <tr><td>DELETE</td><td><code>/api/foundry-local/models/{alias}</code></td><td>删除本地缓存</td></tr>
-          <tr><td>POST</td><td><code>/api/foundry-local/service/start</code> / <code>stop</code></td><td>启停本地 OpenAI 兼容服务</td></tr>
-          <tr><td>PUT</td><td><code>/api/foundry-local/model-dir</code></td><td>设置保存路径；传空恢复默认</td></tr>
-        </tbody>
-      </table></div>
-      <p>模型本身走 OpenAI 兼容协议，由现有的 LLM / Embedding 工厂按 <code>foundry</code> 服务商类型分发，不引入第二套推理协议。</p>
-      <div class="docs-pager"><a href="models.html">← 模型与用量</a><a href="theme.html">主题与外观 →</a></div>
-    </div>
-  </div>
-</main>
+      <ul>
+        <li>模型缓存由 CLI 自己管理，位于 <code>~/.foundry/cache/models</code>，不在 Hetu 的数据目录里。</li>
+        <li>Hetu 侧只保存「哪个变体被接入了」这条记录（AiModel），卸载 Hetu 不会删除已下载的模型。</li>
+        <li>接口都在 <code>/api/foundry-local</code> 下：<code>status</code>、<code>models</code>、<code>models/{id}/download</code>（SSE 推进度）、<code>load</code> / <code>unload</code> / <code>register</code>、<code>service/start</code> / <code>stop</code> / <code>restart</code>、<code>cache-dir</code>。</li>
+      </ul>
+    <div class="docs-pager"><a href="models.html">← 模型与用量</a><a href="theme.html">主题与外观 →</a></div>
 <footer class="site-footer">
   <div class="wrap footer-grid">
     <div class="footer-brand">
@@ -176,3 +178,11 @@
 </div>
 </body>
 </html>
+
+
+
+
+
+
+
+
