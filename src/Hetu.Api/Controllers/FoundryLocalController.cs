@@ -127,9 +127,9 @@ public class FoundryLocalController : ControllerBase
         }
     }
 
-    /// <summary>下载并注册执行提供程序（GPU/NPU 后端），进度经 SSE 推送</summary>
+    /// <summary>下载并注册执行提供程序（GPU/NPU 后端），进度经 SSE 推送。eps 为空表示全部</summary>
     [HttpPost("execution-providers/download")]
-    public async Task DownloadExecutionProviders(CancellationToken cancellationToken)
+    public async Task DownloadExecutionProviders([FromQuery] string? eps, CancellationToken cancellationToken)
     {
         Response.StartSseStream();
         var writer = new SseStreamWriter(Response, cancellationToken);
@@ -142,7 +142,10 @@ public class FoundryLocalController : ControllerBase
 
         try
         {
-            await _service.DownloadAndRegisterExecutionProvidersAsync(progress, cancellationToken);
+            var names = string.IsNullOrWhiteSpace(eps)
+                ? null
+                : eps.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            await _service.DownloadAndRegisterExecutionProvidersAsync(names, progress, cancellationToken);
             await writer.WriteJsonAsync(new FoundryLocalDownloadProgressDto
             {
                 Alias = "__ep__",

@@ -54,8 +54,10 @@ export interface FoundryLocalModel {
   outputModalities?: string;
   /** 该变体的目标设备：CPU / GPU / NPU */
   deviceType?: string;
-  /** 该变体的执行提供程序（如 CPU / WebGPU） */
+  /** 该变体归一化后的执行提供程序（如 CPU / CUDA / WebGPU） */
   executionProvider?: string;
+  /** 该变体所需的执行提供程序是否已注册；未注册时无法加载 */
+  executionProviderRegistered: boolean;
   isCached: boolean;
   isLoaded: boolean;
   /** 该模型还有哪些设备的变体，如 ['GPU','CPU'] */
@@ -126,7 +128,14 @@ export const foundryLocalService = {
   /** 下载模型，SSE 推进度 */
   download: (variantId: string, onProgress: (p: FoundryLocalDownloadProgress) => void, signal?: AbortSignal) =>
     streamProgress(`/api/foundry-local/models/${encodeURIComponent(variantId)}/download`, onProgress, signal),
-  /** 下载并注册执行提供程序（GPU/NPU 后端），SSE 推进度 */
-  downloadExecutionProviders: (onProgress: (p: FoundryLocalDownloadProgress) => void, signal?: AbortSignal) =>
-    streamProgress('/api/foundry-local/execution-providers/download', onProgress, signal),
+  /** 下载并注册执行提供程序（GPU/NPU 后端），SSE 推进度；eps 省略表示全部 */
+  downloadExecutionProviders: (
+    onProgress: (p: FoundryLocalDownloadProgress) => void,
+    signal?: AbortSignal,
+    /** 要注册的 EP 名（SDK 原始名，如 CUDAExecutionProvider） */
+    eps?: string[],
+  ) => {
+    const query = eps && eps.length > 0 ? `?eps=${eps.map(encodeURIComponent).join(',')}` : ''
+    return streamProgress(`/api/foundry-local/execution-providers/download${query}`, onProgress, signal)
+  },
 };

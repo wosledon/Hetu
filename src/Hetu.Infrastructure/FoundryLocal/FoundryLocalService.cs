@@ -79,21 +79,58 @@ public class FoundryLocalService : IFoundryLocalService
             .ToList();
     }
 
-    public async Task DownloadAndRegisterExecutionProvidersAsync(IProgress<double>? progress = null, CancellationToken cancellationToken = default)
+    public async Task DownloadAndRegisterExecutionProvidersAsync(
+        IEnumerable<string>? names = null,
+        IProgress<double>? progress = null,
+        CancellationToken cancellationToken = default)
     {
         var manager = await GetManagerAsync(cancellationToken);
         if (manager == null) return;
+
+        var targets = names?
+            .Where(n => !string.IsNullOrWhiteSpace(n))
+            .Select(n => n.Trim())
+            .ToList();
 
         await _gate.WaitAsync(cancellationToken);
         try
         {
             // 回调签名是 (name, percentage)，进度取整体百分比
-            await manager.DownloadAndRegisterEpsAsync((_, p) => progress?.Report(Math.Clamp(p, 0, 100)), cancellationToken);
+            if (targets is { Count: > 0 })
+                await manager.DownloadAndRegisterEpsAsync(targets, (_, p) => progress?.Report(Math.Clamp(p, 0, 100)), cancellationToken);
+            else
+                await manager.DownloadAndRegisterEpsAsync((_, p) => progress?.Report(Math.Clamp(p, 0, 100)), cancellationToken);
         }
         finally
         {
             _gate.Release();
         }
+    }
+
+    /// <summary>已注册 EP 的归一化名集合（去掉 ExecutionProvider 后缀后比较，大小写不敏感）</summary>
+    private async Task<HashSet<string>> GetRegisteredEpNamesAsync(CancellationToken cancellationToken)
+    {
+        var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var manager = await GetManagerAsync(cancellationToken);
+        if (manager == null) return result;
+
+        foreach (var ep in manager.DiscoverEps().Where(e => e.IsRegistered))
+        {
+            var normalized = NormalizeExecutionProvider(ep.Name);
+            if (!string.IsNullOrEmpty(normalized)) result.Add(normalized);
+        }
+        return result;
+    }
+
+    private static bool IsEpRegistered(string? epName, HashSet<string> registeredEps)
+    {
+        // 没拿到 EP 名时不拦：让后端/本地的真实错误说话，比误拦好
+        if (string.IsNullOrWhiteSpace(epName)) return true;
+        var normalized = NormalizeExecutionProvider(epName);
+        if (string.IsNullOrEmpty(normalized)) return true;
+        // CPU 是内置的 ONNX EP，DiscoverEps 从不列它，但始终可用
+        if (string.Equals(normalized, "CPU", StringComparison.OrdinalIgnoreCase)) return true;
+        return registeredEps.Contains(normalized);
     }
 
     /// <summary>EP 名 → 设备类型。SDK 只给个类名，按名字归类</summary>
@@ -179,12 +216,13 @@ public class FoundryLocalService : IFoundryLocalService
             : await catalog.ListModelsAsync(cancellationToken);
 
         // 每个模型的变体探测与状态读取都并发跑：串行要 60s+，并发几秒
+        var registeredEps = await GetRegisteredEpNamesAsync(cancellationToken);
         var perModel = models.Select(async model =>
         {
             var devices = await ResolveDeviceVariantsAsync(catalog, model, cancellationToken);
             var rows = new List<FoundryLocalModelDto>(devices.Count);
             foreach (var variant in devices)
-                rows.Add(await MapAsync(variant, registered, devices, cancellationToken));
+                rows.Add(await MapAsync(variant, registered, devices, registeredEps, cancellationToken));
             return rows;
         }).ToList();
 
@@ -320,10 +358,11 @@ public class FoundryLocalService : IFoundryLocalService
         if (catalog == null) return empty;
 
         var registered = await GetRegisteredAliasesAsync(cancellationToken);
+        var registeredEps = await GetRegisteredEpNamesAsync(cancellationToken);
         var loaded = await catalog.GetLoadedModelsAsync(cancellationToken);
         var result = new List<FoundryLocalModelDto>(loaded.Count);
         foreach (var model in loaded)
-            result.Add(await MapAsync(model, registered, [model], cancellationToken));
+            result.Add(await MapAsync(model, registered, [model], registeredEps, cancellationToken));
         return result;
     }
 
@@ -587,6 +626,7 @@ public class FoundryLocalService : IFoundryLocalService
         FoundrySdk.IModel model,
         HashSet<string> registered,
         List<FoundrySdk.IModel> deviceVariants,
+        HashSet<string> registeredEps,
         CancellationToken cancellationToken)
     {
         var info = model.Info;
@@ -616,6 +656,9 @@ public class FoundryLocalService : IFoundryLocalService
             // 目录给的是 "CPUExecutionProvider" 这种类名，去掉后缀才是人看的 "CPU / WebGPU"
             ExecutionProvider = NormalizeExecutionProvider(
                 info.Runtime?.ExecutionProvider ?? model.GetStringProperty(FoundrySdk.ModelInfoPropertyKeys.ExecutionProvider)),
+            ExecutionProviderRegistered = IsEpRegistered(
+                info.Runtime?.ExecutionProvider ?? model.GetStringProperty(FoundrySdk.ModelInfoPropertyKeys.ExecutionProvider),
+                registeredEps),
             IsCached = cached,
             IsLoaded = loaded,
             DeviceVariants = deviceVariants

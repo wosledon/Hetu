@@ -13,6 +13,8 @@ export default {
     title: 'Execution providers',
     download: 'Download & register',
     downloadHint: 'Download and register the execution providers that are not registered yet (GPU / NPU backends)',
+    register: 'Register',
+    registerOne: 'Download and register {{ep}} only',
     hint: 'The catalog lists one variant per model, and they are all CPU (ONNX generic-cpu) right now. Which device variants show up depends on which variants the model itself publishes and which execution providers this machine has — registering a GPU/NPU backend is a prerequisite for running those variants, but it does not add variants to the catalog.',
     registeredHint: 'Execution providers registered (active for this session)',
     cpu: 'CPU',
@@ -28,7 +30,7 @@ export default {
     save: 'Save',
     reset: 'Reset to default',
     restartHint: 'Directory changed — restart Hetu to apply it',
-    applied: 'Saved — takes effect after restarting Hetu: {path}',
+    applied: 'Saved — takes effect after restarting Hetu: {{path}}',
   },
   catalog: {
     title: 'Model catalog',
@@ -62,6 +64,10 @@ export default {
   },
   row: {
     deviceVariants: 'Devices',
+    registerEp: 'Register {{ep}}',
+    epMissingHint: 'This variant needs the {{ep}} execution provider, which is not registered yet. Download and register it before loading.',
+    epUnavailable: 'No {{ep}} here',
+    epUnavailableHint: 'This machine has no usable {{ep}} execution provider (for example there is no CUDA on an AMD graphics card), so this variant cannot be loaded. Try another device variant of the same model.',
   },
   badge: {
     cached: 'Downloaded',
@@ -73,7 +79,7 @@ export default {
     load: 'Load',
     unload: 'Unload',
     remove: 'Delete',
-    removeConfirm: 'Delete the local files for "{name}"? You will need to download it again to use it.',
+    removeConfirm: 'Delete the local files for "{{name}}"? You will need to download it again to use it.',
     register: 'Wire into Hetu',
     registerHint: 'Register as a chat model under the model providers',
     startService: 'Start service',

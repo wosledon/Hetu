@@ -63,6 +63,8 @@ public class FoundryLocalModelDto
     public string? DeviceType { get; set; }
     /// <summary>该变体的执行提供程序（如 CPU / WebGPU）</summary>
     public string? ExecutionProvider { get; set; }
+    /// <summary>该变体所需的执行提供程序是否已注册；未注册时无法加载（CUDA 变体常见）</summary>
+    public bool ExecutionProviderRegistered { get; set; }
     /// <summary>是否已下载到本地</summary>
     public bool IsCached { get; set; }
     /// <summary>是否已加载进内存</summary>

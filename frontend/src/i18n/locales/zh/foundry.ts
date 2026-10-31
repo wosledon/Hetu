@@ -13,6 +13,8 @@ export default {
     title: '执行提供程序',
     download: '下载并注册',
     downloadHint: '下载并注册尚未注册的执行提供程序（GPU / NPU 后端）',
+    register: '注册',
+    registerOne: '只下载并注册 {{ep}}',
     hint: '目录里每个模型只列出一个变体，当前全部是 CPU（ONNX generic-cpu）。会出现哪些设备的变体，取决于模型本身发布了哪些变体、以及本机可用的执行提供程序——注册 GPU/NPU 后端是跑这些变体的前提，但不会凭空往目录里添加变体。',
     registeredHint: '执行提供程序已注册（当前会话生效）',
     cpu: 'CPU',
@@ -28,7 +30,7 @@ export default {
     save: '保存',
     reset: '恢复默认',
     restartHint: '已切换保存路径，重启 Hetu 后生效',
-    applied: '已保存，重启 Hetu 后生效：{path}',
+    applied: '已保存，重启 Hetu 后生效：{{path}}',
   },
   catalog: {
     title: '模型目录',
@@ -62,6 +64,10 @@ export default {
   },
   row: {
     deviceVariants: '可用设备',
+    registerEp: '注册 {{ep}}',
+    epMissingHint: '该变体需要 {{ep}} 执行提供程序，尚未注册；下载注册后才能加载',
+    epUnavailable: '本机无 {{ep}}',
+    epUnavailableHint: '本机没有可用的 {{ep}} 执行提供程序（例如 AMD 显卡机器上没有 CUDA），该变体无法加载；可改用同一模型的其他设备变体',
   },
   badge: {
     cached: '已下载',
@@ -73,7 +79,7 @@ export default {
     load: '加载',
     unload: '卸载',
     remove: '删除',
-    removeConfirm: '确定删除「{name}」的本地文件？下次使用需要重新下载。',
+    removeConfirm: '确定删除「{{name}}」的本地文件？下次使用需要重新下载。',
     register: '接入 Hetu',
     registerHint: '注册为大模型服务商下的对话模型',
     startService: '启动服务',

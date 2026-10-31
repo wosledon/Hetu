@@ -58,10 +58,10 @@ public interface IFoundryLocalService
     Task<List<FoundryLocalEpDto>> GetExecutionProvidersAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// 下载并注册执行提供程序。注册后本地运行时需要重建才会按新 EP 过滤目录，
-    /// 因此和改模型路径一样要重启 Hetu 才生效。
+    /// 下载并注册执行提供程序。传 null 或空列表表示全部；
+    /// 指定名称（如 <c>CUDAExecutionProvider</c>）则只注册那一个。
     /// </summary>
-    Task DownloadAndRegisterExecutionProvidersAsync(IProgress<double>? progress = null, CancellationToken cancellationToken = default);
+    Task DownloadAndRegisterExecutionProvidersAsync(IEnumerable<string>? names = null, IProgress<double>? progress = null, CancellationToken cancellationToken = default);
 
     /// <summary>本地化的「当前平台不支持」原因；支持时返回 null</summary>
     string? GetUnsupportedReason();

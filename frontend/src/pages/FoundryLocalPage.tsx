@@ -11,6 +11,7 @@ import Select from '../components/Select'
 import {
   foundryLocalService,
   type FoundryLocalDownloadProgress,
+  type FoundryLocalEp,
   type FoundryLocalModel,
 } from '../services/foundryLocalService'
 import { confirm } from '../components/confirm'
@@ -158,7 +159,8 @@ export default function FoundryLocalPage() {
   })
 
   const epMutation = useMutation({
-    mutationFn: () => foundryLocalService.downloadExecutionProviders((progress) => setEpProgress(progress)),
+    mutationFn: (eps?: string[]) =>
+      foundryLocalService.downloadExecutionProviders((progress) => setEpProgress(progress), undefined, eps),
     onSuccess: () => {
       setEpProgress(null)
       setEpJustFinished(true)
@@ -319,7 +321,7 @@ export default function FoundryLocalPage() {
                         size="sm"
                         className="h-8 shrink-0 gap-1.5"
                         disabled={epMutation.isPending}
-                        onClick={() => epMutation.mutate()}
+                        onClick={() => epMutation.mutate(unregisteredEps.map((e) => e.name))}
                         title={t('ep.downloadHint')}
                       >
                         {epMutation.isPending ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
@@ -340,6 +342,20 @@ export default function FoundryLocalPage() {
                         {ep.isRegistered ? <Check size={11} /> : <CircleSlash size={11} />}
                         {ep.deviceType}
                         <span className="opacity-60">{epLabel(ep.name, t)}</span>
+                        {/* 未注册的可以只注册这一个：一把梭「全部」会由运行时挑，未必是你要的那个 */}
+                        {!ep.isRegistered && (
+                          <button
+                            onClick={() => epMutation.mutate([ep.name])}
+                            disabled={epMutation.isPending}
+                            title={t('ep.registerOne', { ep: epLabel(ep.name, t) || ep.name })}
+                            className="ml-0.5 flex items-center gap-0.5 rounded-full px-1.5 py-px text-[10px] text-cyan-600 transition-colors hover:bg-cyan-50 disabled:opacity-50 dark:text-cyan-300 dark:hover:bg-cyan-500/10"
+                          >
+                            {epMutation.isPending && epMutation.variables?.[0] === ep.name
+                              ? <Loader2 size={10} className="animate-spin" />
+                              : <Download size={10} />}
+                            {t('ep.register')}
+                          </button>
+                        )}
                       </span>
                     ))}
                   </div>
@@ -575,14 +591,37 @@ export default function FoundryLocalPage() {
                               </Button>
                             )}
                             {model.isCached && !model.isLoaded && (
-                              <Button
-                                variant="secondary"
-                                size="sm"
-                                className="gap-1.5"
-                                onClick={() => void runAction(() => foundryLocalService.load(model.id), 'loaded')}
-                              >
-                                <Play size={13} /> {t('action.load')}
-                              </Button>
+                              model.executionProviderRegistered ? (
+                                <Button
+                                  variant="secondary"
+                                  size="sm"
+                                  className="gap-1.5"
+                                  onClick={() => void runAction(() => foundryLocalService.load(model.id), 'loaded')}
+                                >
+                                  <Play size={13} /> {t('action.load')}
+                                </Button>
+                              ) : epAvailableFor(model.executionProvider, eps) ? (
+                                <Button
+                                  variant="secondary"
+                                  size="sm"
+                                  className="gap-1.5"
+                                  disabled={epMutation.isPending}
+                                  onClick={() => epMutation.mutate([epNameFor(model.executionProvider)])}
+                                  title={t('row.epMissingHint', { ep: model.executionProvider })}
+                                >
+                                  {epMutation.isPending ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
+                                  {t('row.registerEp', { ep: model.executionProvider })}
+                                </Button>
+                              ) : (
+                                /* 本机压根没这个 EP（如 AMD 机器上的 CUDA）：给结论，别让用户白点 */
+                                <span
+                                  className="flex items-center gap-1 text-[11px] text-gray-400"
+                                  title={t('row.epUnavailableHint', { ep: model.executionProvider })}
+                                >
+                                  <CircleSlash size={11} />
+                                  {t('row.epUnavailable', { ep: model.executionProvider })}
+                                </span>
+                              )
                             )}
                             {model.isLoaded && (
                               <Button
@@ -670,8 +709,7 @@ function Badge({ tone, children }: { tone: string; children: React.ReactNode }) 
   )
 }
 
-/** 设备徽底色：GPU/NPU 用同色系淡底，CPU 走中性灰 */
-const DEVICE_BADGE: Record<string, string> = {
+/** 设备徽底色：GPU/NPU 用同色系淡底，CPU 走中性灰 */const DEVICE_BADGE: Record<string, string> = {
   GPU: 'border-cyan-200 bg-cyan-50 text-cyan-700 dark:border-cyan-500/30 dark:bg-cyan-950/40 dark:text-cyan-300',
   NPU: 'border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-500/30 dark:bg-violet-950/40 dark:text-violet-300',
   CPU: 'border-gray-200 bg-gray-50 text-gray-500 dark:border-white/10 dark:bg-white/[0.04] dark:text-gray-400',
@@ -679,4 +717,19 @@ const DEVICE_BADGE: Record<string, string> = {
 
 function deviceBadgeClass(device?: string): string {
   return DEVICE_BADGE[device ?? ''] ?? DEVICE_BADGE.CPU
+}
+
+/** 归一化 EP 名（CPU / CUDA / WebGPU）→ SDK 原始 EP 名，用于按名注册 */
+function epNameFor(executionProvider?: string): string {
+  if (!executionProvider) return 'CUDAExecutionProvider'
+  return executionProvider.endsWith('ExecutionProvider')
+    ? executionProvider
+    : `${executionProvider}ExecutionProvider`
+}
+
+/** 本机是否找得到该 EP：DiscoverEps 列不出来（如 AMD 机器上的 CUDA）就注册也没用 */
+function epAvailableFor(executionProvider: string | undefined, available: FoundryLocalEp[]): boolean {
+  if (!executionProvider) return false
+  const target = executionProvider.replace(/ExecutionProvider$/i, '').toLowerCase()
+  return available.some((ep) => ep.name.replace(/ExecutionProvider$/i, '').toLowerCase() === target)
 }
