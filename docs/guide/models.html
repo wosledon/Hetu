@@ -62,8 +62,8 @@
       <div class="table-wrap"><table>
         <thead><tr><th>项</th><th>说明</th></tr></thead>
         <tbody>
-          <tr><td>协议</td><td>OpenAI 兼容（含 Ollama / LM Studio / vLLM 等本地服务）与 Anthropic</td></tr>
-          <tr><td>连接信息</td><td>Base URL + API Key；Key 用 DataProtection 加密落库</td></tr>
+          <tr><td>协议</td><td>OpenAI 兼容（含 Ollama / LM Studio / vLLM / Foundry Local 等本地服务）与 Anthropic</td></tr>
+          <tr><td>连接信息</td><td>Base URL + API Key；Key 用 DataProtection 加密落库。Foundry Local 这类本地运行时没有 Key，留空即可</td></tr>
           <tr><td>模型用途</td><td><code>chat</code>（对话与 Agent 循环）/ <code>embedding</code>（索引与检索）/ <code>completion</code>（轻量改写）</td></tr>
           <tr><td>模型标识</td><td>请求时使用的模型 ID，需与供应商侧一致</td></tr>
         </tbody>

@@ -2,7 +2,7 @@ import { get, post, put, del } from './api';
 import type { IAiProvider, IAiModel } from '../types';
 
 export interface CreateAiProviderRequest {
-  providerType: 'openai' | 'anthropic';
+  providerType: 'openai' | 'anthropic' | 'foundry';
   name: string;
   apiKey?: string;
   baseUrl?: string;

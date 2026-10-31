@@ -57,7 +57,10 @@ public class EmbeddingProviderFactory : IEmbeddingProviderFactory
         string apiKey;
         try
         {
-            apiKey = _protector.Unprotect(provider.EncryptedApiKey);
+            // 本地服务商（Foundry Local）没有 Key，库里存的是空串，不能送进 Unprotect
+            apiKey = string.IsNullOrEmpty(provider.EncryptedApiKey)
+                ? string.Empty
+                : _protector.Unprotect(provider.EncryptedApiKey);
         }
         catch (Exception ex)
         {
@@ -76,6 +79,8 @@ public class EmbeddingProviderFactory : IEmbeddingProviderFactory
         switch (provider.ProviderType.ToLowerInvariant())
         {
             case "openai":
+            // Foundry Local 暴露 OpenAI 兼容端点，直接复用
+            case "foundry":
                 return new OpenAiEmbeddingProvider(httpClient, apiKey, modelId, dimensions);
             case "anthropic":
                 return new AnthropicEmbeddingProvider(dimensions);
@@ -89,6 +94,8 @@ public class EmbeddingProviderFactory : IEmbeddingProviderFactory
         => providerType.ToLowerInvariant() switch
         {
             "anthropic" => "https://api.anthropic.com/v1/",
+            // Foundry Local 本地 Web 服务的默认端口
+            "foundry" => "http://127.0.0.1:5272/v1/",
             _ => "https://api.openai.com/v1/"
         };
 }

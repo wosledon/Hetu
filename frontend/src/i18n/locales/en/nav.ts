@@ -16,6 +16,7 @@ export default {
   tasksScheduled: 'Scheduled Tasks',
   memories: 'Memories',
   models: 'Models',
+  foundryLocal: 'Local models',
   workflows: 'Workflows',
   proxy: 'Proxy',
   usage: 'Usage',

@@ -16,6 +16,7 @@ export default {
   tasksScheduled: '定时任务',
   memories: '记忆',
   models: '大模型',
+  foundryLocal: '本地模型',
   workflows: '工作流',
   proxy: '代理服务',
   usage: '用量统计',

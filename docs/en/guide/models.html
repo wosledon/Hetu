@@ -62,8 +62,8 @@
       <div class="table-wrap"><table>
         <thead><tr><th>Item</th><th>Details</th></tr></thead>
         <tbody>
-          <tr><td>Protocols</td><td>OpenAI-compatible (including Ollama / LM Studio / vLLM) and Anthropic</td></tr>
-          <tr><td>Connection</td><td>Base URL plus API key; keys are encrypted with DataProtection</td></tr>
+          <tr><td>Protocols</td><td>OpenAI-compatible (including Ollama / LM Studio / vLLM / Foundry Local) and Anthropic</td></tr>
+          <tr><td>Connection</td><td>Base URL plus API key; keys are encrypted with DataProtection. Local runtimes such as Foundry Local have no key — leave it empty</td></tr>
           <tr><td>Purposes</td><td><code>chat</code> (conversation and agent loop) / <code>embedding</code> (indexing and retrieval) / <code>completion</code> (light rewrites)</td></tr>
           <tr><td>Model ID</td><td>Sent as-is in requests; must match what the provider expects</td></tr>
         </tbody>

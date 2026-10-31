@@ -1,5 +1,5 @@
 import {
-  Atom, BookOpen, BookText, Bot, CalendarClock, Code, Cpu, Database, FolderInput,
+  Atom, BookOpen, BookText, Bot, Boxes, CalendarClock, Code, Cpu, Database, FolderInput,
   GitBranch, ListTodo, MessageSquare, Network, PenTool, SquareKanban, Tag, Wrench, Zap,
 } from 'lucide-react'
 
@@ -33,6 +33,7 @@ export const NAV_ITEMS: NavItem[] = [
   { path: '/tasks/scheduled', labelKey: 'nav:tasksScheduled', icon: CalendarClock },
   { path: '/memories', labelKey: 'nav:memories', icon: Atom },
   { path: '/models', labelKey: 'nav:models', icon: Cpu },
+  { path: '/foundry-local', labelKey: 'nav:foundryLocal', icon: Boxes },
   { path: '/workflows', labelKey: 'nav:workflows', icon: GitBranch },
 ]
 

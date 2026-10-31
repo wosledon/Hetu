@@ -28,6 +28,7 @@ const KanbanPage = lazy(() => import('./pages/KanbanPage'))
 const KanbanTaskDetailPage = lazy(() => import('./pages/KanbanTaskDetailPage'))
 const MemoriesPage = lazy(() => import('./pages/MemoriesPage'))
 const ModelsPage = lazy(() => import('./pages/ModelsPage'))
+const FoundryLocalPage = lazy(() => import('./pages/FoundryLocalPage'))
 const WorkPage = lazy(() => import('./pages/WorkPage'))
 const ProjectsPage = lazy(() => import('./pages/ProjectsPage'))
 const WikiPage = lazy(() => import('./pages/WikiPage'))
@@ -201,6 +202,7 @@ function App() {
         <Route path="/kanban/:taskId" element={<KanbanTaskDetailPage />} />
         <Route path="/memories" element={<MemoriesPage />} />
         <Route path="/models" element={<ModelsPage />} />
+        <Route path="/foundry-local" element={<FoundryLocalPage />} />
         <Route path="/work" element={<WorkPage />} />
         <Route path="/workflows" element={<WorkflowsPage />} />
         <Route path="/proxy" element={<ProxyPage />} />

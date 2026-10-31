@@ -85,7 +85,7 @@ export interface IAppSettingsSnapshot {
 
 export interface IAiProvider {
   id: string;
-  providerType: 'openai' | 'anthropic';
+  providerType: 'openai' | 'anthropic' | 'foundry';
   name: string;
   baseUrl?: string;
   isEnabled: boolean;

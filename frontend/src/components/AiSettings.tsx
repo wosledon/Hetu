@@ -396,7 +396,7 @@ function ProviderForm({
   onCancel,
 }: {
   onSubmit: (data: {
-    providerType: 'openai' | 'anthropic'
+    providerType: 'openai' | 'anthropic' | 'foundry'
     name: string
     apiKey: string
     baseUrl?: string
@@ -407,7 +407,7 @@ function ProviderForm({
   onCancel: () => void
 }) {
   const { t } = useTranslation('chat')
-  const [providerType, setProviderType] = useState<'openai' | 'anthropic'>('openai')
+  const [providerType, setProviderType] = useState<'openai' | 'anthropic' | 'foundry'>('openai')
   const [name, setName] = useState('')
   const [apiKey, setApiKey] = useState('')
   const [baseUrl, setBaseUrl] = useState('')
@@ -503,10 +503,11 @@ function ProviderForm({
 
         <Select
           value={providerType}
-          onChange={(value) => setProviderType(value as 'openai' | 'anthropic')}
+          onChange={(value) => setProviderType(value as 'openai' | 'anthropic' | 'foundry')}
           options={[
             { value: 'openai', label: t('ai.openaiCompatible') },
             { value: 'anthropic', label: 'Anthropic' },
+            { value: 'foundry', label: t('ai.foundryLocal') },
           ]}
         />
         <Input

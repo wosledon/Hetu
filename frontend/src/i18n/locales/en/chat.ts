@@ -163,6 +163,7 @@ export default {
     catalogEnv: '· Key maps to the {{env}} environment variable',
     clear: 'Clear',
     openaiCompatible: 'OpenAI compatible',
+    foundryLocal: 'Foundry Local (local)',
     providerNamePlaceholder: 'Name (e.g. My OpenAI)',
     baseUrlPlaceholder: 'Base URL (optional, defaults to the official endpoint)',
     saveAndImport: 'Save and import models',

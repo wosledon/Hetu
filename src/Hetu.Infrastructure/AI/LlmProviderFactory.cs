@@ -68,12 +68,45 @@ public class LlmProviderFactory : ILLMProviderFactory
 
     private ILLMProvider CreateProvider(Core.Entities.AiProvider provider, string modelId)
     {
-        // API Key 用 DataProtection 加密存储：跨设备/旧版本/不同判别值加密的值无法解密，
-        // 此时给出可操作的提示，避免把 CryptographicException 直接抛成 500
-        string apiKey;
+        var apiKey = UnprotectApiKey(provider);
+
+        var httpClient = _httpClientFactory.CreateClient();
+        httpClient.BaseAddress = new Uri(ResolveBaseUrl(provider));
+
+        return provider.ProviderType.ToLowerInvariant() switch
+        {
+            "openai" => new OpenAiLlmProvider(httpClient, apiKey, modelId),
+            "anthropic" => new AnthropicLlmProvider(httpClient, apiKey, modelId),
+            // Foundry Local 暴露的是 OpenAI 兼容端点，直接复用；本地运行时没有 API Key
+            "foundry" => new OpenAiLlmProvider(httpClient, apiKey, modelId),
+            _ => throw new NotSupportedException($"不支持的 Provider 类型: {provider.ProviderType}")
+        };
+    }
+
+    /// <summary>本地运行时（Foundry Local）没有固定端口，BaseUrl 由用户按当前端点填；没填时用默认端口</summary>
+    private static string ResolveBaseUrl(Core.Entities.AiProvider provider)
+    {
+        var configured = string.IsNullOrWhiteSpace(provider.BaseUrl)
+            ? null
+            : provider.BaseUrl.TrimEnd('/') + "/";
+        if (configured != null) return configured;
+
+        return string.Equals(provider.ProviderType, "foundry", StringComparison.OrdinalIgnoreCase)
+            ? "http://127.0.0.1:5272/v1/"
+            : GetDefaultBaseUrl(provider.ProviderType);
+    }
+
+    /// <summary>
+    /// API Key 用 DataProtection 加密存储：跨设备/旧版本/不同判别值加密的值无法解密，
+    /// 此时给出可操作的提示，避免把 CryptographicException 直接抛成 500。
+    /// 本地服务商（Foundry Local）没有 Key，库里存的是空串，不能送进 Unprotect。
+    /// </summary>
+    private string UnprotectApiKey(Core.Entities.AiProvider provider)
+    {
+        if (string.IsNullOrEmpty(provider.EncryptedApiKey)) return string.Empty;
         try
         {
-            apiKey = _protector.Unprotect(provider.EncryptedApiKey);
+            return _protector.Unprotect(provider.EncryptedApiKey);
         }
         catch (Exception ex) when (ex is System.Security.Cryptography.CryptographicException or FormatException)
         {
@@ -81,17 +114,6 @@ public class LlmProviderFactory : ILLMProviderFactory
                 $"服务商「{provider.Name}」的 API Key 解密失败（可能由其他设备或旧版本写入），请在设置中重新填写该服务商的 API Key。",
                 ex);
         }
-        var httpClient = _httpClientFactory.CreateClient();
-        httpClient.BaseAddress = new Uri(string.IsNullOrWhiteSpace(provider.BaseUrl)
-            ? GetDefaultBaseUrl(provider.ProviderType)
-            : provider.BaseUrl.TrimEnd('/') + "/");
-
-        return provider.ProviderType.ToLowerInvariant() switch
-        {
-            "openai" => new OpenAiLlmProvider(httpClient, apiKey, modelId),
-            "anthropic" => new AnthropicLlmProvider(httpClient, apiKey, modelId),
-            _ => throw new NotSupportedException($"不支持的 Provider 类型: {provider.ProviderType}")
-        };
     }
 
     private static string GetDefaultBaseUrl(string providerType)
