@@ -7,7 +7,7 @@ export interface FoundryLocalStatus {
   supported: boolean;
   /** 不支持时的原因（后端已本地化） */
   unsupportedReason?: string;
-  /** 本地 Web 服务是否在听 */
+  /** 本地 OpenAI 兼容服务是否在监听 */
   running: boolean;
   /** OpenAI 兼容端点 */
   endpoint?: string;

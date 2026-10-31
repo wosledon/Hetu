@@ -76,15 +76,20 @@ public class FoundryLocalService : IFoundryLocalService
             var manager = await GetManagerAsync(cancellationToken);
             if (manager == null) return status;
 
-            status.Running = true;
             status.Endpoint = FirstEndpoint(manager);
-            var catalog = await manager.GetCatalogAsync(FoundrySdk.CatalogType.Local, cancellationToken);
-            if (catalog != null)
+            // 「运行中」指本地 OpenAI 兼容服务在听，不是 SDK 运行时本身：
+            // 运行时初始化成功但服务没启动时端点为空，那时应显示未启动
+            status.Running = !string.IsNullOrEmpty(status.Endpoint) || _webServiceStarted;
+            if (status.Running)
             {
-                var cached = await catalog.GetCachedModelsAsync(cancellationToken);
-                var loaded = await catalog.GetLoadedModelsAsync(cancellationToken);
-                status.CachedCount = cached.Count;
-                status.LoadedCount = loaded.Count;
+                var catalog = await manager.GetCatalogAsync(FoundrySdk.CatalogType.Local, cancellationToken);
+                if (catalog != null)
+                {
+                    var cached = await catalog.GetCachedModelsAsync(cancellationToken);
+                    var loaded = await catalog.GetLoadedModelsAsync(cancellationToken);
+                    status.CachedCount = cached.Count;
+                    status.LoadedCount = loaded.Count;
+                }
             }
         }
         catch (Exception ex)

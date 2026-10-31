@@ -10,7 +10,7 @@ public class FoundryLocalStatusDto
     public bool Supported { get; set; }
     /// <summary>不支持时的原因（后端已本地化）</summary>
     public string? UnsupportedReason { get; set; }
-    /// <summary>运行时是否已就绪（Web 服务在听）</summary>
+    /// <summary>本地 OpenAI 兼容服务是否在监听（SDK 运行时本身是否就绪另看目录能否拉取）</summary>
     public bool Running { get; set; }
     /// <summary>OpenAI 兼容端点（如 http://127.0.0.1:5272/v1），未就绪为 null</summary>
     public string? Endpoint { get; set; }
