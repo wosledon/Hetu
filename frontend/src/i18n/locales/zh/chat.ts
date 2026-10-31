@@ -163,6 +163,7 @@ export default {
     catalogEnv: '· Key 对应环境变量 {{env}}',
     clear: '清除',
     openaiCompatible: 'OpenAI 兼容',
+    foundryLocal: 'Foundry Local（本地）',
     providerNamePlaceholder: '名称（如 My OpenAI）',
     baseUrlPlaceholder: 'Base URL（可选，默认官方地址）',
     saveAndImport: '保存并导入模型',

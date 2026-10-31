@@ -1,0 +1,19 @@
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+
+  <!--
+    所有 src 项目共用的构建设定。
+
+    为什么需要 RuntimeIdentifiers：Microsoft.AI.Foundry.Local（Foundry Local 本地模型运行时）
+    的依赖包 Microsoft.AI.Foundry.Local.Runtime 带了一份 buildTransitive targets，里面会把
+    空的 RuntimeIdentifier 强写成 $(NETCoreSdkRuntimeIdentifier)。而 restore 默认不带 RID，
+    一旦某个项目被注入了 RID、它的资产文件里却没有对应目标，就会报 NETSDK1047——
+    连不带 -r 的 `dotnet build` 都过不去，而这是本地与 CI 的常规构建姿势。
+
+    在这里统一声明 RID 列表，restore 就会为每个 RID 生成资产，注入的 RID 必然能命中。
+    publish 仍由调用方显式传 -r（CI 的 release.yml 就是 win-x64 / linux-x64），不受影响。
+  -->
+  <PropertyGroup>
+    <RuntimeIdentifiers>win-x64;win-arm64;linux-x64;linux-arm64;osx-arm64</RuntimeIdentifiers>
+  </PropertyGroup>
+
+</Project>

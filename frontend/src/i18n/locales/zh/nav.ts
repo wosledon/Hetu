@@ -16,6 +16,7 @@ export default {
   tasksScheduled: '定时任务',
   memories: '记忆',
   models: '大模型',
+  foundryLocal: '本地模型',
   workflows: '工作流',
   proxy: '代理服务',
   usage: '用量统计',
@@ -30,4 +31,5 @@ export default {
   github: 'GitHub 仓库',
   githubShort: 'GitHub',
   githubWithStars: '在 GitHub 上查看 {{repo}}（Star {{count}}）',
+  beta: 'BETA',
 }

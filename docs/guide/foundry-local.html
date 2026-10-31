@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="zh-CN" data-root="../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#f8f4ea" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#131210" media="(prefers-color-scheme: dark)">
+<meta name="color-scheme" content="light dark">
+
+<title>本地模型 · Hetu</title>
+<meta name="description" content="Foundry Local 本地模型运行时：浏览模型目录、下载、加载与卸载，自定义模型保存路径，并一键接入 Hetu 的对话与知识库。">
+<link rel="canonical" href="https://wosledon.github.io/Hetu/guide/foundry-local.html">
+<link rel="alternate" hreflang="zh-CN" href="https://wosledon.github.io/Hetu/guide/foundry-local.html">
+<link rel="alternate" hreflang="en" href="https://wosledon.github.io/Hetu/en/guide/foundry-local.html">
+<link rel="alternate" hreflang="x-default" href="https://wosledon.github.io/Hetu/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Hetu">
+<meta property="og:title" content="本地模型 · Hetu">
+<meta property="og:description" content="Foundry Local 本地模型运行时：浏览模型目录、下载、加载与卸载，自定义模型保存路径，并一键接入 Hetu 的对话与知识库。">
+<meta property="og:url" content="https://wosledon.github.io/Hetu/guide/foundry-local.html">
+<meta property="og:image" content="https://wosledon.github.io/Hetu/screenshots/04-graph.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://api.github.com">
+<link rel="preconnect" href="https://abacus.jasoncameron.dev">
+<link rel="stylesheet" href="../assets/site.css">
+<script defer src="../assets/site.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">跳到主要内容</a>
+<header class="site-header">
+  <div class="wrap header-inner">
+    <a class="brand" href="../index.html" aria-label="Hetu 首页">
+      <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><path d="M9 11h14M9 16h9M9 21h14" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="23" cy="16" r="1.8" fill="currentColor"/></svg></span>
+      <span class="brand-text">Hetu<small>河图</small></span>
+    </a>
+    <button class="icon-btn nav-toggle" data-nav-toggle aria-expanded="false" aria-label="展开导航" aria-controls="site-nav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    <nav class="site-nav" id="site-nav" aria-label="主导航"><a href="../index.html">首页</a><a href="index.html" aria-current="page">文档</a><a href="architecture.html">架构</a><a href="getting-started.html">开始</a><a href="faq.html">常见问题</a><a class="nav-lang" href="../en/guide/foundry-local.html" hreflang="en">English</a></nav>
+    <div class="header-actions">
+      <button class="search-btn" data-search-open type="button" aria-label="搜索文档" title="搜索文档（Ctrl K）"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/></svg><span>搜索文档</span><kbd data-search-kbd>Ctrl K</kbd></button>
+      <span class="lang" role="group" aria-label="语言"><a href="#" aria-current="true">中文</a><a href="../en/guide/foundry-local.html" hreflang="en" title="English version">EN</a></span>
+      <button class="icon-btn theme-toggle" data-theme-toggle type="button" aria-label="切换主题" title="切换主题"><svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 3v2m0 14v2M5.6 5.6 7 7m10 10 1.4 1.4M3 12h2m14 0h2M5.6 18.4 7 17m10-10 1.4-1.4"/><circle cx="12" cy="12" r="3.2"/></svg><svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4 8.5 8.5 0 1 0 20 14.5z"/></svg></button>
+      <a class="btn btn-primary header-cta" href="https://github.com/wosledon/Hetu/releases/latest"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 19h14"/></svg><span class="header-cta-label">下载</span> <span data-latest-version>v0.3.32</span></a>
+    </div>
+  </div>
+  <div class="read-progress" data-progress aria-hidden="true"></div>
+</header>
+<main id="main">
+  <div class="wrap docs">
+  <aside class="docs-side">
+  <button class="side-search" data-search-open type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/></svg><span>搜索文档</span><kbd>/</kbd></button>
+  <nav class="side-nav" aria-label="文档目录">
+    <details class="side-group" open><summary>开始</summary><ul><li><a href="index.html">文档索引</a></li><li><a href="getting-started.html">快速开始</a></li></ul></details><details class="side-group" open><summary>使用</summary><ul><li><a href="notes.html">笔记</a></li><li><a href="workspace.html">Agent 工作台</a></li><li><a href="code-sessions.html">Code 会话</a></li><li><a href="knowledge.html">知识库</a></li><li><a href="graph-wiki.html">知识图谱与 Wiki</a></li><li><a href="memories.html">记忆与 Dream</a></li><li><a href="organize.html">看板与自动化</a></li><li><a href="whiteboard.html">画板</a></li><li><a href="extensions.html">扩展与集成</a></li><li><a href="models.html">模型与用量</a></li><li><a href="foundry-local.html" aria-current="page">本地模型</a></li><li><a href="theme.html">主题与外观</a></li></ul></details><details class="side-group" open><summary>平台</summary><ul><li><a href="desktop.html">桌面应用</a></li><li><a href="data.html">数据与安全</a></li><li><a href="architecture.html">架构与实现</a></li><li><a href="faq.html">常见问题</a></li><li><a href="dev.html">参与开发</a></li></ul></details><details class="side-group" open><summary>深入实现</summary><ul><li><a href="agent-loop.html">Agent 循环</a></li><li><a href="permissions.html">权限与审批</a></li><li><a href="context.html">上下文与自动压缩</a></li><li><a href="compression.html">压缩管道</a></li><li><a href="sse.html">SSE 事件协议</a></li><li><a href="chunking.html">分块与向量索引</a></li><li><a href="retrieval.html">语义检索</a></li><li><a href="graph-extraction.html">知识图谱抽取</a></li><li><a href="wiki-generation.html">Wiki 生成</a></li><li><a href="memory-recall.html">记忆写入与召回</a></li><li><a href="dream.html">Dream 巩固</a></li><li><a href="kanban.html">任务看板与自动化</a></li><li><a href="workflows.html">工作流引擎</a></li><li><a href="background-tasks.html">后台与定时任务</a></li><li><a href="inbox.html">收件箱与通知</a></li></ul></details>
+  </nav>
+</aside>
+    <aside class="docs-toc" data-docs-toc aria-label="本页目录"></aside>
+    <div class="docs-body">
+      <h1>本地模型</h1>
+      <p class="lede">Foundry Local 本地模型运行时：浏览模型目录、下载、加载与卸载，自定义模型保存路径，并一键接入 Hetu 的对话与知识库。</p>
+<h2>是什么</h2>
+      <p>「本地模型」把 <a href="https://learn.microsoft.com/azure/foundry-local/overview">Foundry Local</a> 这套本地推理运行时接进了 Hetu：不用 API Key、不联网，用自己机器上的 GPU/NPU 跑开源模型。它覆盖 <code>foundry</code> 命令行工具的主要能力面，对话、Code 会话、知识库分块与 Embedding 都能直接切到这些模型上。</p>
+      <p>入口：左侧导航「本地模型」（<code>/foundry-local</code>），默认在动态区关闭，去「设置 → 导航菜单」里打开即可固定显示。</p>
+
+      <h2>运行状态</h2>
+      <p>页面顶部一张状态卡，实时反映本地运行时：</p>
+      <div class="table-wrap"><table>
+        <thead><tr><th>字段</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>运行状态</td><td>本地 OpenAI 兼容服务是否在监听；「启动服务 / 停止服务」对应 <code>foundry service start/stop</code></td></tr>
+          <tr><td>服务端点</td><td>形如 <code>http://127.0.0.1:5272/v1</code>。端口由运行时分配，不是固定的</td></tr>
+          <tr><td>已加载</td><td>常驻内存的模型数（对应 <code>foundry service ps</code>），占显存/内存的正是这些</td></tr>
+          <tr><td>已下载</td><td>本地有缓存的模型数（对应 <code>foundry cache list</code>）</td></tr>
+        </tbody>
+      </table></div>
+
+      <h2>模型保存路径</h2>
+      <p>模型动辄数 GB，存放位置可以在页面里直接改：填一个绝对路径保存即可，重启 Hetu 后生效。</p>
+      <ul>
+        <li>默认路径是 Hetu 数据目录下的 <code>foundry-models</code>，与 SQLite、日志同一套优先级（<code>Hetu:DataDir</code> → <code>HETU_DATA_DIR</code> → 系统本地应用数据目录）</li>
+        <li>「恢复默认」一键回到上述目录</li>
+        <li>保存后<strong>需要重启 Hetu 才会切换</strong>：本地运行时是进程级单例，初始化后无法原地重建，页面会给出重启提示</li><li>换路径<strong>不会自动迁移</strong>已下载的文件：想搬就在重启前把旧目录里的内容复制到新目录，或先删旧缓存再重新下载</li>
+      </ul>
+
+      <h2>模型目录</h2>
+      <p>中间是模型目录列表，按「已下载 → 名称」排序，每条显示发布方、模型类型、上下文长度与体积。</p>
+      <div class="table-wrap"><table>
+        <thead><tr><th>操作</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>下载</td><td>首次需要联网从模型源拉取，进度条实时推进；下完即落在上面的保存路径里</td></tr>
+          <tr><td>加载 / 卸载</td><td>对应 <code>foundry model load/unload</code>。加载才真正占用显存，用完后卸载可立刻释放</td></tr>
+          <tr><td>删除</td><td>删掉本地文件（对应 <code>foundry cache remove</code>），下次使用需重新下载</td></tr>
+          <tr><td>接入 Hetu</td><td>一键把该变体注册成「Foundry Local」服务商下的对话模型，之后就能在对话与 Code 会话里选它</td></tr>
+        </tbody>
+      </table></div>
+      <p>目录上方一排筛选下拉（选项与计数由目录数据自动生成）：任务类型、输入模态、设备（CPU / GPU / NPU）、是否支持工具调用、是否已下载；右侧可切换排序（名称 / 体积 / 上下文长度）。搜索框按别名、显示名、发布方与类型过滤。</p><p><strong>关于「设备」筛选</strong>：目录按「模型 × 设备变体」平铺，同一个模型会有多行——例如 phi-4-mini 同时有 GPU（CUDA）、GPU（WebGPU）与 CPU 三行，体积各不相同（GPU 更小）。设备筛选项的计数由目录数据生成，当前为 GPU 71 / CPU 56。</p><p>页面顶部的「执行提供程序」卡片列出本机可用的 GPU/NPU 后端及注册状态，可一键下载注册——这是跑 GPU/NPU 变体的前提。已下载但所需 EP 未注册的变体，「加载」会变成「注册 XX」；本机压根没有该 EP 时（例如 AMD 显卡机器上没有 CUDA）会直接标注「本机无 XX」，不会让你白点。</p>
+
+      <h2>接入 Hetu 大模型</h2>
+      <p>点「接入 Hetu」会做两件事：创建一个 <code>foundry</code> 类型的服务商（没有 API Key，Base URL 填当前端点），再把该模型注册为对话模型。之后：</p>
+      <ul>
+        <li>在「设置 → 大模型」里可以把它设为默认对话模型，或改用途、调上下文长度等</li>
+        <li>Embedding 用途同理：把本地的 embedding 模型注册进来，知识库的向量索引就能全本地跑</li>
+        <li>服务商也可以手工添加：类型选「Foundry Local（本地）」，Base URL 填运行时给出的端点——跨机器指向另一台机器上的 Foundry Local 时走这条路</li>
+      </ul>
+      <div class="note">本地服务的端口由运行时动态分配，重启后会变。 Hetu 不把端口写死：没配 Base URL 的 Foundry Local 服务商每次请求都现场取当前端点，你不需要手动改。</div>
+
+      <h2>平台支持</h2>
+      <p>Foundry Local 目前只支持 Windows（依赖 DirectML / WinML）。在 Linux 与 macOS 上入口仍在，但会整体置灰并说明原因；此时仍可通过手工添加 OpenAI 兼容服务商的方式，指向另一台 Windows 机器上的 Foundry Local 端点来使用。</p>
+
+      <h2>数据与接口</h2>
+      <p>管理面接口遵循统一响应约定，只读列表带短时响应缓存：</p>
+      <div class="table-wrap"><table>
+        <thead><tr><th>方法</th><th>路径</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>GET</td><td><code>/api/foundry-local/status</code></td><td>运行状态、端点、保存路径、已加载/已下载数量</td></tr>
+          <tr><td>GET</td><td><code>/api/foundry-local/models?cachedOnly=false</code></td><td>模型目录（按模型 × 设备变体平铺）；<code>cachedOnly=true</code> 只看本地已有</td></tr>
+          <tr><td>GET</td><td><code>/api/foundry-local/models/loaded</code></td><td>当前常驻内存的模型</td></tr>
+          <tr><td>POST</td><td><code>/api/foundry-local/models/{alias}/download</code></td><td>下载；SSE 推进度帧 <code>{alias, progress, state, error}</code></td></tr>
+          <tr><td>POST</td><td><code>/api/foundry-local/models/{alias}/load</code> / <code>unload</code></td><td>加载 / 卸载</td></tr>
+          <tr><td>POST</td><td><code>/api/foundry-local/models/{alias}/register?purpose=chat</code></td><td>注册为 Hetu 模型，返回模型 Id</td></tr>
+          <tr><td>DELETE</td><td><code>/api/foundry-local/models/{alias}</code></td><td>删除本地缓存</td></tr>
+          <tr><td>POST</td><td><code>/api/foundry-local/service/start</code> / <code>stop</code></td><td>启停本地 OpenAI 兼容服务</td></tr>
+          <tr><td>PUT</td><td><code>/api/foundry-local/model-dir</code></td><td>设置保存路径；传空恢复默认</td></tr>
+        </tbody>
+      </table></div>
+      <p>模型本身走 OpenAI 兼容协议，由现有的 LLM / Embedding 工厂按 <code>foundry</code> 服务商类型分发，不引入第二套推理协议。</p>
+      <div class="docs-pager"><a href="models.html">← 模型与用量</a><a href="theme.html">主题与外观 →</a></div>
+    </div>
+  </div>
+</main>
+<footer class="site-footer">
+  <div class="wrap footer-grid">
+    <div class="footer-brand">
+      <a class="brand" href="../index.html"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><path d="M9 11h14M9 16h9M9 21h14" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="23" cy="16" r="1.8" fill="currentColor"/></svg></span><span class="brand-text">Hetu<small>河图</small></span></a>
+      <p>本地优先的 AI 知识与 Agent 工作台。笔记、对话与编码会话共用一份本地数据库。</p>
+    </div>
+    <nav class="footer-col" aria-label="产品">
+      <h2>产品</h2>
+      <a href="notes.html">笔记</a>
+      <a href="workspace.html">Agent 工作台</a>
+      <a href="code-sessions.html">Code 会话</a>
+      <a href="knowledge.html">知识库</a>
+    </nav>
+    <nav class="footer-col" aria-label="资源">
+      <h2>资源</h2>
+      <a href="index.html">文档</a>
+      <a href="architecture.html">架构</a>
+      <a href="faq.html">常见问题</a>
+      <a href="dev.html">参与开发</a>
+      <a href="https://github.com/wosledon/Hetu/blob/main/AGENTS.md">实现约定</a>
+    </nav>
+    <nav class="footer-col" aria-label="获取">
+      <h2>获取</h2>
+      <a href="https://github.com/wosledon/Hetu/releases/latest">下载最新版</a>
+      <a href="https://github.com/wosledon/Hetu/releases">更新日志</a>
+      <a href="https://github.com/wosledon/Hetu">源码仓库</a>
+    </nav>
+  </div>
+  <div class="wrap footer-bottom">
+    <span>© 2026 Hetu Contributors · Apache-2.0</span>
+    <span class="visit-counter" data-visit-counter title="匿名统计，不使用 Cookie，仅统计浏览人数与浏览量。"><span class="vc-seg" data-visit-segment="visitors" hidden><span class="vc-label">访问人数</span> <b data-visit-visitors>–</b></span><span class="vc-sep" data-visit-sep hidden aria-hidden="true">·</span><span class="vc-seg" data-visit-segment="views" hidden><span class="vc-label">浏览量</span> <b data-visit-views>–</b></span></span>
+  </div>
+</footer>
+<div class="lightbox" data-lightbox aria-hidden="true">
+  <button class="lightbox-close" data-lightbox-close aria-label="关闭">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+  </button>
+  <img alt="">
+  <span class="lightbox-caption"></span>
+</div>
+<div class="search-modal" data-search-modal role="dialog" aria-modal="true" aria-label="搜索文档" aria-hidden="true">
+  <div class="search-panel">
+    <div class="search-field"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/></svg><input type="search" name="q" data-search-input placeholder="搜索标题、功能或配置…" autocomplete="off" spellcheck="false" aria-label="搜索文档"><button class="search-close" data-search-close type="button" aria-label="关闭搜索"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button><kbd>Esc</kbd></div>
+    <div class="search-results" data-search-results></div>
+    <div class="search-foot"><span>↑↓ 选择</span><span>Enter 打开</span><span>Esc 关闭</span><span class="sr-only" data-search-status aria-live="polite"></span></div>
+  </div>
+</div>
+</body>
+</html>

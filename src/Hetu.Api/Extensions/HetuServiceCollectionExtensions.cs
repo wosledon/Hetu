@@ -8,6 +8,7 @@ using Hetu.Core.Services.Workflows.NodeExecutors;
 using Hetu.Infrastructure.AI;
 using Hetu.Infrastructure.Background;
 using Hetu.Infrastructure.Data;
+using Hetu.Infrastructure.FoundryLocal;
 using Hetu.Infrastructure.Localization;
 using Hetu.Infrastructure.Repositories;
 using Hetu.Infrastructure.ScheduledTasks;
@@ -142,6 +143,9 @@ public static class HetuServiceCollectionExtensions
         services.AddScoped<ILocalPromptPresetService, LocalPromptPresetService>();
         services.AddScoped<IMcpService, McpService>();
         services.AddScoped<IWhiteboardService, WhiteboardService>();
+
+        // Foundry Local 本地模型运行时：单例（内部还包着 SDK 自己的单例，且带并发门）
+        services.AddSingleton<IFoundryLocalService, FoundryLocalService>();
 
         AddChatServices(services);
         AddProxyServices(services);

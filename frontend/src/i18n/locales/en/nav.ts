@@ -16,6 +16,7 @@ export default {
   tasksScheduled: 'Scheduled Tasks',
   memories: 'Memories',
   models: 'Models',
+  foundryLocal: 'Local models',
   workflows: 'Workflows',
   proxy: 'Proxy',
   usage: 'Usage',
@@ -30,4 +31,5 @@ export default {
   github: 'GitHub repository',
   githubShort: 'GitHub',
   githubWithStars: 'View {{repo}} on GitHub ({{count}} stars)',
+  beta: 'BETA',
 }

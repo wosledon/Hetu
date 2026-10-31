@@ -40,6 +40,8 @@ builder.Services.AddResponseCaching();
 builder.Services.AddDataProtection(options => options.ApplicationDiscriminator = "Hetu");
 var providerInfo = builder.Services.AddHetuDatabase(builder.Configuration, dataDir);
 builder.Services.AddHetuDomainServices();
+// Foundry Local 的默认模型目录挂在 Hetu 数据目录下，与 SQLite/日志同一套优先级
+builder.Services.Configure<FoundryLocalOptions>(o => o.DataDir = dataDir);
 builder.Services.AddHetuBackgroundWorkers();
 // 桌面外壳启动的后端：外壳被强杀时自行退出，避免留下占用端口/文件的孤儿进程
 builder.Services.AddHostedService<ParentProcessWatchdog>();
