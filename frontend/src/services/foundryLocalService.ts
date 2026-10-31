@@ -19,8 +19,18 @@ export interface FoundryLocalStatus {
   pendingModelDir?: string;
   loadedCount: number;
   cachedCount: number;
+  /** 可用的执行提供程序；未注册的 EP 对应设备不会出现在模型目录里 */
+  executionProviders: FoundryLocalEp[];
   /** 改了保存路径但尚未生效，需要重启 Hetu */
   restartRequired: boolean;
+}
+
+/** 执行提供程序（决定目录里出现哪些设备的模型） */
+export interface FoundryLocalEp {
+  name: string;
+  /** CPU / GPU / NPU / Unknown */
+  deviceType: string;
+  isRegistered: boolean;
 }
 
 /** Foundry Local 目录中的一个模型 */
@@ -59,6 +69,40 @@ export interface FoundryLocalDownloadProgress {
   error?: string;
 }
 
+/** 执行提供程序下载进度的占位 alias（后端复用同一套进度帧） */
+export const EP_PROGRESS_KEY = '__ep__';
+
+/**
+ * 消费 SSE 进度流。后端以 data: {alias,progress,state,error} 推送，
+ * 这里手工 fetch 而不是走 axios 拦截器——拦截器要求统一响应结构，而 SSE 帧不是。
+ */
+async function streamProgress(
+  url: string,
+  onProgress: (progress: FoundryLocalDownloadProgress) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { Accept: 'text/event-stream' },
+    signal,
+  });
+  if (!response.ok) {
+    const text = await response.text().catch(() => '');
+    throw new Error(text || `request failed: ${response.status}`);
+  }
+  await consumeSseStream(response, ({ data }) => {
+    if (!data || data.startsWith(SSE_ERROR_PREFIX)) {
+      onProgress({ alias: EP_PROGRESS_KEY, state: 'failed', error: data.replace(SSE_ERROR_PREFIX, '').trim() });
+      return;
+    }
+    try {
+      onProgress(JSON.parse(data) as FoundryLocalDownloadProgress);
+    } catch {
+      // 非 JSON 帧（心跳等）忽略
+    }
+  }, { signal });
+}
+
 export const foundryLocalService = {
   getStatus: () => get<FoundryLocalStatus>('/foundry-local/status'),
   getModels: (cachedOnly = false) =>
@@ -76,35 +120,10 @@ export const foundryLocalService = {
   stopService: () => post<void>('/foundry-local/service/stop'),
   setModelDir: (path: string | null) =>
     put<string>('/foundry-local/model-dir', { path: path ?? '' }),
-
-  /**
-   * 下载模型：后端走 SSE 推进度（data: {alias,progress,state,error}），
-   * 这里手工 fetch 而不是走 axios 拦截器——拦截器要求统一响应结构，而 SSE 帧不是。
-   */
-  download: async (
-    alias: string,
-    onProgress: (progress: FoundryLocalDownloadProgress) => void,
-    signal?: AbortSignal,
-  ): Promise<void> => {
-    const response = await fetch(`/api/foundry-local/models/${encodeURIComponent(alias)}/download`, {
-      method: 'POST',
-      headers: { Accept: 'text/event-stream' },
-      signal,
-    })
-    if (!response.ok) {
-      const text = await response.text().catch(() => '')
-      throw new Error(text || `download failed: ${response.status}`)
-    }
-    await consumeSseStream(response, ({ data }) => {
-      if (!data || data.startsWith(SSE_ERROR_PREFIX)) {
-        onProgress({ alias, state: 'failed', error: data.replace(SSE_ERROR_PREFIX, '').trim() })
-        return
-      }
-      try {
-        onProgress(JSON.parse(data) as FoundryLocalDownloadProgress)
-      } catch {
-        // 非 JSON 帧（心跳等）忽略
-      }
-    }, { signal })
-  },
+  /** 下载模型，SSE 推进度 */
+  download: (alias: string, onProgress: (p: FoundryLocalDownloadProgress) => void, signal?: AbortSignal) =>
+    streamProgress(`/api/foundry-local/models/${encodeURIComponent(alias)}/download`, onProgress, signal),
+  /** 下载并注册执行提供程序（GPU/NPU 后端），SSE 推进度 */
+  downloadExecutionProviders: (onProgress: (p: FoundryLocalDownloadProgress) => void, signal?: AbortSignal) =>
+    streamProgress('/api/foundry-local/execution-providers/download', onProgress, signal),
 };

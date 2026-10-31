@@ -51,6 +51,15 @@ public interface IFoundryLocalService
     /// </summary>
     Task<Guid> RegisterAsProviderModelAsync(string alias, string purpose, CancellationToken cancellationToken = default);
 
+    /// <summary>可用的执行提供程序（CPU/GPU/NPU 后端）及其注册状态</summary>
+    Task<List<FoundryLocalEpDto>> GetExecutionProvidersAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 下载并注册执行提供程序。注册后本地运行时需要重建才会按新 EP 过滤目录，
+    /// 因此和改模型路径一样要重启 Hetu 才生效。
+    /// </summary>
+    Task DownloadAndRegisterExecutionProvidersAsync(IProgress<double>? progress = null, CancellationToken cancellationToken = default);
+
     /// <summary>本地化的「当前平台不支持」原因；支持时返回 null</summary>
     string? GetUnsupportedReason();
 }

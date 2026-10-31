@@ -52,6 +52,57 @@ public class FoundryLocalService : IFoundryLocalService
         _logger = logger;
     }
 
+    public async Task<List<FoundryLocalEpDto>> GetExecutionProvidersAsync(CancellationToken cancellationToken = default)
+    {
+        var empty = new List<FoundryLocalEpDto>();
+        if (!IsSupported()) return empty;
+
+        var manager = await GetManagerAsync(cancellationToken);
+        if (manager == null) return empty;
+
+        return manager.DiscoverEps()
+            .Select(ep => new FoundryLocalEpDto
+            {
+                Name = ep.Name,
+                DeviceType = DescribeEpDevice(ep.Name),
+                IsRegistered = ep.IsRegistered,
+            })
+            .OrderBy(ep => ep.IsRegistered ? 0 : 1)
+            .ThenBy(ep => ep.Name, StringComparer.Ordinal)
+            .ToList();
+    }
+
+    public async Task DownloadAndRegisterExecutionProvidersAsync(IProgress<double>? progress = null, CancellationToken cancellationToken = default)
+    {
+        var manager = await GetManagerAsync(cancellationToken);
+        if (manager == null) return;
+
+        await _gate.WaitAsync(cancellationToken);
+        try
+        {
+            // 回调签名是 (name, percentage)，进度取整体百分比
+            await manager.DownloadAndRegisterEpsAsync((_, p) => progress?.Report(Math.Clamp(p, 0, 100)), cancellationToken);
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    /// <summary>EP 名 → 设备类型。SDK 只给个类名，按名字归类</summary>
+    private static string DescribeEpDevice(string name)
+    {
+        if (name.Contains("Cpu", StringComparison.OrdinalIgnoreCase)) return "CPU";
+        if (name.Contains("Qnn", StringComparison.OrdinalIgnoreCase)) return "NPU";
+        if (name.Contains("Cuda", StringComparison.OrdinalIgnoreCase)
+            || name.Contains("MIGraphX", StringComparison.OrdinalIgnoreCase)
+            || name.Contains("WebGpu", StringComparison.OrdinalIgnoreCase)
+            || name.Contains("DirectML", StringComparison.OrdinalIgnoreCase)
+            || name.Contains("Dml", StringComparison.OrdinalIgnoreCase))
+            return "GPU";
+        return "Unknown";
+    }
+
     public string? GetUnsupportedReason()
     {
         EnsurePlatformChecked();
@@ -91,6 +142,8 @@ public class FoundryLocalService : IFoundryLocalService
                     status.LoadedCount = loaded.Count;
                 }
             }
+            // EP 与 Web 服务是否启动无关：没启动服务时也该能看到「为什么只有 CPU 模型」
+            status.ExecutionProviders = await GetExecutionProvidersAsync(cancellationToken);
         }
         catch (Exception ex)
         {

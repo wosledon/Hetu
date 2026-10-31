@@ -127,9 +127,46 @@ public class FoundryLocalController : ControllerBase
         }
     }
 
+    /// <summary>下载并注册执行提供程序（GPU/NPU 后端），进度经 SSE 推送。注册后需重启 Hetu 才生效</summary>
+    [HttpPost("execution-providers/download")]
+    public async Task DownloadExecutionProviders(CancellationToken cancellationToken)
+    {
+        Response.StartSseStream();
+        var writer = new SseStreamWriter(Response, cancellationToken);
+        var progress = new Progress<double>(p => _ = writer.WriteJsonAsync(new FoundryLocalDownloadProgressDto
+        {
+            Alias = "__ep__",
+            Progress = p,
+            State = "downloading",
+        }));
+
+        try
+        {
+            await _service.DownloadAndRegisterExecutionProvidersAsync(progress, cancellationToken);
+            await writer.WriteJsonAsync(new FoundryLocalDownloadProgressDto
+            {
+                Alias = "__ep__",
+                Progress = 100,
+                State = "completed",
+            });
+        }
+        catch (OperationCanceledException)
+        {
+            await writer.WriteJsonAsync(new FoundryLocalDownloadProgressDto { Alias = "__ep__", State = "cancelled" });
+        }
+        catch (Exception ex)
+        {
+            await writer.WriteJsonAsync(new FoundryLocalDownloadProgressDto
+            {
+                Alias = "__ep__",
+                State = "failed",
+                Error = ex.Message.Split('\n')[0],
+            });
+        }
+    }
+
     /// <summary>启动 OpenAI 兼容 Web 服务</summary>
-    [HttpPost("service/start")]
-    public async Task<ActionResult<ApiResponse>> StartService(CancellationToken cancellationToken)
+    [HttpPost("service/start")]    public async Task<ActionResult<ApiResponse>> StartService(CancellationToken cancellationToken)
     {
         try
         {

@@ -2,13 +2,17 @@ import { useMemo, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import {
-  Boxes, Check, Cpu, Download, FolderOpen, HardDrive, Loader2, Play, RotateCcw,
+  Boxes, Check, CircleSlash, Cpu, Download, FolderOpen, HardDrive, Loader2, Play, RotateCcw,
   Search, Square, Trash2, TriangleAlert, X,
 } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
 import { Button, Card, Input, PageContainer, SearchInput } from '../components/ui'
 import Select from '../components/Select'
-import { foundryLocalService, type FoundryLocalDownloadProgress, type FoundryLocalModel } from '../services/foundryLocalService'
+import {
+  foundryLocalService,
+  type FoundryLocalDownloadProgress,
+  type FoundryLocalModel,
+} from '../services/foundryLocalService'
 import { confirm } from '../components/confirm'
 
 /** 下载中的任务：alias -> 最新进度 */
@@ -36,6 +40,21 @@ const MODALITY_LABELS: Record<string, [string, string]> = {
 
 type TFunc = (key: string) => string
 
+/** 执行提供程序名 → 简短说明；未知的只显示设备类型 */
+const EP_LABELS: Record<string, [string, string]> = {
+  CPUExecutionProvider: ['ep.cpu', 'ep.cpuEn'],
+  CudaExecutionProvider: ['ep.cuda', 'ep.cudaEn'],
+  MIGraphXExecutionProvider: ['ep.migraphx', 'ep.migraphxEn'],
+  WebGpuExecutionProvider: ['ep.webgpu', 'ep.webgpuEn'],
+  QnnExecutionProvider: ['ep.qnn', 'ep.qnnEn'],
+  DmlExecutionProvider: ['ep.dml', 'ep.dmlEn'],
+}
+
+function epLabel(name: string, t: TFunc): string {
+  const key = EP_LABELS[name]
+  return key ? t(key[0]) : ''
+}
+
 /** 筛选下拉的紧凑触发器：一行放五六个，不能占用通用 Select 默认的大尺寸 */
 const SELECT_TRIGGER =
   'flex w-full items-center justify-between gap-1.5 rounded-lg border border-gray-200 bg-gray-50/70 px-2.5 py-1.5 text-[12px] outline-none transition-all hover:border-gray-300 focus:border-cyan-400 dark:border-white/[0.08] dark:bg-white/[0.03] dark:hover:border-white/[0.16] dark:focus:border-cyan-500'
@@ -61,6 +80,8 @@ export default function FoundryLocalPage() {
   const [toolsOnly, setToolsOnly] = useState(false)
   const [sortBy, setSortBy] = useState<'name' | 'sizeDesc' | 'sizeAsc' | 'ctxDesc'>('name')
   const [downloads, setDownloads] = useState<DownloadMap>({})
+  const [epProgress, setEpProgress] = useState<FoundryLocalDownloadProgress | null>(null)
+  const [epJustFinished, setEpJustFinished] = useState(false)
   const [dirDraft, setDirDraft] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
 
@@ -136,8 +157,22 @@ export default function FoundryLocalPage() {
     onError: (error: Error) => setMessage(error.message),
   })
 
-  const dirMutation = useMutation({
-    mutationFn: (path: string | null) => foundryLocalService.setModelDir(path),
+  const epMutation = useMutation({
+    mutationFn: () => foundryLocalService.downloadExecutionProviders((progress) => setEpProgress(progress)),
+    onSuccess: () => {
+      setEpProgress(null)
+      setEpJustFinished(true)
+      invalidate()
+    },
+    onError: (error: Error) => {
+      setEpProgress(null)
+      setMessage(error.message)
+    },
+  })
+
+  const eps = useMemo(() => status?.executionProviders ?? [], [status?.executionProviders])
+  const unregisteredEps = useMemo(() => eps.filter((e) => !e.isRegistered), [eps])
+  const dirMutation = useMutation({    mutationFn: (path: string | null) => foundryLocalService.setModelDir(path),
     onSuccess: (applied) => {
       setDirDraft(null)
       setMessage(t('modelDirApplied', { path: applied }))
@@ -269,6 +304,64 @@ export default function FoundryLocalPage() {
                   </Button>
                 </div>
               </Card>
+
+              {/* 执行提供程序：决定目录里会出现哪些设备的模型 */}
+              {eps.length > 0 && (
+                <Card padded={false} className="px-5 py-4">
+                  <div className="mb-2.5 flex items-center justify-between gap-3">
+                    <h3 className="flex items-center gap-1.5 text-[13px] font-medium text-gray-700 dark:text-gray-200">
+                      <Cpu size={13} className="text-gray-400" />
+                      {t('ep.title')}
+                    </h3>
+                    {unregisteredEps.length > 0 && (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        className="h-8 shrink-0 gap-1.5"
+                        disabled={epMutation.isPending}
+                        onClick={() => epMutation.mutate()}
+                        title={t('ep.downloadHint')}
+                      >
+                        {epMutation.isPending ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
+                        {t('ep.download')}
+                      </Button>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {eps.map((ep) => (
+                      <span
+                        key={ep.name}
+                        className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium ${
+                          ep.isRegistered
+                            ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-950/40 dark:text-emerald-300'
+                            : 'border-gray-200 text-gray-400 dark:border-white/10 dark:text-gray-500'
+                        }`}
+                      >
+                        {ep.isRegistered ? <Check size={11} /> : <CircleSlash size={11} />}
+                        {ep.deviceType}
+                        <span className="opacity-60">{epLabel(ep.name, t)}</span>
+                      </span>
+                    ))}
+                  </div>
+                  {epMutation.isPending && epProgress && (
+                    <div className="mt-2.5">
+                      <div className="h-1.5 overflow-hidden rounded-full bg-gray-100 dark:bg-white/[0.06]">
+                        <div
+                          className="h-full rounded-full bg-cyan-500 transition-all"
+                          style={{ width: `${Math.min(100, Math.round(epProgress.progress ?? 0))}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                  <p className="mt-2 text-[11px] leading-relaxed text-gray-400">{t('ep.hint')}</p>
+                  {epJustFinished && (
+                    <p className="mt-1.5 flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+                      <Check size={11} />
+                      {t('ep.registeredHint')}
+                    </p>
+                  )}
+                </Card>
+              )}
 
               {/* 模型保存路径：标题行 + 输入与保存紧挨着的一组 + 通栏说明 */}
               <Card padded={false} className="px-5 py-4">

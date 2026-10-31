@@ -93,7 +93,7 @@
           <tr><td>Wire into Hetu</td><td>Registers the model as a chat model under the <strong>Foundry Local</strong> provider, after which you can pick it in chat and Code sessions</td></tr>
         </tbody>
       </table></div>
-      <p>A row of filter dropdowns sits above the catalog, with options and counts generated from the catalog data itself: task, input modality, device (CPU / GPU / NPU), tool-calling support and download state; sorting on the right switches between name, size and context length. The search box filters by alias, display name, publisher and type.</p>
+      <p>A row of filter dropdowns sits above the catalog, with options and counts generated from the catalog data itself: task, input modality, device (CPU / GPU / NPU), tool-calling support and download state; sorting on the right switches between name, size and context length. The search box filters by alias, display name, publisher and type.</p><p><strong>Why the device filter only offers CPU:</strong> the catalog lists one variant per model, and they are all CPU (ONNX <code>generic-cpu</code> builds) right now. Which device variants appear depends on which variants the model itself publishes and which execution providers this machine has. The execution-providers card at the top lists the GPU/NPU backends available on this machine and their registration status, and can download and register them in one click — that is a prerequisite for running those variants, but it does not add variants to the catalog.</p>
 
       <h2>Wiring into Hetu models</h2>
       <p><strong>Wire into Hetu</strong> does two things: creates a <code>foundry</code> provider (no API key; the base URL is the current endpoint) and registers the model as a chat model. After that:</p>

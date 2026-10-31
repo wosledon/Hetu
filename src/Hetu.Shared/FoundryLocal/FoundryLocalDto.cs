@@ -23,6 +23,8 @@ public class FoundryLocalStatusDto
     /// 与 <see cref="ModelDir"/> 相同时为 null。
     /// </summary>
     public string? PendingModelDir { get; set; }
+    /// <summary>可用的执行提供程序；只有已注册的 EP 才会让对应设备的模型变体出现在目录里</summary>
+    public List<FoundryLocalEpDto> ExecutionProviders { get; set; } = [];
     /// <summary>已加载（常驻内存）的模型数</summary>
     public int LoadedCount { get; set; }
     /// <summary>已下载（本地有缓存）的模型数</summary>
@@ -66,6 +68,17 @@ public class FoundryLocalModelDto
     /// <summary>可选的量化/设备变体 alias 列表</summary>
     public List<string> Variants { get; set; } = [];
     /// <summary>该模型在 Hetu 里是否已注册为 Provider 模型（供 UI 显示「已加入」）</summary>
+    public bool IsRegistered { get; set; }
+}
+
+/// <summary>执行提供程序（EP）：决定目录里会出现哪些设备（CPU/GPU/NPU）的模型变体</summary>
+public class FoundryLocalEpDto
+{
+    /// <summary>SDK 给的 EP 名，如 MIGraphXExecutionProvider</summary>
+    public string Name { get; set; } = string.Empty;
+    /// <summary>归类后的设备类型：CPU / GPU / NPU / Unknown</summary>
+    public string DeviceType { get; set; } = "Unknown";
+    /// <summary>是否已注册；未注册时该设备的模型变体不会出现在目录里</summary>
     public bool IsRegistered { get; set; }
 }
 
