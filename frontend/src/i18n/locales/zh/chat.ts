@@ -32,6 +32,8 @@ export default {
     inputFallback: '输入内容...',
     attachedImages: '已附加 {{count}} 张图片，输入消息...',
     inputPlaceholder: '输入消息，Enter 发送，/ 选技能，@ 引用笔记...',
+    emptyTitle: '今天想一起做点什么？',
+    emptySubtitle: '记录想法、整理知识，或交给智能体完成一项任务。',
     imageUnsupported: '{{name}}（当前模型不支持图片输入，发送时会忽略）',
     noMatchingSlash: '没有匹配的技能或智能体',
     noMatchingMention: '没有匹配的引用',

@@ -193,7 +193,7 @@ export default function NoteList({
 
   return (
     <Card padded={false} plain className="flex h-full w-full flex-col rounded-none">
-      <div className="border-b border-gray-100 p-4 dark:border-gray-800/50">
+      <div className="border-b border-gray-200/80 bg-white/35 p-4 dark:border-white/[0.07] dark:bg-slate-950/20">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
             {selectedNoteParentId
@@ -257,7 +257,7 @@ export default function NoteList({
                     style={{ height: ITEM_HEIGHT }}
                     className={`note-card group mb-1 cursor-pointer rounded-xl border px-4 py-3 ${
                       isSelected
-                        ? 'border-blue-200/60 bg-gradient-to-br from-blue-50/80 to-indigo-50/40 shadow-sm shadow-blue-500/5 dark:border-blue-800/40 dark:from-blue-950/40 dark:to-indigo-950/20'
+                        ? 'border-blue-200/60 bg-gradient-to-br from-blue-50/80 to-indigo-50/40 shadow-[inset_2px_0_0_#3b82f6] shadow-blue-500/5 dark:border-blue-800/40 dark:from-blue-950/40 dark:to-indigo-950/20'
                         : 'border-transparent bg-white/70 hover:border-gray-100 hover:bg-white hover:shadow-sm dark:bg-gray-900/50 dark:hover:border-gray-800 dark:hover:bg-gray-900/80 dark:hover:shadow-black/10'
                     }`}
                   >

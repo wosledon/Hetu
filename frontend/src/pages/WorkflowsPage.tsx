@@ -165,13 +165,13 @@ export default function WorkflowsPage() {
       showSidebar={false}
       mainContent={
         <PageContainer variant="fill" className="flex-col overflow-hidden">
-          <div className="flex items-center justify-between border-b border-gray-200 px-6 py-3 dark:border-white/[0.08]">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200/80 bg-white/35 px-6 py-4 dark:border-white/[0.07] dark:bg-slate-950/20">
             <div className="flex items-center gap-2">
               <GitBranch size={20} className="text-blue-500" />
-              <h1 className="text-base font-semibold text-gray-800 dark:text-gray-100">{t('page.title')}</h1>
+              <h1 className="text-xl font-semibold tracking-tight text-gray-900 dark:text-gray-100">{t('page.title')}</h1>
               <span className="text-xs text-gray-400">{t('page.subtitle')}</span>
             </div>
-            <Button variant="primary" tone="blue" className="flex items-center gap-1.5 rounded-xl bg-blue-500 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-blue-600" onClick={handleCreate}>
+            <Button variant="primary" tone="blue" className="flex items-center gap-1.5 rounded-xl bg-blue-600 px-3.5 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-blue-500" onClick={handleCreate}>
               <Plus size={15} /> {t('page.newWorkflow')}
             </Button>
           </div>
@@ -189,14 +189,14 @@ export default function WorkflowsPage() {
                 </Button>
               </div>
             ) : (
-              <div className="grid grid-cols-[repeat(auto-fill,18rem)] gap-3">
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4">
                 {workflows.map((wf) => (
                   <Card
                     key={wf.id}
-                    className="group flex flex-col p-4 transition-all hover:border-blue-300 hover:shadow-md dark:bg-gray-800 dark:hover:border-blue-500/40"
+                    className="group flex min-h-[190px] flex-col border-gray-200/70 bg-white/70 p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-blue-200/70 hover:shadow-md dark:border-white/[0.07] dark:bg-slate-900/35 dark:hover:border-blue-400/20"
                   >
                     <div className="mb-2 flex items-start justify-between">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50 dark:bg-blue-500/10">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 dark:bg-blue-500/10">
                         <WorkflowIcon size={18} className="text-blue-500" />
                       </div>
                       <button
@@ -210,12 +210,12 @@ export default function WorkflowsPage() {
                       </button>
                     </div>
                     <h3 className="truncate text-sm font-semibold text-gray-800 dark:text-gray-100">{wf.name}</h3>
-                    <p className="mt-0.5 line-clamp-2 text-xs text-gray-400">{wf.description || t('page.noDescription')}</p>
+                    <p className="mt-1.5 line-clamp-2 min-h-10 text-xs leading-5 text-gray-600 dark:text-gray-300">{wf.description || t('page.noDescription')}</p>
                     <div className="mt-2 flex items-center gap-3 text-[10px] text-gray-400">
                       <span>{t('page.nodeCount', { count: wf.nodes.length })}</span>
                       <span>v{wf.version}</span>
                     </div>
-                    <div className="mt-3 flex items-center gap-1 border-t border-gray-100 pt-2 dark:border-white/[0.06]">
+                    <div className="mt-auto flex items-center gap-1 border-t border-gray-100 pt-2.5 dark:border-white/[0.06]">
                       <Button variant="ghost" tone="green" size="sm" className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-green-600 hover:bg-green-50 dark:hover:bg-green-500/10" onClick={() => setRunningWorkflow(wf)}  title={t('common:run')}>
                         <Play size={13} /> {t('common:run')}
                       </Button>

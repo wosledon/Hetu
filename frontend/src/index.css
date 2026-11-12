@@ -293,6 +293,31 @@ body {
   }
 }
 
+/* 设置页包含多个独立分区组件，统一兜底低对比辅助文字和嵌套卡片材质。 */
+@layer utilities {
+  .settings-workspace .glass-soft {
+    --glass-bg: rgba(255, 255, 255, 0.96);
+  }
+
+  .dark .settings-workspace .glass-soft {
+    --glass-bg: rgba(17, 24, 39, 0.96);
+  }
+
+  .settings-workspace .text-gray-400 {
+    color: var(--color-gray-500);
+  }
+
+  .settings-workspace .text-gray-500 {
+    color: var(--color-gray-600);
+  }
+
+  .dark .settings-workspace .text-gray-400,
+  .dark .settings-workspace .text-gray-500,
+  .dark .settings-workspace .dark\:text-gray-500 {
+    color: var(--color-gray-400);
+  }
+}
+
 /* 开启：抹掉宿主自身底色，让材质成为唯一的面 */
 :root[data-glass='on'] .glass,
 :root[data-glass='on'] .glass-track {

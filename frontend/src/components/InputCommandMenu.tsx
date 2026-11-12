@@ -1,4 +1,5 @@
 import React from 'react'
+import { POPOVER_PANEL_CLASS, popoverItemClass } from '../utils/styles'
 
 export interface InputCommandItem {
   key: string
@@ -32,10 +33,10 @@ export default function InputCommandMenu({
   if (items.length === 0 && !emptyHint) return null
 
   return (
-    <div className="absolute bottom-full left-0 right-0 z-50 mb-1 max-h-80 overflow-y-auto rounded-xl border border-gray-200 bg-white glass glass-float py-1 shadow-lg dark:border-gray-700 dark:bg-gray-800">
-      <div className="px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider text-gray-400">{title}</div>
+    <div role="listbox" className={`absolute bottom-full left-0 right-0 z-50 mb-2 max-h-80 overflow-y-auto p-1.5 ${POPOVER_PANEL_CLASS}`}>
+      <div className="mb-1 border-b border-gray-100 px-2.5 pb-2 pt-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:border-white/[0.06] dark:text-gray-500">{title}</div>
       {items.length === 0 && emptyHint && (
-        <div className="px-3 py-3 text-center text-[11px] text-gray-400">{emptyHint}</div>
+        <div className="px-4 py-6 text-center text-[11px] text-gray-400">{emptyHint}</div>
       )}
       {items.map((item, i) => (
         <button
@@ -43,20 +44,18 @@ export default function InputCommandMenu({
           ref={el => {
             if (itemRefs) itemRefs.current[i] = el
           }}
+          role="option"
+          aria-selected={i === selectedIndex}
           onClick={() => onSelect(item)}
-          className={`flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors ${
-            i === selectedIndex
-              ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
-              : 'text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700/50'
-          }`}
+          className={`${popoverItemClass(i === selectedIndex)} items-center`}
         >
-          <span className="shrink-0 text-base">{item.icon}</span>
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gray-50 dark:bg-white/[0.045]">{item.icon}</span>
           <div className="min-w-0 flex-1">
             <div className="truncate text-xs font-medium">{item.label}</div>
-            {item.description && <div className="truncate text-[11px] text-gray-400">{item.description}</div>}
+            {item.description && <div className="mt-0.5 truncate text-[11px] text-gray-400 dark:text-gray-500">{item.description}</div>}
           </div>
           {item.tag && (
-            <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] ${item.tagClass ?? 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400'}`}>
+            <span className={`shrink-0 rounded-md px-1.5 py-0.5 text-[10px] ${item.tagClass ?? 'bg-gray-100 text-gray-500 dark:bg-white/[0.06] dark:text-gray-400'}`}>
               {item.tag}
             </span>
           )}

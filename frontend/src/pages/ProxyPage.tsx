@@ -130,7 +130,7 @@ function ProxyCard({
           <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('proxy.modelKey')}</label>
           <span className="text-[11px] text-gray-400 dark:text-gray-500">{t('proxy.modelKeyHint')}</span>
         </div>
-        <div className="flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-50/50 px-3.5 py-2.5 transition-all focus-within:border-blue-400 dark:border-gray-800 dark:bg-white/[0.03]">
+        <div className="flex items-center gap-2 rounded-xl border border-gray-200/70 bg-white/65 dark:border-white/[0.07] dark:bg-slate-900/35 px-3.5 py-2.5 transition-all focus-within:border-blue-400 dark:border-gray-800 dark:bg-white/[0.03]">
           <Braces size={14} className="shrink-0 text-gray-400" />
           <input
             value={form.modelKey}
@@ -265,11 +265,11 @@ export default function ProxyPage() {
           {/* 页头 */}
           <div className="mb-6 flex flex-wrap items-center gap-x-5 gap-y-3">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-cyan-600 shadow-sm shadow-blue-500/20">
-                <Waypoints size={20} className="text-white" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-blue-200/70 bg-blue-50 text-blue-600 shadow-sm dark:border-blue-400/15 dark:bg-blue-500/10 dark:text-blue-300">
+                <Waypoints size={20} />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('proxy.title')}</h1>
+                <h1 className="text-xl font-semibold tracking-tight text-gray-900 dark:text-gray-100">{t('proxy.title')}</h1>
                 <p className="text-xs text-gray-500 dark:text-gray-400">{t('proxy.subtitle')}</p>
               </div>
             </div>

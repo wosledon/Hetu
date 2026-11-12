@@ -22,19 +22,21 @@ export default function AgentFileChangeRow({ path, action, onOpenPath }: AgentFi
   const { Icon } = meta
 
   return (
-    <div className="flex items-center gap-2 rounded-lg border border-gray-100 bg-gray-50/60 px-2.5 py-1.5 dark:border-gray-800 dark:bg-gray-800/40">
-      <Icon size={12} className={`shrink-0 ${meta.cls}`} />
-      <span className={`shrink-0 text-[10px] font-medium ${meta.cls}`}>{t(meta.labelKey)}</span>
+    <div className="flex min-h-11 items-center gap-2.5 rounded-xl border border-gray-200/80 bg-white/65 px-3 py-2 shadow-[0_1px_2px_rgba(15,23,42,0.03)] dark:border-white/[0.07] dark:bg-slate-900/35">
+      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-gray-100 dark:bg-white/[0.06]">
+        <Icon size={13} className={meta.cls} />
+      </span>
+      <span className={`shrink-0 text-[11px] font-semibold ${meta.cls}`}>{t(meta.labelKey)}</span>
       {onOpenPath ? (
         <button
           onClick={() => onOpenPath(path)}
           title={t('fileChange.openInEditor')}
-          className="min-w-0 flex-1 truncate text-left font-mono text-[10px] text-gray-400 underline-offset-2 hover:text-blue-500 hover:underline"
+          className="min-w-0 flex-1 truncate text-left font-mono text-[11px] text-gray-500 underline-offset-2 hover:text-blue-500 hover:underline dark:text-gray-400"
         >
           {path}
         </button>
       ) : (
-        <span className="min-w-0 flex-1 truncate font-mono text-[10px] text-gray-400">{path}</span>
+        <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-gray-500 dark:text-gray-400">{path}</span>
       )}
     </div>
   )

@@ -75,11 +75,11 @@ export default function DatabaseSettings() {
             type="text"
             value={connectionString}
             onChange={(e) => setConnectionString(e.target.value)}
-            className="max-w-md font-mono"
+            className="max-w-md font-mono dark:text-gray-100"
           />
         </div>
 
-        <Button variant="primary" tone="emerald" className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-4 py-2.5 text-sm font-medium text-white shadow-sm shadow-emerald-500/25 transition-all hover:bg-emerald-600 hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed" onClick={handleTest}
+        <Button variant="primary" tone="emerald" className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm shadow-emerald-600/20 transition-all hover:bg-emerald-700 hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed" onClick={handleTest}
           disabled={testing}>
           {testing ? <Loader2 size={14} className="animate-spin" /> : null}
           {testing ? t('database.testing') : t('database.testConnection')}

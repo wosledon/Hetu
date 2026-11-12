@@ -40,21 +40,29 @@ export default function AgentSubAgentPanel({
   const items = entries ?? []
 
   return (
-    <div className="overflow-hidden rounded-lg border border-gray-200 bg-gray-50/60 dark:border-gray-800 dark:bg-gray-800/40">
-      <div onClick={() => setOpen(!open)} className="flex cursor-pointer items-center gap-2 px-2 py-1">
+    <div className={`overflow-hidden rounded-xl border shadow-[0_1px_2px_rgba(15,23,42,0.03)] ${
+      stage === 'error'
+        ? 'border-red-200/80 bg-red-50/40 dark:border-red-400/15 dark:bg-red-500/[0.04]'
+        : 'border-gray-200/80 bg-white/65 dark:border-white/[0.07] dark:bg-slate-900/35'
+    }`}>
+      <div onClick={() => setOpen(!open)} className="flex min-h-11 cursor-pointer items-center gap-2 px-2.5 py-2 transition-colors hover:bg-white/55 dark:hover:bg-white/[0.025]">
         <button
           type="button"
           aria-label={open ? t('subagent.collapse') : t('subagent.expand')}
           title={open ? t('subagent.collapse') : t('subagent.expand')}
           onClick={(e) => { e.stopPropagation(); setOpen(!open) }}
-          className="shrink-0 rounded p-0.5 text-gray-400 transition-colors hover:bg-gray-200 dark:hover:bg-gray-700"
+          className="shrink-0 rounded-md p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06] dark:hover:text-gray-200"
         >
-          {open ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
+          {open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
         </button>
-        {running
-          ? <Loader2 size={11} className="shrink-0 animate-spin text-sky-500" />
-          : <Bot size={11} className="shrink-0 text-gray-400" />}
-        <span className="shrink-0 text-[11px] font-medium text-gray-600 dark:text-gray-300">{t('subagent.label')}</span>
+        <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-lg ${
+          stage === 'error'
+            ? 'bg-red-100 text-red-600 dark:bg-red-500/10 dark:text-red-300'
+            : 'bg-sky-100 text-sky-600 dark:bg-sky-500/10 dark:text-sky-300'
+        }`}>
+          {running ? <Loader2 size={13} className="animate-spin" /> : <Bot size={13} />}
+        </span>
+        <span className="shrink-0 text-xs font-semibold text-gray-700 dark:text-gray-200">{t('subagent.label')}</span>
         <span
           className={`min-w-0 flex-1 truncate text-[11px] ${running ? 'subagent-working-title' : 'text-gray-500 dark:text-gray-400'}`}
           title={description}
@@ -62,12 +70,12 @@ export default function AgentSubAgentPanel({
           {description}
         </span>
         {running && tool && <span className="shrink-0 font-mono text-[10px] text-gray-400">{tool}</span>}
-        {steps != null && steps > 0 && <span className="shrink-0 text-[10px] text-gray-400">{t('subagent.steps', { n: steps })}</span>}
-        <span className={`shrink-0 text-[10px] font-medium ${meta.cls}`}>{t(meta.labelKey)}</span>
-        {message && <span className="min-w-0 max-w-[38%] truncate text-[10px] text-gray-400" title={message}>{message}</span>}
+        {steps != null && steps > 0 && <span className="shrink-0 rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] tabular-nums text-gray-500 dark:bg-white/[0.06] dark:text-gray-400">{t('subagent.steps', { n: steps })}</span>}
+        <span className={`shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium dark:bg-white/[0.05] ${meta.cls}`}>{t(meta.labelKey)}</span>
+        {message && <span className="hidden min-w-0 max-w-[32%] truncate text-[10px] text-gray-400 lg:inline" title={message}>{message}</span>}
       </div>
       {open && (
-        <div className="max-h-[50vh] overflow-y-auto border-t border-gray-100 bg-white px-2 py-1.5 dark:border-gray-800 dark:bg-gray-900">
+        <div className="max-h-[50vh] overflow-y-auto border-t border-gray-200/70 bg-gray-50/45 p-2 dark:border-white/[0.06] dark:bg-gray-950/25">
           {items.length > 0
             ? (
                 <AgentTimeline

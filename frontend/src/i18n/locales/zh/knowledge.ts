@@ -131,6 +131,7 @@ export default {
     uploadFailed: '上传失败',
   },
   graph: {
+    title: '知识图谱',
     zoomIn: '放大',
     zoomOut: '缩小',
     resetView: '重置视图',

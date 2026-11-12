@@ -32,6 +32,8 @@ export default {
     emptyProjectAgents: '当前项目未定义 .github 智能体',
     workflowGroup: '工作流',
     emptyWorkflows: '暂无工作流',
+    search: '搜索智能体或工作流...',
+    noMatches: '没有匹配项',
   },
   thought: {
     title: '思考过程',

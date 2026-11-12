@@ -10,9 +10,10 @@ import { Card, Input } from './ui'
 function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void }) {
   return (
     <button
+      type="button"
       onClick={onChange}
       className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors duration-200 ${
-        checked ? 'bg-emerald-500' : 'bg-gray-300 glass dark:bg-gray-600'
+        checked ? 'bg-emerald-600' : 'bg-gray-300 dark:bg-gray-700'
       }`}
     >
       <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition duration-200 ${
@@ -110,12 +111,12 @@ export default function CompressionSettings() {
           </div>
           <div>
             <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">{t('compression.llmThreshold')}</label>
-            <Input tone="violet" glass
+            <Input tone="violet" glass={false}
               type="number"
               min={0}
               value={draft.llmThreshold ?? 500}
               onChange={(e) => saveNow({ ...draft, llmThreshold: Math.max(0, parseInt(e.target.value || '0', 10) || 0) })}
-              className="w-40"
+              className="w-40 dark:border-white/10 dark:bg-gray-800 dark:text-gray-100 dark:focus:bg-gray-800"
             />
             <p className="mt-1 text-[11px] text-gray-400">
               {t('compression.thresholdHint')}

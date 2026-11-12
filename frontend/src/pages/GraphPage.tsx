@@ -1136,8 +1136,8 @@ export default function GraphPage() {
   const mainContent = (
     <div className="flex flex-1 flex-col bg-transparent">
       {/* 工具条与画布同处一块面，只留底部分隔线；外框四角由根的圆角裁切，这里不再自成卡片 */}
-      <div className="flex h-12 shrink-0 items-center justify-between border-b border-gray-200 px-4 dark:border-gray-800">
-        <div className="flex items-center gap-1.5">
+      <div className="flex h-14 shrink-0 items-center justify-between border-b border-gray-200/80 bg-white/35 px-4 dark:border-white/[0.07] dark:bg-slate-950/20">
+        <div className="flex items-center gap-1.5"><div className="mr-1 flex items-center gap-2 border-r border-gray-200 pr-3 dark:border-white/[0.08]"><Network size={16} className="text-blue-500" /><span className="text-sm font-semibold text-gray-800 dark:text-gray-100">{t('graph.title')}</span></div>
           <Button variant="ghost" tone="gray" className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200" onClick={() => setZoom(z => Math.min(z + 0.2, 3))}  title={t('graph.zoomIn')}><ZoomIn size={15} /></Button>
           <Button variant="ghost" tone="gray" className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200" onClick={() => setZoom(z => Math.max(z - 0.2, 0.3))}  title={t('graph.zoomOut')}><ZoomOut size={15} /></Button>
           <Button variant="ghost" tone="gray" className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200" onClick={handleResetView}  title={t('graph.resetView')}><RotateCcw size={15} /></Button>
@@ -1146,7 +1146,7 @@ export default function GraphPage() {
           <span className="ml-1 text-xs text-gray-400">{Math.round(zoom * 100)}%</span>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="primary" tone="emerald" size="sm" className="flex items-center gap-1.5 rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-medium text-white shadow-sm transition-colors hover:bg-emerald-600" onClick={() => setShowExtractDialog(true)}  title={t('graph.extractTooltip')}>
+          <Button variant="primary" tone="emerald" size="sm" className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-1.5 text-xs font-medium text-white shadow-sm transition-colors hover:bg-emerald-500" onClick={() => setShowExtractDialog(true)}  title={t('graph.extractTooltip')}>
             <Sparkles size={13} />{t('graph.extractFromNotes')}
           </Button>
         </div>
@@ -1178,7 +1178,7 @@ export default function GraphPage() {
           )}
 
           {/* 图例不加 backdrop-blur：布局动画期间画布每帧重绘，blur 面会跟着每帧重新栅格化（弱 GPU 上掉帧） */}
-          <div className="absolute bottom-4 left-4 z-10 rounded-lg border border-gray-200 bg-white/90 px-3 py-2 shadow-sm dark:border-gray-700 dark:bg-gray-800/90">
+          <div className="absolute bottom-4 left-4 z-10 rounded-xl border border-gray-200/80 bg-white/90 px-3 py-2 shadow-md dark:border-white/10 dark:bg-gray-900/90">
             <div className="flex flex-wrap gap-3">
               {Object.entries(ENTITY_COLORS).slice(0, 5).map(([type, color]) => (
                 <span key={type} className="flex items-center gap-1.5 text-[10px] text-gray-600 dark:text-gray-400">
@@ -1354,8 +1354,8 @@ export default function GraphPage() {
         {rightPanel}
       </PageContainer>
     }>
-      <div className="flex w-64 shrink-0 flex-col border-r border-gray-100 dark:border-white/[0.06]">
-        <div className="border-b border-gray-100 p-4 dark:border-gray-800">
+      <div className="flex w-64 shrink-0 flex-col border-r border-gray-200/80 bg-white/30 dark:border-white/[0.07] dark:bg-slate-950/15">
+        <div className="border-b border-gray-200/80 bg-white/35 p-4 dark:border-white/[0.07] dark:bg-slate-950/20">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t('graph.entitiesHeader')}</h2>
             <span className="text-[11px] tabular-nums text-gray-400">{filteredEntities.length} / {entities.length}</span>
@@ -1369,9 +1369,9 @@ export default function GraphPage() {
             />
           </div>
           <div className="flex flex-wrap gap-1.5">
-            <button onClick={() => setTypeFilter('all')} className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] transition-colors ${typeFilter === 'all' ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:border-indigo-400 dark:bg-indigo-950/40 dark:text-indigo-200' : 'border-gray-200 text-gray-500 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800'}`}>{t('common:all')} {entities.length}</button>
+            <button onClick={() => setTypeFilter('all')} className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] transition-colors ${typeFilter === 'all' ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:border-indigo-400 dark:bg-indigo-950/40 dark:text-indigo-200' : 'border-transparent text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-white/[0.06]'}`}>{t('common:all')} {entities.length}</button>
             {entityTypes.map(type => (
-              <button key={type} onClick={() => setTypeFilter(type)} className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] transition-colors ${typeFilter === type ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:border-indigo-400 dark:bg-indigo-950/40 dark:text-indigo-200' : 'border-gray-200 text-gray-500 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800'}`}>
+              <button key={type} onClick={() => setTypeFilter(type)} className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] transition-colors ${typeFilter === type ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:border-indigo-400 dark:bg-indigo-950/40 dark:text-indigo-200' : 'border-transparent text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-white/[0.06]'}`}>
                 <span className="h-2 w-2 rounded-full" style={{ backgroundColor: ENTITY_COLORS[type] || ENTITY_COLORS.custom }} />{entityTypeLabel(type)} {typeCounts.get(type) ?? 0}
               </button>
             ))}
@@ -1394,7 +1394,7 @@ export default function GraphPage() {
                 onClick={() => { setSelectedEntityId(entity.id); centerOnEntity(entity.id) }}
                 onMouseEnter={() => setExternalHoverId(entity.id)}
                 onMouseLeave={() => setExternalHoverId(null)}
-                className={`flex cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-2 transition-colors ${active ? 'bg-indigo-50 dark:bg-indigo-950/40' : 'hover:bg-gray-50 dark:hover:bg-gray-800/60'}`}
+                className={`flex cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-2 transition-colors ${active ? 'bg-indigo-50 shadow-[inset_2px_0_0_#6366f1] dark:bg-indigo-500/10' : 'hover:bg-gray-50 dark:hover:bg-white/[0.04]'}`}
               >
                 <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: color }} />
                 <span className={`flex-1 truncate text-sm ${active ? 'font-medium text-indigo-700 dark:text-indigo-200' : 'text-gray-700 dark:text-gray-200'}`}>{entity.name}</span>

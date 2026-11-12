@@ -534,77 +534,76 @@ export default function AgentsPage() {
       <Card
         key={p.id}
         padded={false}
-        className="group flex h-11 items-center gap-3 px-3 transition-colors hover:border-white/40 dark:hover:border-white/10"
+        className="group flex min-h-[176px] flex-col p-4 transition-all hover:-translate-y-0.5 hover:border-rose-200/70 hover:shadow-md dark:hover:border-rose-400/20"
       >
-        <div className={"flex h-7 w-7 shrink-0 items-center justify-center rounded-lg " + (isProfessionalAgent ? "bg-violet-50 dark:bg-violet-900/20" : "bg-rose-50 dark:bg-rose-900/20")}>
-          {isProfessionalAgent ? <Brain size={14} className="text-violet-500" /> : isLocal ? <Terminal size={14} className="text-rose-500" /> : <Bot size={14} className="text-rose-500" />}
+        <div className="flex items-start gap-3">
+          <div className={"flex h-9 w-9 shrink-0 items-center justify-center rounded-xl " + (isProfessionalAgent ? "bg-violet-50 dark:bg-violet-500/10" : "bg-rose-50 dark:bg-rose-500/10")}>
+            {isProfessionalAgent ? <Brain size={16} className="text-violet-500" /> : isLocal ? <Terminal size={16} className="text-rose-500" /> : <Bot size={16} className="text-rose-500" />}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <h3 className="truncate text-sm font-semibold text-gray-800 dark:text-gray-100">{p.name}</h3>
+              <span className={"shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium " + getCategoryColor(p.category)}>{p.category}</span>
+              {isLocal ? (
+                <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 dark:bg-amber-900/30">{t('card.local')}</span>
+              ) : (
+                <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-500 dark:bg-white/[0.06] dark:text-gray-400">{t('card.database')}</span>
+              )}
+            </div>
+            <p className="mt-2 line-clamp-3 min-h-[3.75rem] text-xs leading-5 text-gray-600 dark:text-gray-300" title={p.content}>{p.content}</p>
+          </div>
         </div>
 
-        <div className="flex min-w-0 items-center gap-1.5" style={{ width: '15rem' }}>
-          <h3 className="truncate text-[13px] font-semibold text-gray-800 dark:text-gray-100">{p.name}</h3>
-          <span className={"shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium " + getCategoryColor(p.category)}>{p.category}</span>
-        </div>
-
-        <div className="flex w-16 shrink-0 items-center gap-1">
-          {isLocal ? (
-            <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 dark:bg-amber-900/30">{t('card.local')}</span>
-          ) : (
-            <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-500 dark:bg-white/[0.06] dark:text-gray-400">{t('card.database')}</span>
+        <div className="mt-auto flex flex-wrap items-center gap-1.5 border-t border-gray-100 pt-2.5 dark:border-white/[0.06]">
+          {boundModel && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-1.5 py-0.5 text-[10px] text-blue-600 dark:bg-blue-900/20 dark:text-blue-300">
+              <Brain size={9} />{effortOption?.value
+                ? t('card.modelWithEffort', { model: boundModel.displayName, effort: t(effortOption.labelKey) })
+                : boundModel.displayName}
+            </span>
           )}
-        </div>
+          {!boundModel && effortOption?.value && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-1.5 py-0.5 text-[10px] text-blue-600 dark:bg-blue-900/20 dark:text-blue-300">
+              <Brain size={9} />{t('card.reasoning', { label: t(effortOption.labelKey) })}
+            </span>
+          )}
+          {subAgentIds.length > 0 && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-1.5 py-0.5 text-[10px] text-violet-600 dark:bg-violet-900/20 dark:text-violet-300">
+              <Network size={9} />{t('card.subAgentCount', { n: subAgentIds.length })}
+            </span>
+          )}
+          {skillIds.length > 0 && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] text-amber-600 dark:bg-amber-900/20 dark:text-amber-300">
+              <Sparkles size={9} />{t('card.skillCount', { n: skillIds.length })}
+            </span>
+          )}
+          {toolCount > 0 && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500 dark:bg-white/[0.06] dark:text-gray-400">
+              <Zap size={9} />{t('card.toolCount', { n: toolCount })}
+            </span>
+          )}
 
-        <p className="min-w-0 flex-1 truncate text-xs text-gray-500 dark:text-gray-400" title={p.content}>{p.content}</p>
-
-        {/* 元信息区常驻占位：有无徽标行高一致 */}
-        <div className="flex shrink-0 items-center gap-1">
-            {boundModel && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-1.5 py-0.5 text-[10px] text-blue-600 dark:bg-blue-900/20 dark:text-blue-300">
-                <Brain size={9} />{effortOption?.value
-                  ? t('card.modelWithEffort', { model: boundModel.displayName, effort: t(effortOption.labelKey) })
-                  : boundModel.displayName}
-              </span>
-            )}
-            {!boundModel && effortOption?.value && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-1.5 py-0.5 text-[10px] text-blue-600 dark:bg-blue-900/20 dark:text-blue-300">
-                <Brain size={9} />{t('card.reasoning', { label: t(effortOption.labelKey) })}
-              </span>
-            )}
-            {subAgentIds.length > 0 && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-1.5 py-0.5 text-[10px] text-violet-600 dark:bg-violet-900/20 dark:text-violet-300">
-                <Network size={9} />{t('card.subAgentCount', { n: subAgentIds.length })}
-              </span>
-            )}
-            {skillIds.length > 0 && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] text-amber-600 dark:bg-amber-900/20 dark:text-amber-300">
-                <Sparkles size={9} />{t('card.skillCount', { n: skillIds.length })}
-              </span>
+          <div className="ml-auto flex shrink-0 items-center justify-end gap-0.5 opacity-60 transition-opacity group-hover:opacity-100">
+            {isLocal ? (
+              <IconButton variant="ghost" tone="violet" size="sm" className="text-violet-500 hover:bg-violet-50 hover:text-violet-600 dark:text-violet-400 dark:hover:bg-violet-900/20" onClick={() => createProfessionalFromLocalMutation.mutate(p.id)}
+                disabled={createProfessionalFromLocalMutation.isPending}
+                title={t('card.fromLocalTitle')} label={t('card.createProfessional')}><Brain size={14} /></IconButton>
+            ) : dbPreset.isBuiltIn ? (
+              <IconButton variant="ghost" tone="violet" size="sm" className="text-violet-500 hover:bg-violet-50 hover:text-violet-600 dark:text-violet-400 dark:hover:bg-violet-900/20" onClick={() => createProfessionalMutation.mutate(p.id)}
+                disabled={createProfessionalMutation.isPending}
+                title={t('card.fromBuiltInTitle')} label={t('card.createProfessional')}><Brain size={14} /></IconButton>
+            ) : (
+              <>
+                <IconButton variant="ghost" tone="gray" size="sm" className="text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700" onClick={() => openEditForm(dbPreset)} title={t('common:edit')} label={t('common:edit')}><Edit2 size={14} /></IconButton>
+                {!isProfessionalAgent && (
+                  <IconButton variant="ghost" tone="violet" size="sm" className="text-violet-500 hover:bg-violet-50 hover:text-violet-600 dark:text-violet-400 dark:hover:bg-violet-900/20" onClick={() => createProfessionalMutation.mutate(p.id)}
+                    disabled={createProfessionalMutation.isPending}
+                    title={t('card.fromGeneralTitle')} label={t('card.createProfessional')}><Brain size={14} /></IconButton>
+                )}
+                <IconButton variant="ghost" tone="gray" size="sm" className="text-gray-400 hover:bg-red-50 hover:text-red-500 dark:text-gray-500 dark:hover:bg-red-900/20 dark:hover:text-red-400" onClick={() => { confirm({ message: t('common:deleteConfirm'), onConfirm: () => deleteMutation.mutate(p.id) }) }} title={t('common:delete')} label={t('common:delete')}><Trash2 size={14} /></IconButton>
+              </>
             )}
           </div>
-
-        <span className="flex w-16 shrink-0 items-center gap-1 text-[10px] text-gray-400">
-          {toolCount > 0 && <><Zap size={11} />{t('card.toolCount', { n: toolCount })}</>}
-        </span>
-
-        <div className="flex w-20 shrink-0 items-center justify-end gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
-          {isLocal ? (
-            <IconButton variant="ghost" tone="violet" size="sm" className="text-violet-500 hover:bg-violet-50 hover:text-violet-600 dark:text-violet-400 dark:hover:bg-violet-900/20" onClick={() => createProfessionalFromLocalMutation.mutate(p.id)}
-              disabled={createProfessionalFromLocalMutation.isPending}
-              title={t('card.fromLocalTitle')} label={t('card.createProfessional')}><Brain size={14} /></IconButton>
-          ) : dbPreset.isBuiltIn ? (
-            <IconButton variant="ghost" tone="violet" size="sm" className="text-violet-500 hover:bg-violet-50 hover:text-violet-600 dark:text-violet-400 dark:hover:bg-violet-900/20" onClick={() => createProfessionalMutation.mutate(p.id)}
-              disabled={createProfessionalMutation.isPending}
-              title={t('card.fromBuiltInTitle')} label={t('card.createProfessional')}><Brain size={14} /></IconButton>
-          ) : (
-            <>
-              <IconButton variant="ghost" tone="gray" size="sm" className="text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700" onClick={() => openEditForm(dbPreset)} title={t('common:edit')} label={t('common:edit')}><Edit2 size={14} /></IconButton>
-              {!isProfessionalAgent && (
-                <IconButton variant="ghost" tone="violet" size="sm" className="text-violet-500 hover:bg-violet-50 hover:text-violet-600 dark:text-violet-400 dark:hover:bg-violet-900/20" onClick={() => createProfessionalMutation.mutate(p.id)}
-                  disabled={createProfessionalMutation.isPending}
-                  title={t('card.fromGeneralTitle')} label={t('card.createProfessional')}><Brain size={14} /></IconButton>
-              )}
-              <IconButton variant="ghost" tone="gray" size="sm" className="text-gray-400 hover:bg-red-50 hover:text-red-500 dark:text-gray-500 dark:hover:bg-red-900/20 dark:hover:text-red-400" onClick={() => { confirm({ message: t('common:deleteConfirm'), onConfirm: () => deleteMutation.mutate(p.id) }) }} title={t('common:delete')} label={t('common:delete')}><Trash2 size={14} /></IconButton>
-            </>
-          )}
         </div>
       </Card>
     )
@@ -613,19 +612,19 @@ export default function AgentsPage() {
   const filterPill = (active: boolean) =>
     active
       ? 'bg-rose-500 text-white shadow-sm shadow-rose-500/20'
-      : 'border border-gray-200 bg-white text-gray-600 hover:border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300'
+      : 'border border-transparent text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-white/[0.06]'
 
   const mainContent = (
     <PageContainer>
       {/* 页头 */}
-      <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-2">
-        <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-rose-500 to-pink-600 shadow-sm shadow-rose-500/20">
+      <div className="mb-5 flex flex-wrap items-center gap-x-4 gap-y-2">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-rose-500 to-pink-600 shadow-sm shadow-rose-500/20">
             <Bot size={20} className="text-white" />
           </div>
           <div>
-            <h1 className="text-lg font-bold text-gray-900 dark:text-gray-100">{t('page.title')}</h1>
-            <p className="text-[11px] text-gray-500 dark:text-gray-400">{t('page.subtitle')}</p>
+            <h1 className="text-xl font-semibold tracking-tight text-gray-900 dark:text-gray-100">{t('page.title')}</h1>
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{t('page.subtitle')}</p>
           </div>
         </div>
         <div className="ml-auto flex items-center gap-3 text-xs text-gray-400 dark:text-gray-500">
@@ -640,7 +639,7 @@ export default function AgentsPage() {
       </div>
 
       {/* 工具栏：分类筛选 + 搜索 + 操作 */}
-      <div className="mb-3 flex flex-wrap items-center gap-2">
+      <div className="mb-5 flex flex-wrap items-center gap-2 rounded-2xl border border-gray-200/70 bg-white/45 p-2.5 dark:border-white/[0.07] dark:bg-white/[0.025]">
         <div className="flex flex-wrap items-center gap-1">
           <button
             onClick={() => setActiveCategory(null)}
@@ -675,22 +674,22 @@ export default function AgentsPage() {
           className="hidden"
           onChange={handleImport}
         />
-        <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-3 py-1.5 text-[12px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => setShowDirConfig(true)}
+        <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 rounded-xl border border-gray-200/80 bg-white/80 px-3 py-1.5 text-[12px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => setShowDirConfig(true)}
           title={t('page.configureDirectories')}>
           <Settings size={14} />
           {t('page.configureDirectories')}
         </Button>
-        <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-3 py-1.5 text-[12px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => refetchLocal()}
+        <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 rounded-xl border border-gray-200/80 bg-white/80 px-3 py-1.5 text-[12px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => refetchLocal()}
           title={t('page.refreshLocalAgents')}>
           <RefreshCw size={14} />
           {t('common:refresh')}
         </Button>
-        <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-3 py-1.5 text-[12px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800" onClick={handleExport}
+        <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 rounded-xl border border-gray-200/80 bg-white/80 px-3 py-1.5 text-[12px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800" onClick={handleExport}
           title={t('common:export')}>
           <Download size={14} />
           {t('common:export')}
         </Button>
-        <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-3 py-1.5 text-[12px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => fileInputRef.current?.click()}
+        <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 rounded-xl border border-gray-200/80 bg-white/80 px-3 py-1.5 text-[12px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => fileInputRef.current?.click()}
           title={t('common:import')}>
           <Import size={14} />
           {t('common:import')}
@@ -721,11 +720,11 @@ export default function AgentsPage() {
                   <span className="text-[11px] text-gray-400">{t('sections.itemCount', { n: section.items.length })}</span>
                   <span className="text-[11px] text-gray-400">· {t(section.descKey)}</span>
                   {isGeneralSection ? (
-                    <Button variant="primary" tone="rose" pill className="ml-auto flex shrink-0 items-center gap-1 rounded-full bg-rose-500 px-3 py-1 text-[12px] font-medium text-white shadow-sm transition-all hover:bg-rose-600" onClick={openCreateForm}>
+                    <Button variant="primary" tone="rose" pill className="ml-auto flex shrink-0 items-center gap-1 rounded-xl bg-rose-500 px-3 py-1.5 text-[12px] font-medium text-white shadow-sm transition-all hover:bg-rose-600" onClick={openCreateForm}>
                       <Plus size={13} />{t('page.newAgent')}
                     </Button>
                   ) : (
-                    <Button variant="primary" tone="violet" pill className="ml-auto flex shrink-0 items-center gap-1 rounded-full bg-violet-500 px-3 py-1 text-[12px] font-medium text-white shadow-sm transition-all hover:bg-violet-600" onClick={openCreateProfessionalForm}>
+                    <Button variant="primary" tone="violet" pill className="ml-auto flex shrink-0 items-center gap-1 rounded-xl bg-violet-500 px-3 py-1.5 text-[12px] font-medium text-white shadow-sm transition-all hover:bg-violet-600" onClick={openCreateProfessionalForm}>
                       <Plus size={13} />{t('sections.newProfessional')}
                     </Button>
                   )}
@@ -741,7 +740,7 @@ export default function AgentsPage() {
                     )}
                   </div>
                 ) : (
-                  <div className="space-y-1">
+                  <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
                     {section.items.map(p => renderPresetRow(p, localIdSet.has(p.id)))}
                   </div>
                 )}
@@ -958,7 +957,7 @@ export default function AgentsPage() {
                           {tools.every(tool => enabledTools.includes(tool.name)) ? t('form.deselectAll') : t('common:selectAll')}
                         </button>
                       </div>
-                      <div className="space-y-1">
+                      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
                         {tools.map(tool => {
                           const isEnabled = enabledTools.includes(tool.name)
                           const approval = toolApprovals[tool.name] || 'auto'

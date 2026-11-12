@@ -1,5 +1,7 @@
 import { useState, useRef, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
+import { Check, ChevronDown } from 'lucide-react'
+import { POPOVER_PANEL_CLASS, popoverItemClass } from '../../utils/styles'
 
 export interface AgentToolbarSelectOption {
   value: string
@@ -41,45 +43,51 @@ export default function AgentToolbarSelect({
       onBlur={(e) => {
         if (!ref.current?.contains(e.relatedTarget as Node)) setOpen(false)
       }}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') setOpen(false)
+      }}
     >
       <button
         onClick={() => setOpen((v) => !v)}
-        title={title ?? current?.label}
+        title={open ? undefined : (title ?? current?.label)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        data-tooltip-owner={open ? '' : undefined}
         className={className}
       >
         {/* 图标跟随当前选项，放在触发器内部，不再单独展示 */}
         {current?.icon && <span className="shrink-0">{current.icon}</span>}
         <span className="truncate">{current?.label ?? t('toolbar.none')}</span>
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" className="shrink-0 opacity-60">
-          <path d="m6 9 6 6 6-6" />
-        </svg>
+        <ChevronDown size={11} className={`shrink-0 opacity-60 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
       {open && (
-        <div className="absolute bottom-full left-0 z-50 mb-1 max-h-72 min-w-44 overflow-y-auto rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-800">
-          {options.map((opt) => (
-            <button
-              key={opt.value}
-              onClick={() => {
-                onChange(opt.value)
-                setOpen(false)
-              }}
-              className={`flex w-full items-start gap-2 px-3 py-1.5 text-left transition-colors ${
-                opt.value === value
-                  ? 'bg-blue-50 dark:bg-blue-900/30'
-                  : 'hover:bg-gray-50 dark:hover:bg-gray-700/60'
-              }`}
-            >
-              {opt.icon && <span className="mt-0.5 shrink-0">{opt.icon}</span>}
-              <span className="min-w-0 flex-1">
-                <span className={`block text-[11px] font-medium ${opt.value === value ? 'text-blue-600 dark:text-blue-300' : 'text-gray-700 dark:text-gray-200'}`}>
-                  {opt.label}
+        <div role="menu" className={`absolute bottom-full left-0 z-50 mb-2 max-h-72 min-w-52 max-w-[calc(100vw-2rem)] overflow-y-auto p-1.5 ${POPOVER_PANEL_CLASS}`}>
+          {options.map((opt) => {
+            const active = opt.value === value
+            return (
+              <button
+                key={opt.value}
+                role="menuitemradio"
+                aria-checked={active}
+                onClick={() => {
+                  onChange(opt.value)
+                  setOpen(false)
+                }}
+                className={popoverItemClass(active)}
+              >
+                {opt.icon && <span className="mt-0.5 shrink-0">{opt.icon}</span>}
+                <span className="min-w-0 flex-1">
+                  <span className={`block text-xs font-medium ${active ? 'text-blue-700 dark:text-blue-200' : 'text-gray-700 dark:text-gray-200'}`}>
+                    {opt.label}
+                  </span>
+                  {opt.description && (
+                    <span className="mt-0.5 block text-[11px] leading-4 text-gray-400 dark:text-gray-500">{opt.description}</span>
+                  )}
                 </span>
-                {opt.description && (
-                  <span className="mt-0.5 block text-[10px] leading-snug text-gray-400 dark:text-gray-500">{opt.description}</span>
-                )}
-              </span>
-            </button>
-          ))}
+                {active && <Check size={13} className="mt-0.5 shrink-0 text-blue-500 dark:text-blue-300" />}
+              </button>
+            )
+          })}
         </div>
       )}
     </div>

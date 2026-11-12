@@ -133,7 +133,8 @@ function NoteNode({
             {note.title || t('note.untitled')}
           </>
         )}
-        labelClassName="text-gray-600 dark:text-gray-300"
+        labelClassName={active ? 'text-blue-700 dark:text-blue-200' : 'text-gray-600 dark:text-gray-300'}
+        className={active ? 'bg-blue-100/70 shadow-[inset_2px_0_0_#3b82f6] dark:bg-blue-500/15' : ''}
         onClick={() => {
           onSelectNote(note)
           setSelectedNoteParentId(note.id)
@@ -241,7 +242,7 @@ export default function NotesTree({ selectedNoteId, onSelectNote, className, emb
           : 'w-64 shrink-0'
       } ${className ?? ''}`}
     >
-      <div className="border-b border-gray-100 p-3 dark:border-gray-800/50">
+      <div className="border-b border-gray-200/80 bg-white/35 p-3.5 dark:border-white/[0.07] dark:bg-slate-950/20">
         <div className="mb-2.5 flex items-center justify-between">
           <h2 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">{t('tree.label')}</h2>
         </div>
@@ -254,7 +255,7 @@ export default function NotesTree({ selectedNoteId, onSelectNote, className, emb
       </div>
 
       <div className="shrink-0 px-2 pt-2">
-        <Button variant="link" tone="gray" className="mb-1 flex w-full items-center gap-1.5 rounded-xl border border-dashed border-gray-200 px-3 py-2.5 text-left text-[13px] font-medium text-gray-500 transition-colors hover:border-blue-300 hover:text-blue-600 dark:border-gray-700 dark:text-gray-400 dark:hover:border-blue-500/50 dark:hover:text-blue-300" onClick={() => createRootNote.mutate({ title: '', content: '' })}>
+        <Button variant="link" tone="gray" className="mb-1 flex w-full items-center justify-center gap-1.5 rounded-xl border border-blue-200/70 bg-blue-50/70 px-3 py-2 text-[13px] font-medium text-blue-600 transition-colors hover:bg-blue-100 dark:border-blue-400/15 dark:bg-blue-500/10 dark:text-blue-300 dark:hover:bg-blue-500/15" onClick={() => createRootNote.mutate({ title: '', content: '' })}>
           <Plus size={14} className="shrink-0" />
           {t('tree.newNote')}
         </Button>

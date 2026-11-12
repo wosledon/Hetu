@@ -58,16 +58,16 @@ export default function WhiteboardPage() {
       showSidebar={false}
       mainContent={
         <PageContainer variant="fill" className="flex-col overflow-hidden">
-          <div className="flex items-center justify-between border-b border-gray-200 px-6 py-3 dark:border-white/[0.08]">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200/80 bg-white/35 px-6 py-4 dark:border-white/[0.07] dark:bg-slate-950/20">
             <div className="flex items-center gap-2">
               <PenTool size={20} className="text-blue-500" />
-              <h1 className="text-base font-semibold text-gray-800 dark:text-gray-100">{t('page.title')}</h1>
+              <h1 className="text-xl font-semibold tracking-tight text-gray-900 dark:text-gray-100">{t('page.title')}</h1>
               <span className="text-xs text-gray-400">{t('page.subtitle')}</span>
             </div>
             <Button
               variant="primary"
               tone="blue"
-              className="flex items-center gap-1.5 rounded-xl bg-blue-500 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-blue-600"
+              className="flex items-center gap-1.5 rounded-xl bg-blue-600 px-3.5 py-1.5 text-sm font-medium text-white transition-colors hover:bg-blue-600"
               onClick={() => {
                 setNewName('')
                 setCreating(true)
@@ -98,7 +98,7 @@ export default function WhiteboardPage() {
                 </Button>
               </div>
             ) : (
-              <div className="grid grid-cols-[repeat(auto-fill,18rem)] gap-4">
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-4">
                 {boards.map((board) => (
                   <Card
                     key={board.id}
@@ -115,7 +115,7 @@ export default function WhiteboardPage() {
                     </div>
                     <div className="flex items-start justify-between gap-2 p-3">
                       <div className="min-w-0">
-                        <h3 className="truncate text-sm font-medium text-gray-800 dark:text-gray-100">{board.name}</h3>
+                        <h3 className="truncate text-sm font-semibold text-gray-800 dark:text-gray-100">{board.name}</h3>
                         <p className="mt-1 text-xs text-gray-400">{formatDateTime(board.updatedAt)}</p>
                       </div>
                       <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">

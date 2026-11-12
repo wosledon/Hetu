@@ -22,6 +22,8 @@ interface ToolInteractionDrawerProps {
   streamKey: string
   /** 流式进行中：任务面板仅在流式期间展示 */
   streaming?: boolean
+  /** inline：输入框上方；rail：聊天区右侧独立栏 */
+  placement?: 'inline' | 'rail'
 }
 
 /** 单个待办步骤：圆圈编号 + 进行中/完成状态，描述另起一行 */
@@ -35,13 +37,19 @@ function TodoRow({ todo, index }: { todo: InteractionTodo; index: number }) {
   }, [isInProgress])
 
   return (
-    <li ref={rowRef} className="relative flex items-start gap-3">
+    <li ref={rowRef} className={`flex items-start gap-3 rounded-xl border px-3 py-2.5 transition-colors ${
+      isCompleted
+        ? 'border-emerald-200/60 bg-emerald-50/35 dark:border-emerald-400/10 dark:bg-emerald-500/[0.035]'
+        : isInProgress
+          ? 'border-sky-300/80 bg-sky-50/55 shadow-sm dark:border-sky-400/25 dark:bg-sky-500/[0.07]'
+          : 'border-gray-200/75 bg-white/60 dark:border-white/[0.07] dark:bg-gray-900/35'
+    }`}>
       <span
-        className={`relative z-10 mt-0.5 flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full border text-[10px] font-semibold tabular-nums transition-colors ${
+        className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-[10px] font-semibold tabular-nums transition-colors ${
           isCompleted
             ? 'border-emerald-500 bg-emerald-500 text-white shadow-sm shadow-emerald-500/20'
             : isInProgress
-              ? 'border-sky-400 bg-sky-50 text-sky-600 ring-4 ring-sky-500/10 dark:border-sky-600 dark:bg-sky-950/50 dark:text-sky-300 dark:ring-sky-400/10'
+              ? 'border-sky-500 bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300'
               : 'border-gray-200 bg-white text-gray-400 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-500'
         }`}
       >
@@ -71,7 +79,7 @@ function TodoRow({ todo, index }: { todo: InteractionTodo; index: number }) {
   )
 }
 
-/** 工作计划面板：进度条 + 编号时间线（标题/计数已在抽屉头部展示） */
+/** 工作计划面板：进度条 + 状态步骤卡片（标题/计数已在抽屉头部展示） */
 function TodoSection({ todos }: { todos: InteractionTodo[] }) {
   const total = todos.length
   const completed = todos.filter(t => t.status === 'completed').length
@@ -95,13 +103,7 @@ function TodoSection({ todos }: { todos: InteractionTodo[] }) {
           {percent}%
         </span>
       </div>
-      <ol className="relative space-y-3">
-        {todos.length > 1 && (
-          <span
-            aria-hidden
-            className="absolute bottom-3 left-[11px] top-3 w-px bg-gradient-to-b from-sky-200 via-gray-200 to-transparent dark:from-sky-800 dark:via-gray-700"
-          />
-        )}
+      <ol className="space-y-2">
         {todos.map((t, idx) => <TodoRow key={t.id} todo={t} index={idx} />)}
       </ol>
     </div>
@@ -112,7 +114,7 @@ function TodoSection({ todos }: { todos: InteractionTodo[] }) {
  * 工具交互抽屉：ask_question / todo / plan 触发时在输入框上方滑出。
  * 对话页与编码页共用；答案与计划决策通过共享的 /chat-messages 接口提交。
  */
-export default function ToolInteractionDrawer({ streamKey, streaming = false }: ToolInteractionDrawerProps) {
+export default function ToolInteractionDrawer({ streamKey, streaming = false, placement = 'inline' }: ToolInteractionDrawerProps) {
   const { t } = useTranslation('chat')
   const state = useInteractionStore((st) => getInteraction(st.streams, streamKey))
   const answer = useInteractionStore((st) => st.answer)
@@ -183,11 +185,19 @@ export default function ToolInteractionDrawer({ streamKey, streaming = false }: 
       ? `${todoCompleted}/${todos.length} · ${todoPercent}%${todos.length > 0 && todoCompleted === todos.length ? t('interaction.allCompleted') : ''}`
       : `${answerCount}/${questions.length}`
 
+  const rail = placement === 'rail'
+
   return (
-    <div className="mb-2 animate-drawer-up">
-      <div className="overflow-hidden rounded-2xl border border-gray-200/80 bg-white/95 shadow-xl shadow-gray-900/[0.04] ring-1 ring-black/[0.02] backdrop-blur-md dark:border-gray-700/80 dark:bg-gray-800/95 dark:shadow-black/20">
+    <div className={rail
+      ? 'pointer-events-none relative z-20 my-4 mr-4 flex max-h-[calc(100%-2rem)] w-[360px] shrink-0 animate-slide-in-right flex-col self-start'
+      : 'mb-3 animate-drawer-up'}
+    >
+      <div className={rail
+        ? `pointer-events-auto flex max-h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-gray-200/90 bg-white/95 shadow-[0_24px_64px_-24px_rgba(15,23,42,0.48)] dark:border-white/10 dark:bg-gray-900/95 ${collapsed ? 'shrink-0 self-start' : ''}`
+        : 'overflow-hidden rounded-2xl border border-gray-200/90 bg-white/95 shadow-[0_16px_40px_-22px_rgba(15,23,42,0.35)] dark:border-white/10 dark:bg-gray-900/95'}
+      >
         {/* Header：标题 + 分区切换 + 折叠 */}
-        <div className="flex items-center gap-2.5 px-3.5 py-2.5">
+        <div className="flex shrink-0 flex-wrap items-center gap-2.5 px-3.5 py-3">
           <div className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl ring-1 ${
             active === 'plan'
               ? 'bg-teal-100 text-teal-600 ring-teal-200/60 dark:bg-teal-900/50 dark:text-teal-400 dark:ring-teal-800/50'
@@ -198,17 +208,17 @@ export default function ToolInteractionDrawer({ streamKey, streaming = false }: 
             {activeMeta ? <activeMeta.icon size={15} /> : <HelpCircle size={15} />}
           </div>
           <div className="min-w-0 flex-1">
-            <div className="truncate text-[12px] font-semibold text-gray-800 dark:text-gray-100">
+            <div className="truncate text-[13px] font-semibold text-gray-800 dark:text-gray-100">
               {title}
             </div>
-            <div className="mt-0.5 truncate text-[10px] text-gray-400 dark:text-gray-500">
+            <div className="mt-0.5 truncate text-[11px] text-gray-400 dark:text-gray-500">
               {meta}
             </div>
           </div>
 
           {/* 分区切换 */}
           {tabs.length > 1 && (
-            <div className="flex items-center gap-0.5 rounded-xl bg-gray-100 p-0.5 dark:bg-gray-900/60">
+            <div className="flex items-center gap-0.5 rounded-xl border border-gray-200/70 bg-gray-50 p-0.5 dark:border-white/[0.06] dark:bg-white/[0.035]">
               {tabs.map((tab) => (
                 <button
                   key={tab.key}
@@ -237,7 +247,7 @@ export default function ToolInteractionDrawer({ streamKey, streaming = false }: 
 
         {/* Body */}
         {!collapsed && (
-          <div className="max-h-[min(42vh,340px)] overflow-y-auto border-t border-gray-100 dark:border-gray-700/60">
+          <div className={`${rail ? 'min-h-0 flex-1' : 'max-h-[min(42vh,360px)]'} overflow-y-auto border-t border-gray-200/70 bg-gray-50/35 dark:border-white/[0.06] dark:bg-slate-950/20`}>
             {active === 'question' && questions.length > 0 && (
               <QuestionFlow
                 questions={questions}

@@ -214,15 +214,15 @@ export default function AgentInputBox({
   }
 
   return (
-    <div className="bg-transparent p-3 dark:bg-transparent">
-      <div className="relative mx-auto max-w-3xl">
+    <div className="bg-transparent dark:bg-transparent">
+      <div className="relative mx-auto w-full max-w-4xl">
         {aboveInput}
         {/* 流式中：焦点态那套淡蓝描边 + 光晕会和绕行的流光互相打架（边框还被它染成蓝），
             流光本身就足以表明"正在生成"，此时不再叠加焦点样式 */}
-        <div className={`relative rounded-xl border bg-white glass shadow-sm transition-colors dark:bg-gray-800 ${
+        <div className={`relative rounded-2xl border bg-white/95 shadow-[0_16px_44px_-20px_rgba(15,23,42,0.35)] transition-all dark:bg-gray-900/95 ${
           streaming
             ? 'border-transparent dark:border-transparent'
-            : 'border-gray-200 focus-within:border-blue-300 focus-within:ring-2 focus-within:ring-blue-500/10 dark:border-gray-700'
+            : 'border-gray-200/90 focus-within:border-blue-400 focus-within:shadow-[0_16px_44px_-18px_rgba(59,130,246,0.3)] focus-within:ring-4 focus-within:ring-blue-500/[0.07] dark:border-white/10 dark:focus-within:border-blue-400/60'
         }`}>
           {/* 流式中：边框上绕行的流光（.running-ring），表示正在生成 */}
           {streaming && <span className="running-ring" aria-hidden />}
@@ -240,7 +240,7 @@ export default function AgentInputBox({
           )}
 
           {chips.length > 0 && (
-            <div className="flex flex-wrap items-center gap-1.5 px-3 pt-2.5">
+            <div className="flex flex-wrap items-center gap-1.5 px-4 pt-3">
               {chips.map((chip) => (
                 <span
                   key={chip.id}
@@ -262,7 +262,7 @@ export default function AgentInputBox({
           )}
 
           {block && (
-            <div className="px-3 pt-2.5">
+            <div className="px-4 pt-3">
               <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-2 py-1.5 text-[11px] dark:border-gray-700 dark:bg-gray-900/50">
                 <FileText size={12} className="shrink-0 text-gray-400" />
                 <span className="shrink-0 font-medium text-gray-600 dark:text-gray-300">{t('input.collapsedBlock')}</span>
@@ -295,20 +295,20 @@ export default function AgentInputBox({
             onPaste={handlePaste}
             placeholder={placeholderText}
             rows={rows}
-            className="w-full resize-none bg-transparent px-3 py-2.5 text-sm outline-none placeholder:text-gray-400 dark:placeholder:text-gray-500"
+            className="w-full resize-none bg-transparent px-4 pb-3 pt-4 text-[14px] leading-6 text-gray-800 outline-none placeholder:text-gray-400 dark:text-gray-100 dark:placeholder:text-gray-500"
           />
 
-          <div className="flex flex-wrap items-center gap-1 px-1.5 py-1.5">
+          <div className="flex flex-wrap items-center gap-1 rounded-b-[15px] border-t border-gray-100/90 bg-gray-50/60 px-2 py-2 dark:border-white/[0.06] dark:bg-white/[0.025]">
             {toolbar}
             <div className="ml-auto">
               {streaming ? (
-                <Button variant="danger" className="flex h-[27px] w-[27px] items-center justify-center p-0 rounded-lg bg-red-500 text-white transition-colors hover:bg-red-600" onClick={onStop}
+                <Button variant="danger" className="flex h-8 w-8 items-center justify-center rounded-xl p-0 bg-red-500 text-white shadow-sm transition-all hover:bg-red-600 active:scale-95" onClick={onStop}
                   title={t('input.stop')}
                   aria-label={t('input.stop')}>
                   <Square size={13} fill="currentColor" />
                 </Button>
               ) : (
-                <Button variant="primary" tone="blue" className="flex h-[27px] w-[27px] items-center justify-center p-0 rounded-lg bg-blue-500 text-white transition-colors hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-45" onClick={onSubmit}
+                <Button variant="primary" tone="blue" className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-600 p-0 text-white shadow-sm shadow-blue-500/25 transition-all hover:bg-blue-500 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40" onClick={onSubmit}
                   disabled={busy || !canSubmit}
                   title={t('input.send')}
                   aria-label={t('input.send')}>
@@ -321,7 +321,7 @@ export default function AgentInputBox({
 
         {/* 聊天框下方：左侧 Agent 模式/审批模式，中间提示文字，右侧会话信息（分支/同步/上下文占用） */}
         {(hint || trailing || footerLeading) && (
-          <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+          <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 px-1">
             {footerLeading && <div className="flex shrink-0 items-center gap-1">{footerLeading}</div>}
             {hint && <span className="min-w-0 flex-1 truncate text-[10px] text-gray-400">{hint}</span>}
             {/* ml-auto 保证右侧控件始终贴右：不能依赖中间的占位元素（窄屏/无提示时它会消失）；

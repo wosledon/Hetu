@@ -856,7 +856,7 @@ export default function MemoriesPage() {
   const filterPill = (active: boolean) =>
     active
       ? 'bg-teal-500 text-white shadow-sm shadow-teal-500/20'
-      : 'border border-gray-200 bg-white text-gray-600 hover:border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300'
+      : 'border border-transparent text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-white/[0.06]'
 
   return (
     <AppLayout
@@ -998,11 +998,11 @@ export default function MemoriesPage() {
           {/* 页头 */}
           <div className="mb-6 flex flex-wrap items-center gap-x-5 gap-y-3">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-teal-500 to-cyan-600 shadow-sm shadow-teal-500/20">
-                <Atom size={20} className="text-white" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-teal-200/70 bg-teal-50 text-teal-600 shadow-sm dark:border-teal-400/15 dark:bg-teal-500/10 dark:text-teal-300">
+                <Atom size={20} />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('memories.title')}</h1>
+                <h1 className="text-xl font-semibold tracking-tight text-gray-900 dark:text-gray-100">{t('memories.title')}</h1>
                 <p className="text-xs text-gray-500 dark:text-gray-400">{t('memories.subtitle')}</p>
               </div>
             </div>
@@ -1015,7 +1015,7 @@ export default function MemoriesPage() {
                 </>
               )}
             </div>
-            <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-3.5 py-1.5 text-[13px] font-medium text-gray-600 transition-colors hover:border-blue-300 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-600" onClick={() => setView('sky')}
+            <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 rounded-xl border border-gray-200/80 bg-white/80 px-3.5 py-1.5 text-[13px] font-medium text-gray-600 transition-colors hover:border-blue-300 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-600" onClick={() => setView('sky')}
               title={t('memories.backToSky')}>
               <Sparkles size={14} />{t('memories.starMap')}
             </Button>
@@ -1076,7 +1076,7 @@ export default function MemoriesPage() {
           </div>
 
           {/* 工具栏：分类筛选 + 排序 + 搜索 + 新建 */}
-          <div className="mb-6 flex flex-wrap items-center gap-3">
+          <div className="mb-6 flex flex-wrap items-center gap-3 rounded-2xl border border-gray-200/70 bg-white/45 p-2.5 dark:border-white/[0.07] dark:bg-white/[0.025]">
             <div className="flex flex-wrap items-center gap-1.5">
               <button
                 onClick={() => setActiveCategory(null)}

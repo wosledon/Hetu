@@ -54,46 +54,50 @@ export default function PlanFlow({ plan, onFeedback, onDecide, hideHeader = fals
 
       <div className={hideHeader ? 'px-4 pt-3 pb-3' : 'px-4 pb-3'}>
         {plan.summary && (
-          <p className="mb-3 text-xs leading-relaxed text-gray-600 dark:text-gray-300">
+          <p className="mb-3 rounded-xl border border-teal-200/60 bg-teal-50/45 px-3.5 py-3 text-xs leading-5 text-teal-900 dark:border-teal-400/15 dark:bg-teal-500/[0.055] dark:text-teal-100">
             {plan.summary}
           </p>
         )}
 
         {/* Steps */}
-        <ol className="relative space-y-2.5 pl-1">
-          {/* Connector line */}
-          {plan.steps.length > 1 && (
-            <span
-              aria-hidden
-              className="absolute bottom-4 left-[13px] top-4 w-px bg-gradient-to-b from-teal-200 to-gray-100 dark:from-teal-800 dark:to-gray-700"
-            />
-          )}
+        <ol className="space-y-2">
           {plan.steps.map((step, i) => (
-            <li key={step.id} className="relative flex items-start gap-3">
-              <span className={`relative z-10 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border text-[10px] font-semibold tabular-nums ${
+            <li className={`flex items-start gap-3 rounded-xl border px-3 py-2.5 transition-colors ${
+              step.status === 'completed'
+                ? 'border-emerald-200/60 bg-emerald-50/35 dark:border-emerald-400/10 dark:bg-emerald-500/[0.035]'
+                : step.status === 'in-progress'
+                  ? 'border-teal-300/80 bg-teal-50/55 shadow-sm dark:border-teal-400/25 dark:bg-teal-500/[0.07]'
+                  : 'border-gray-200/75 bg-white/60 dark:border-white/[0.07] dark:bg-gray-900/35'
+            }`} key={step.id}>
+              <span className={`mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border text-[10px] font-semibold tabular-nums ${
                 step.status === 'completed'
                   ? 'border-emerald-500 bg-emerald-500 text-white'
-                  : 'border-teal-200 bg-white text-teal-600 dark:border-teal-800 dark:bg-gray-900 dark:text-teal-400'
+                  : step.status === 'in-progress'
+                    ? 'border-teal-500 bg-teal-100 text-teal-700 dark:bg-teal-500/15 dark:text-teal-300'
+                    : 'border-teal-200 bg-white text-teal-600 dark:border-teal-800 dark:bg-gray-900 dark:text-teal-400'
               }`}>
-                {step.status === 'completed' ? <Check size={11} /> : i + 1}
+                {step.status === 'completed'
+                  ? <Check size={11} strokeWidth={2.5} />
+                  : step.status === 'in-progress'
+                    ? <Loader2 size={11} className="animate-spin" />
+                    : i + 1}
               </span>
               <div className="min-w-0 flex-1 pt-0.5">
-                <div className={`text-xs font-medium leading-relaxed ${
+                <div className={`text-xs font-medium leading-5 ${
                   step.status === 'completed'
                     ? 'text-gray-400 line-through dark:text-gray-500'
-                    : 'text-gray-700 dark:text-gray-200'
+                    : step.status === 'in-progress'
+                      ? 'text-teal-800 dark:text-teal-200'
+                      : 'text-gray-700 dark:text-gray-200'
                 }`}>
                   {step.title}
                 </div>
                 {step.description && (
-                  <div className="mt-0.5 text-[11px] leading-relaxed text-gray-500 dark:text-gray-400">
+                  <div className="mt-1 text-[11px] leading-5 text-gray-500 dark:text-gray-400">
                     {step.description}
                   </div>
                 )}
               </div>
-              {step.status === 'in-progress' && (
-                <Loader2 size={12} className="mt-1 flex-shrink-0 animate-spin text-teal-500" />
-              )}
             </li>
           ))}
         </ol>
@@ -101,8 +105,8 @@ export default function PlanFlow({ plan, onFeedback, onDecide, hideHeader = fals
 
       {/* Actions */}
       {pending && (
-        <div className="border-t border-gray-100 px-3 py-2.5 dark:border-gray-700/60">
-          <div className="mb-2 flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-50/60 px-3 py-2 transition-colors focus-within:border-teal-300 dark:border-gray-700 dark:bg-gray-900/40">
+        <div className="sticky bottom-0 z-10 border-t border-gray-200/70 bg-gray-50/95 px-3 py-3 dark:border-white/[0.06] dark:bg-gray-900/95">
+          <div className="mb-2.5 flex items-center gap-2 rounded-xl border border-gray-200/80 bg-white/75 px-3 py-2.5 transition-colors focus-within:border-teal-400 focus-within:ring-2 focus-within:ring-teal-500/10 dark:border-white/[0.08] dark:bg-gray-900/50">
             <MessageSquare size={12} className="shrink-0 text-gray-400" />
             <input
               type="text"

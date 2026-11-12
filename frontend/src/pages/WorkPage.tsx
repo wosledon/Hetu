@@ -157,8 +157,8 @@ function SectionHeader({
 }) {
   const iconBtn = 'shrink-0 rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06] dark:hover:text-gray-300'
   return (
-    <div className="shrink-0 border-b border-gray-100 dark:border-gray-800">
-      <div className="flex items-center gap-1 px-2 py-1.5">
+    <div className="shrink-0 border-b border-gray-200/80 dark:border-white/[0.07]">
+      <div className="flex h-14 items-center gap-1 px-3">
         <div className="flex min-w-0 flex-1 items-center gap-2 px-1.5 py-1.5">
           <Icon size={16} className="shrink-0 text-gray-500 dark:text-gray-400" />
           <span className="min-w-0 flex-1 truncate text-sm font-semibold text-gray-700 dark:text-gray-200">{title}</span>
@@ -363,7 +363,7 @@ export default function WorkPage() {
       mainContent={
         <PageContainer variant="fill">
           {/* 左栏：项目树（项目下挂会话），左栏工具条负责搜索 / 分组 / 新建 */}
-          <div className="flex w-64 shrink-0 flex-col border-r border-gray-100 dark:border-white/[0.06]">
+          <div className="flex w-64 shrink-0 flex-col border-r border-gray-200/80 bg-white/35 dark:border-white/[0.07] dark:bg-slate-950/20">
             <SectionHeader
               icon={FolderInput}
               title={t('page.projectSection')}

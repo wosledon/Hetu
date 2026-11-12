@@ -177,12 +177,12 @@ export default function McpServerManager({ embedded = false }: { embedded?: bool
     <section className="space-y-6">
       {/* Header / toolbar */}
       {embedded ? (
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-200/70 bg-white/45 p-2.5 dark:border-white/[0.07] dark:bg-white/[0.025]">
           <p className="text-[11px] text-gray-500 dark:text-gray-400">
             {t('mcp.configuredCount', { count: servers.length })}
           </p>
           {!isCreating && !editingId && (
-            <Button variant="primary" tone="blue" size="sm" className="inline-flex items-center gap-1.5 rounded-lg bg-blue-500 px-3 py-1.5 text-[12px] font-medium text-white shadow-sm hover:bg-blue-600" onClick={() => { resetForm(); setIsCreating(true) }}>
+            <Button variant="primary" tone="blue" size="sm" className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-3.5 py-1.5 text-[12px] font-medium text-white shadow-sm hover:bg-blue-600" onClick={() => { resetForm(); setIsCreating(true) }}>
               <Plus size={14} /> {t('mcp.customAdd')}
             </Button>
           )}
@@ -208,7 +208,7 @@ export default function McpServerManager({ embedded = false }: { embedded?: bool
 
       {/* Form */}
       {(isCreating || editingId) && (
-        <div ref={formRef} className="rounded-xl border border-blue-200/60 bg-blue-50/30 p-5 dark:border-blue-500/20 dark:bg-blue-950/10">
+        <div ref={formRef} className="rounded-2xl border border-blue-200/70 bg-white/70 p-5 shadow-sm dark:bg-slate-900/35 dark:border-blue-500/20 dark:bg-blue-950/10">
           <h3 className="mb-4 text-sm font-semibold text-gray-800 dark:text-gray-200">
             {editingId ? t('mcp.editServer') : t('mcp.createServer')}
           </h3>
@@ -280,7 +280,7 @@ export default function McpServerManager({ embedded = false }: { embedded?: bool
             const Icon = PRESET_ICONS[preset.id] ?? Wrench
             const added = servers.some((server) => server.name === t(preset.nameKey))
             return (
-              <Card key={preset.id} className="p-3.5 transition-colors hover:border-white/40 dark:hover:border-white/10">
+              <Card key={preset.id} className="border-gray-200/70 bg-white/70 p-3.5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-blue-200/70 dark:border-white/[0.07] dark:bg-slate-900/35 dark:hover:border-blue-400/20">
                 <div className="flex items-start gap-2.5">
                   <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400">
                     <Icon size={14} />
@@ -340,7 +340,7 @@ export default function McpServerManager({ embedded = false }: { embedded?: bool
           <Card
             key={server.id}
             padded={false}
-            className={`shadow-sm transition-all dark:bg-white/[0.02] ${
+            className={`border-gray-200/70 bg-white/70 shadow-sm transition-all dark:border-white/[0.07] dark:bg-slate-900/35 ${
               server.isEnabled
                 ? ''
                 : 'opacity-60'
@@ -389,7 +389,7 @@ export default function McpServerManager({ embedded = false }: { embedded?: bool
 
       {/* Tools Panel */}
       {selectedServer && (
-        <Card className="p-5 shadow-sm dark:bg-white/[0.02]">
+        <Card className="border-gray-200/70 bg-white/70 p-5 shadow-sm dark:border-white/[0.07] dark:bg-slate-900/35">
           <div className="mb-4 flex items-center gap-2.5">
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-50 text-violet-500 dark:bg-violet-500/10 dark:text-violet-400">
               <Wrench size={13} />

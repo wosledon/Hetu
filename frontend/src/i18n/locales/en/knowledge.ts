@@ -131,6 +131,7 @@ export default {
     uploadFailed: 'Upload failed',
   },
   graph: {
+    title: 'Knowledge graph',
     zoomIn: 'Zoom in',
     zoomOut: 'Zoom out',
     resetView: 'Reset view',

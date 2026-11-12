@@ -27,13 +27,13 @@ type TasksMode = 'background' | 'scheduled'
 const STATUS_MAP: Record<number, { labelKey: string; color: string; bg: string; icon: typeof Clock }> = {
   0: { labelKey: 'tasks.statusQueued', color: 'text-gray-500', bg: 'bg-gray-100 dark:bg-white/[0.06]', icon: ListTodo },
   1: { labelKey: 'tasks.statusRunning', color: 'text-blue-500', bg: 'bg-blue-50 dark:bg-blue-500/10', icon: Clock },
-  2: { labelKey: 'tasks.statusCompleted', color: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-500/10', icon: CheckCircle2 },
+  2: { labelKey: 'tasks.statusCompleted', color: 'text-emerald-600 dark:text-emerald-300', bg: 'bg-gray-100 dark:bg-white/[0.05]', icon: CheckCircle2 },
   3: { labelKey: 'tasks.statusFailed', color: 'text-red-500', bg: 'bg-red-50 dark:bg-red-500/10', icon: XCircle },
 }
 
 const TYPE_MAP: Record<string, { labelKey: string; icon: typeof Cpu; color: string }> = {
   GenerateEmbedding: { labelKey: 'tasks.typeEmbedding', icon: Cpu, color: 'text-indigo-500' },
-  GenerateKnowledgeItemEmbedding: { labelKey: 'tasks.typeEmbedding', icon: Cpu, color: 'text-indigo-500' },
+  GenerateKnowledgeItemEmbedding: { labelKey: 'tasks.typeKnowledgeItemEmbedding', icon: Cpu, color: 'text-indigo-500' },
   GraphExtract: { labelKey: 'tasks.typeGraphExtract', icon: Network, color: 'text-violet-500' },
   WikiGenerate: { labelKey: 'tasks.typeWikiGenerate', icon: BookText, color: 'text-emerald-500' },
   WikiGraphExtract: { labelKey: 'tasks.typeWikiGraphExtract', icon: Network, color: 'text-violet-500' },
@@ -196,8 +196,8 @@ function BackgroundTasksView({
   const { t } = useTranslation('projects')
   return (
     <>
-      {/* 筛选：状态 + 类型 */}
-      <div className="mb-4 flex flex-wrap items-center gap-3">
+      {/* 筛选：状态与操作一行，类型独立一行，避免换行后居中和挤压 */}
+      <div className="mb-3 flex flex-wrap items-center gap-2 rounded-2xl border border-gray-200/70 bg-white/45 p-2.5 dark:border-white/[0.07] dark:bg-white/[0.025]">
         <div className="flex flex-wrap items-center gap-1.5">
           {([
             { key: 'all', label: t('common:all'), count: stats?.total },
@@ -212,37 +212,35 @@ function BackgroundTasksView({
               className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-medium transition-all ${
                 filter === subTab.key
                   ? 'bg-sky-500 text-white shadow-sm shadow-sky-500/20'
-                  : 'border border-gray-200 bg-white text-gray-600 hover:border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300'
+                  : 'text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-white/[0.06]'
               }`}
             >
               {subTab.label}
-              {subTab.count !== undefined && subTab.count > 0 && (
-                <span className="text-[11px] opacity-70">{subTab.count}</span>
-              )}
+              {subTab.count !== undefined && subTab.count > 0 && <span className="text-[11px] opacity-70">{subTab.count}</span>}
             </button>
           ))}
         </div>
         <div className="ml-auto flex items-center gap-1.5">
-          <PillTabs
-            value={typeFilter}
-            onSelect={(key) => setTypeFilter(key)}
-            items={[
-              { key: '', label: t('tasks.allTypes') },
-              ...Object.entries(TYPE_MAP).map(([key, val]) => ({ key, label: t(val.labelKey) })),
-            ]}
-          />
           {stats && stats.completed > 0 && (
-            <Button variant="secondary" size="sm" pill className="flex items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-3.5 py-1.5 text-xs font-medium text-gray-600 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800" onClick={onClearCompleted}>
+            <Button variant="secondary" size="sm" className="flex items-center gap-1.5 rounded-xl border border-gray-200/80 bg-white/80 px-3 py-1.5 text-xs font-medium text-gray-600 transition-all hover:bg-gray-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-gray-300" onClick={onClearCompleted}>
               <Trash2 size={12} /> {t('tasks.clearCompleted')}
             </Button>
           )}
-          <Button variant="secondary" pill className="rounded-full border border-gray-200 bg-white glass p-2 text-gray-500 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400 dark:hover:bg-gray-800" onClick={onRefresh}
-            title={t('common:refresh')}>
+          <Button variant="secondary" className="rounded-xl border border-gray-200/80 bg-white/80 p-2 text-gray-500 transition-all hover:bg-gray-50 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-gray-400" onClick={onRefresh} title={t('common:refresh')}>
             <RefreshCw size={13} className={isRefetching ? 'animate-spin' : ''} />
           </Button>
         </div>
       </div>
-
+      <div className="mb-5 overflow-x-auto rounded-2xl border border-gray-200/70 bg-white/45 p-1.5 dark:border-white/[0.07] dark:bg-white/[0.025]">
+        <PillTabs
+          value={typeFilter}
+          onSelect={(key) => setTypeFilter(key)}
+          items={[
+            { key: '', label: t('tasks.allTypes') },
+            ...Object.entries(TYPE_MAP).map(([key, val]) => ({ key, label: t(val.labelKey) })),
+          ]}
+        />
+      </div>
       {/* Task List */}
       {isLoading ? (
         <div className="flex items-center justify-center py-20">
@@ -252,7 +250,7 @@ function BackgroundTasksView({
         <EmptyState />
       ) : (
         <>
-          <div className="space-y-2">
+          <div className="overflow-hidden rounded-2xl border border-gray-200/70 bg-white/65 shadow-sm dark:border-white/[0.07] dark:bg-slate-900/35">
             {tasks.map((task) => (
               <TaskRow key={task.id} task={task} onDelete={() => onDelete(task.id)} />
             ))}
@@ -369,7 +367,7 @@ function ScheduledTasksView() {
   return (
     <>
       {/* 工具栏 */}
-      <div className="mb-4 flex flex-wrap items-center gap-3">
+      <div className="mb-5 flex flex-wrap items-center gap-3 rounded-2xl border border-gray-200/70 bg-white/45 p-2.5 dark:border-white/[0.07] dark:bg-white/[0.025]">
         <div className="ml-auto flex items-center gap-2">
           {isRefetching && <Loader2 size={14} className="animate-spin text-gray-400" />}
           <Button variant="secondary" pill className="flex items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-3.5 py-2 text-[13px] font-medium text-gray-600 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => queryClient.invalidateQueries({ queryKey: ['scheduled-tasks'] })}
@@ -1087,53 +1085,37 @@ function TaskRow({ task, onDelete }: { task: ITaskItem; onDelete: () => void }) 
   }
 
   return (
-    <Card interactive padded="sm">
-      <div className="flex items-center gap-3">
-        {/* Status Icon */}
-        <div className={`rounded-xl p-1.5 ${status.bg}`}>
+    <div className="group border-b border-gray-100 px-4 py-3 transition-colors last:border-b-0 hover:bg-gray-50/70 dark:border-white/[0.06] dark:hover:bg-white/[0.03]">
+      <div className="flex items-start gap-3">
+        <div className={`mt-0.5 rounded-xl p-1.5 ${status.bg}`}>
           <StatusIcon size={16} className={status.color} />
         </div>
-
-        {/* Type */}
-        <div className="flex shrink-0 items-center gap-1.5">
-          <TypeIcon size={14} className={typeInfo?.color ?? 'text-gray-500'} />
-          <span className="text-xs font-medium text-gray-600 dark:text-gray-400">{typeInfo ? t(typeInfo.labelKey) : task.taskType}</span>
-        </div>
-
-        {/* Entity */}
         <div className="min-w-0 flex-1">
           {task.entityTitle ? (
-            <span className="block truncate text-sm text-gray-700 dark:text-gray-300">{task.entityTitle}</span>
+            <span className="block truncate text-sm font-medium text-gray-800 dark:text-gray-200">{task.entityTitle}</span>
           ) : (
             <span className="block truncate font-mono text-xs text-gray-400 dark:text-gray-500">{task.entityId.slice(0, 8)}...</span>
           )}
-        </div>
-
-        {/* Duration */}
-        {task.durationMs !== null && task.durationMs !== undefined && (
-          <span className="text-[11px] text-gray-400 dark:text-gray-500 shrink-0">
-            {formatDuration(task.durationMs)}
+          <span className="mt-0.5 flex items-center gap-1.5 text-[11px] text-gray-500 dark:text-gray-400">
+            <TypeIcon size={12} className={typeInfo?.color ?? 'text-gray-500'} />
+            {typeInfo ? t(typeInfo.labelKey) : task.taskType}
           </span>
-        )}
-
-        {/* Time */}
-        <span className="text-[11px] text-gray-400 dark:text-gray-500 shrink-0">
-          {formatTime(task.createdAt, { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-        </span>
-
-        {/* Status Badge */}
-        <span className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-medium shrink-0 ${status.bg} ${status.color}`}>
-          {t(status.labelKey)}
-        </span>
-
-        {/* Delete */}
-        <IconButton variant="ghost" tone="red" className="shrink-0 rounded-full p-1 text-red-400 opacity-0 transition-all hover:bg-red-50 hover:text-red-600 group-hover:opacity-100 dark:hover:bg-red-950/30 dark:hover:text-red-400" label={t('tasks.deleteRecord')} onClick={onDelete}
-          
-          title={t('tasks.deleteRecord')}>
-          <Trash2 size={13} />
-        </IconButton>
+        </div>
+        <div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-x-2.5 gap-y-1">
+          {task.durationMs !== null && task.durationMs !== undefined && (
+            <span className="text-[11px] tabular-nums text-gray-400 dark:text-gray-500">{formatDuration(task.durationMs)}</span>
+          )}
+          <span className="text-[11px] tabular-nums text-gray-400 dark:text-gray-500">
+            {formatTime(task.createdAt, { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+          </span>
+          <span className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-medium ${status.bg} ${status.color}`}>
+            {t(status.labelKey)}
+          </span>
+          <IconButton variant="ghost" tone="red" className="shrink-0 rounded-full p-1 text-red-400 opacity-0 transition-all hover:bg-red-50 hover:text-red-600 group-hover:opacity-100 dark:hover:bg-red-950/30 dark:hover:text-red-400" label={t('tasks.deleteRecord')} onClick={onDelete} title={t('tasks.deleteRecord')}>
+            <Trash2 size={13} />
+          </IconButton>
+        </div>
       </div>
-
       {/* Error */}
       {task.errorMessage && (
         <div className="mt-2 flex items-start gap-2 rounded-lg bg-red-50 px-3 py-2 dark:bg-red-500/[0.08]">
@@ -1141,7 +1123,7 @@ function TaskRow({ task, onDelete }: { task: ITaskItem; onDelete: () => void }) 
           <span className="text-xs text-red-600 dark:text-red-400">{task.errorMessage}</span>
         </div>
       )}
-    </Card>
+    </div>
   )
 }
 

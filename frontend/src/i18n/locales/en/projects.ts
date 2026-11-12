@@ -252,6 +252,7 @@ export default {
     statusFailed: 'Failed',
     allTypes: 'All types',
     typeEmbedding: 'Embedding generation',
+    typeKnowledgeItemEmbedding: 'Knowledge item embedding',
     typeGraphExtract: 'Knowledge graph extraction',
     typeWikiGraphExtract: 'Wiki graph extraction',
     typeWikiGenerate: 'Wiki generation',

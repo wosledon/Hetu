@@ -297,7 +297,7 @@ const bySource = stats?.bySource ?? []
                 <Gauge size={20} className="text-white" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('usage.title')}</h1>
+                <h1 className="text-xl font-semibold tracking-tight text-gray-900 dark:text-gray-100">{t('usage.title')}</h1>
                 <p className="text-xs text-gray-500 dark:text-gray-400">{t('usage.subtitle')}</p>
               </div>
             </div>
@@ -313,27 +313,27 @@ const bySource = stats?.bySource ?? []
           ) : (
             <div className="space-y-6">
               {/* 概览指标：单卡分栏，避免 7 个同尺寸卡片挤成一行 */}
-              <Card padded={false} className="px-1 py-4">
-                <div className="grid grid-cols-2 gap-y-4 sm:grid-cols-4 xl:grid-cols-7">
-                  {cards.map((c: typeof cards[number] & { subValue?: string }) => {
-                    const Icon = c.icon
-                    return (
-                      <div key={c.label} className="min-w-0 px-4 xl:border-l xl:border-gray-100 xl:first:border-l-0 dark:xl:border-white/[0.06]">
-                        <div className="flex items-center gap-1.5 text-[11px] text-gray-500 dark:text-gray-400">
-                          <Icon size={12} className={`shrink-0 ${c.color}`} />
-                          <span className="truncate">{c.label}</span>
-                        </div>
-                        <div className="mt-1 text-lg font-semibold tabular-nums text-gray-900 dark:text-gray-100">
-                          {c.value}{c.subValue ? <span className="ml-0.5 text-xs font-normal text-gray-400 dark:text-gray-500">/{c.subValue}</span> : null}
-                        </div>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-7">
+                {cards.map((c: typeof cards[number] & { subValue?: string }) => {
+                  const Icon = c.icon
+                  return (
+                    <Card key={c.label} padded={false} className="border-gray-200/70 bg-white/70 px-3 py-3 shadow-sm dark:border-white/[0.07] dark:bg-slate-900/35">
+                      <div className="flex items-center gap-2 text-[11px] text-gray-500 dark:text-gray-400">
+                        <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${c.bg}`}>
+                          <Icon size={13} className={c.color} />
+                        </span>
+                        <span className="truncate">{c.label}</span>
                       </div>
-                    )
-                  })}
-                </div>
-              </Card>
+                      <div className="mt-2 text-lg font-semibold tabular-nums text-gray-900 dark:text-gray-100">
+                        {c.value}{c.subValue ? <span className="ml-0.5 text-xs font-normal text-gray-400 dark:text-gray-500">/{c.subValue}</span> : null}
+                      </div>
+                    </Card>
+                  )
+                })}
+              </div>
 
               {/* 活跃热力：第二行整行 */}
-              <Card>
+              <Card className="border-gray-200/70 bg-white/70 shadow-sm dark:border-white/[0.07] dark:bg-slate-900/35">
                 <div className="mb-4 flex items-center justify-between">
                   <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-gray-200">
                     <Calendar size={15} className="text-emerald-500" />
@@ -356,7 +356,7 @@ const bySource = stats?.bySource ?? []
               </Card>
 
               {/* 全局时间选择 + 指标切换（作用于热力图下方的趋势 / 模型分布 / 调用来源） */}
-              <div className="flex items-center justify-end gap-2">
+              <div className="flex flex-wrap items-center justify-end gap-2 rounded-2xl border border-gray-200/70 bg-white/45 p-1.5 dark:border-white/[0.07] dark:bg-white/[0.025]">
                 <PillTabs
                   value={dateRange}
                   onSelect={(key) => setDateRange(key as typeof dateRange)}
@@ -383,7 +383,7 @@ const bySource = stats?.bySource ?? []
                 <>
                   <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
                     {/* 趋势 */}
-                    <Card className="lg:col-span-2">
+                    <Card className="border-gray-200/70 bg-white/70 shadow-sm dark:border-white/[0.07] dark:bg-slate-900/35 lg:col-span-2">
                       <div className="mb-2 flex items-center justify-between">
                         <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-gray-200">
                           <CalendarClock size={15} className="text-blue-500" />
@@ -394,7 +394,7 @@ const bySource = stats?.bySource ?? []
                     </Card>
 
                     {/* 模型分布 */}
-                    <Card>
+                    <Card className="border-gray-200/70 bg-white/70 shadow-sm dark:border-white/[0.07] dark:bg-slate-900/35">
                       <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-gray-200">
                         <Cpu size={15} className="text-violet-500" />
                         {t('usage.modelDistribution')}
@@ -407,7 +407,7 @@ const bySource = stats?.bySource ?? []
                     </Card>
 
                     {/* 来源分布：对话 / 编码会话 / 任务看板 / Wiki / ... */}
-                    <Card className="lg:col-span-3">
+                    <Card className="border-gray-200/70 bg-white/70 shadow-sm dark:border-white/[0.07] dark:bg-slate-900/35 lg:col-span-3">
                       <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-gray-200">
                         <Layers size={15} className="text-sky-500" />
                         {t('usage.callSources')}
@@ -477,7 +477,7 @@ function UsageLogs() {
     'flex items-center gap-1 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.06]'
 
   return (
-    <Card>
+    <Card className="border-gray-200/70 bg-white/70 shadow-sm dark:border-white/[0.07] dark:bg-slate-900/35">
       <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-gray-200">
         <CalendarClock size={15} className="text-blue-500" />
         {t('usage.logs')}

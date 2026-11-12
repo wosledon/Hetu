@@ -200,11 +200,11 @@ export default function FoundryLocalPage() {
         <PageContainer>
           <div className="mb-6 flex flex-wrap items-center gap-x-5 gap-y-3">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 shadow-sm shadow-cyan-500/20">
-                <Boxes size={20} className="text-white" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-cyan-200/70 bg-cyan-50 text-cyan-600 shadow-sm dark:border-cyan-400/15 dark:bg-cyan-500/10 dark:text-cyan-300">
+                <Boxes size={20} />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('title')}</h1>
+                <h1 className="text-xl font-semibold tracking-tight text-gray-900 dark:text-gray-100">{t('title')}</h1>
                 <p className="text-xs text-gray-500 dark:text-gray-400">{t('subtitle')}</p>
               </div>
             </div>
@@ -225,7 +225,7 @@ export default function FoundryLocalPage() {
           ) : (
             <div className="space-y-5">
               {/* 运行状态 */}
-              <Card padded={false} className="flex flex-wrap items-center gap-x-6 gap-y-3 px-5 py-4">
+              <Card padded={false} className="flex flex-wrap items-center gap-x-6 gap-y-3 border-gray-200/70 bg-white/70 px-5 py-4 shadow-sm dark:border-white/[0.07] dark:bg-slate-900/35">
                 <StatusDot ok={status?.running === true} label={t('status.running')} offLabel={t('status.stopped')} />
                 <div className="min-w-0">
                   <div className="text-[11px] text-gray-400">{t('status.endpoint')}</div>
@@ -285,7 +285,7 @@ export default function FoundryLocalPage() {
 
               {/* CLI 自己报的警告（如某个 EP 注册失败）原样透出，用户得知道 */}
               {status && status.warnings.length > 0 && (
-                <Card padded={false} className="px-5 py-3.5">
+                <Card padded={false} className="border-amber-200/70 bg-amber-50/45 px-5 py-3.5 dark:border-amber-400/15 dark:bg-amber-500/[0.05]">
                   <h3 className="mb-1.5 flex items-center gap-1.5 text-[13px] font-medium text-amber-700 dark:text-amber-300">
                     <TriangleAlert size={13} /> {t('status.warnings')}
                   </h3>
@@ -297,7 +297,7 @@ export default function FoundryLocalPage() {
 
               {/* 本机硬件 + 缓存路径 */}
               <div className="grid gap-5 lg:grid-cols-2">
-                <Card padded={false} className="px-5 py-4">
+                <Card padded={false} className="border-gray-200/70 bg-white/70 px-5 py-4 shadow-sm dark:border-white/[0.07] dark:bg-slate-900/35">
                   <h3 className="mb-2.5 flex items-center gap-1.5 text-[13px] font-medium text-gray-700 dark:text-gray-200">
                     <Cpu size={13} className="text-gray-400" /> {t('status.hardware')}
                   </h3>
@@ -333,7 +333,7 @@ export default function FoundryLocalPage() {
                   </dl>
                 </Card>
 
-                <Card padded={false} className="px-5 py-4">
+                <Card padded={false} className="border-gray-200/70 bg-white/70 px-5 py-4 shadow-sm dark:border-white/[0.07] dark:bg-slate-900/35">
                   <div className="mb-2.5 flex items-center justify-between gap-3">
                     <h3 className="flex items-center gap-1.5 text-[13px] font-medium text-gray-700 dark:text-gray-200">
                       <HardDrive size={13} className="text-gray-400" /> {t('cacheDir.label')}

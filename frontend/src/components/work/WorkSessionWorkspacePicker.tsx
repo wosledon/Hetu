@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Check, ChevronDown, Cloud, FolderGit2, GitBranch, Loader2 } from 'lucide-react'
 import { workGitService, workSessionService } from '../../services/workService'
 import type { IWorkSession } from '../../types/work'
-import { Button } from '../ui'
+import { Button, SearchInput } from '../ui'
+import { POPOVER_EMPTY_CLASS, POPOVER_PANEL_CLASS, POPOVER_SECTION_TITLE_CLASS, popoverItemClass } from '../../utils/styles'
 
 /**
  * Code 会话的工作区选择：前一个下拉选「当前分支 / 新工作树」，后一个下拉选工作树的基分支。
@@ -16,7 +17,17 @@ export default function WorkSessionWorkspacePicker({ session, onChanged }: { ses
   const { t } = useTranslation('work')
   const queryClient = useQueryClient()
   const [menu, setMenu] = useState<'mode' | 'branch' | null>(null)
+  const [branchQuery, setBranchQuery] = useState('')
   const isDraft = !session.id
+
+  useEffect(() => {
+    if (!menu) return
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMenu(null)
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [menu])
 
   const { data: branchInfo, isFetching: branchesFetching } = useQuery({
     queryKey: ['work-branches', session.projectId],
@@ -79,18 +90,18 @@ export default function WorkSessionWorkspacePicker({ session, onChanged }: { ses
         : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
     }`
 
-  const itemClass = (active: boolean) =>
-    `flex w-full items-start gap-2 rounded-lg px-2 py-1.5 text-left text-[12px] transition-colors hover:bg-gray-100 dark:hover:bg-white/[0.06] ${
-      active ? 'text-gray-900 dark:text-gray-100' : 'text-gray-600 dark:text-gray-300'
-    }`
+  const itemClass = (active: boolean) => `${popoverItemClass(active)} text-[12px]`
+  const normalizedBranchQuery = branchQuery.trim().toLowerCase()
+  const localBranches = (branchInfo?.branches ?? []).filter((branch) => branch.toLowerCase().includes(normalizedBranchQuery))
+  const remoteBranches = (branchInfo?.remoteBranches ?? []).filter((branch) => branch.toLowerCase().includes(normalizedBranchQuery))
 
   return (
-    <div className="relative flex items-center gap-1">
+    <div className="relative z-50 flex items-center gap-1">
       {menu && <div className="fixed inset-0 z-40" onClick={() => setMenu(null)} />}
 
       <div className="inline-flex items-center gap-0.5 rounded-lg bg-gray-100/80 p-0.5 dark:bg-white/[0.06]" title={t('workspace.title')}>
         {/* 前：当前分支 / 新工作树 */}
-        <div className="relative">
+        <div className="relative z-50">
           <button
             onClick={() => setMenu(menu === 'mode' ? null : 'mode')}
             disabled={busy}
@@ -101,6 +112,7 @@ export default function WorkSessionWorkspacePicker({ session, onChanged }: { ses
                   ? unsupportedHint ?? t('workspace.newWorktreeTitle')
                   : t('workspace.currentBranchTitle', { branch: currentModeBranch ?? '…' })
             }
+            data-tooltip-owner={menu === 'mode' ? '' : undefined}
             className={triggerClass(useWorktree, useWorktree)}
           >
             {busy ? <Loader2 size={11} className="shrink-0 animate-spin" /> : useWorktree ? <FolderGit2 size={11} className="shrink-0" /> : <GitBranch size={11} className="shrink-0" />}
@@ -111,7 +123,7 @@ export default function WorkSessionWorkspacePicker({ session, onChanged }: { ses
           </button>
 
           {menu === 'mode' && (
-            <div className="absolute bottom-full left-0 z-50 mb-1.5 w-72 rounded-xl border border-gray-200 bg-white glass glass-float p-1 shadow-xl dark:border-white/10 dark:bg-gray-900">
+            <div className={`absolute bottom-full left-0 z-50 mb-2 w-72 max-w-[calc(100vw-2rem)] p-1.5 ${POPOVER_PANEL_CLASS}`}>
               <button
                 onClick={() => apply.mutate({ useWorktree: false, baseBranch: currentBranch })}
                 disabled={busy || !useWorktree}
@@ -144,9 +156,12 @@ export default function WorkSessionWorkspacePicker({ session, onChanged }: { ses
         </div>
 
         {/* 后：分支（主工作区模式＝检出该分支；工作树模式＝新分支的起点） */}
-        <div className="relative">
+        <div className="relative z-50">
           <button
-            onClick={() => setMenu(menu === 'branch' ? null : 'branch')}
+            onClick={() => {
+              if (menu !== 'branch') setBranchQuery('')
+              setMenu(menu === 'branch' ? null : 'branch')
+            }}
             disabled={busy || created || branchListBlocked || ((branchInfo?.branches.length ?? 0) === 0 && (branchInfo?.remoteBranches?.length ?? 0) === 0)}
             title={
               created
@@ -157,6 +172,7 @@ export default function WorkSessionWorkspacePicker({ session, onChanged }: { ses
                     ? t('workspace.baseBranchTitle')
                     : t('workspace.branchCheckoutTitle')
             }
+            data-tooltip-owner={menu === 'branch' ? '' : undefined}
             className={triggerClass(false)}
           >
             {branchesFetching && !branchInfo
@@ -167,12 +183,25 @@ export default function WorkSessionWorkspacePicker({ session, onChanged }: { ses
           </button>
 
           {menu === 'branch' && (
-            <div className="absolute bottom-full right-0 z-50 mb-1.5 w-60 rounded-xl border border-gray-200 bg-white glass glass-float p-1 shadow-xl dark:border-white/10 dark:bg-gray-900">
-              <p className="px-2 py-1 text-[10px] font-medium uppercase tracking-wider text-gray-400">
+            <div className={`absolute bottom-full right-0 z-50 mb-2 w-64 max-w-[calc(100vw-2rem)] p-1.5 ${POPOVER_PANEL_CLASS}`}>
+              <p className={POPOVER_SECTION_TITLE_CLASS}>
                 {useWorktree ? t('workspace.baseBranchTitle') : t('workspace.branchCheckoutTitle')}
               </p>
+              {(branchInfo?.branches.length ?? 0) + (branchInfo?.remoteBranches?.length ?? 0) > 6 && (
+                <div className="px-1 pb-1.5 pt-1">
+                  <SearchInput
+                    tone="blue"
+                    size="sm"
+                    autoFocus
+                    value={branchQuery}
+                    onChange={(e) => setBranchQuery(e.target.value)}
+                    placeholder={t('workspace.searchBranches')}
+                    className="w-full"
+                  />
+                </div>
+              )}
               <div className="max-h-56 overflow-auto">
-                {(branchInfo?.branches ?? []).map((branch) => {
+                {localBranches.map((branch) => {
                   const active = useWorktree ? session.baseBranch === branch : branch === currentModeBranch
                   return (
                     <button
@@ -192,12 +221,12 @@ export default function WorkSessionWorkspacePicker({ session, onChanged }: { ses
                 })}
 
                 {/* 远程分支：选中后按同名建本地跟踪分支（主工作区）或作为工作树起点 */}
-                {(branchInfo?.remoteBranches ?? []).length > 0 && (
-                  <p className="mt-1 border-t border-gray-100 px-2 pb-0.5 pt-1.5 text-[10px] font-medium uppercase tracking-wider text-gray-400 dark:border-white/[0.06]">
+                {remoteBranches.length > 0 && (
+                  <p className={`${POPOVER_SECTION_TITLE_CLASS} mt-1 border-t border-gray-100 dark:border-white/[0.06]`}>
                     {t('workspace.remoteBranches')}
                   </p>
                 )}
-                {(branchInfo?.remoteBranches ?? []).map((branch) => {
+                {remoteBranches.map((branch) => {
                   const active = branch === (useWorktree ? session.baseBranch : currentModeBranch)
                   return (
                     <button
@@ -213,6 +242,9 @@ export default function WorkSessionWorkspacePicker({ session, onChanged }: { ses
                     </button>
                   )
                 })}
+                {normalizedBranchQuery && localBranches.length + remoteBranches.length === 0 && (
+                  <div className={POPOVER_EMPTY_CLASS}>{t('workspace.noMatchingBranches')}</div>
+                )}
               </div>
             </div>
           )}

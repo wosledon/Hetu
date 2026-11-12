@@ -77,11 +77,13 @@ export default function InlineWorkflowPanel({
   }, [workflow.edges, stateMap])
 
   return (
-    <div className="rounded-xl border border-blue-200 bg-white glass dark:border-blue-800 dark:bg-gray-900 overflow-hidden">
+    <div className="overflow-hidden rounded-2xl border border-blue-200/75 bg-white/90 shadow-[0_12px_32px_-20px_rgba(59,130,246,0.4)] dark:border-blue-400/15 dark:bg-gray-900/90">
       {/* Header */}
-      <div className="flex items-center gap-2 border-b border-blue-100 bg-blue-50/60 px-3 py-2 dark:border-blue-900/40 dark:bg-blue-950/30">
-        <CircleCheckBig size={14} className="text-blue-500" />
-        <span className="text-xs font-semibold text-blue-700 dark:text-blue-300">{t('inline.title', { name: workflow.name })}</span>
+      <div className="flex items-center gap-2.5 border-b border-blue-200/60 bg-blue-50/45 px-3.5 py-2.5 dark:border-blue-400/10 dark:bg-blue-500/[0.05]">
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-600 dark:bg-blue-500/10 dark:text-blue-300">
+          <CircleCheckBig size={14} />
+        </span>
+        <span className="min-w-0 flex-1 truncate text-xs font-semibold text-blue-800 dark:text-blue-200">{t('inline.title', { name: workflow.name })}</span>
         {hasInteraction && (
           <button
             onClick={() => setGraphCollapsed(v => !v)}
@@ -117,14 +119,16 @@ export default function InlineWorkflowPanel({
 
       {/* Human approval panel */}
       {pendingApproval && (
-        <div className="flex items-center gap-2 border-t border-orange-200 bg-orange-50 px-3 py-2.5 dark:border-orange-800 dark:bg-orange-950/30">
-          <UserCheck size={14} className="text-orange-500 shrink-0" />
-          <span className="text-xs text-orange-700 dark:text-orange-300 flex-1 truncate">{pendingApproval.prompt}</span>
-          <Button variant="primary" tone="green" size="sm" className="flex items-center gap-1 rounded-md bg-green-600 px-2 py-1 text-xs text-white hover:bg-green-700" onClick={() => onApprove(pendingApproval.runId, pendingApproval.nodeId, true)}>
-            <Check size={11} /> {t('approval.approve')}
+        <div className="flex flex-wrap items-center gap-2.5 border-t border-amber-200/70 bg-amber-50/45 px-3.5 py-3 dark:border-amber-400/15 dark:bg-amber-500/[0.05]">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-600 dark:bg-amber-500/10 dark:text-amber-300">
+            <UserCheck size={14} />
+          </span>
+          <span className="min-w-0 flex-1 truncate text-xs font-medium text-amber-900 dark:text-amber-200">{pendingApproval.prompt}</span>
+          <Button variant="primary" tone="green" size="sm" className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs text-white shadow-sm hover:bg-emerald-500" onClick={() => onApprove(pendingApproval.runId, pendingApproval.nodeId, true)}>
+            <Check size={12} /> {t('approval.approve')}
           </Button>
-          <Button variant="danger" size="sm" className="flex items-center gap-1 rounded-md bg-red-600 px-2 py-1 text-xs text-white hover:bg-red-700" onClick={() => onApprove(pendingApproval.runId, pendingApproval.nodeId, false)}>
-            <X size={11} /> {t('approval.reject')}
+          <Button variant="danger" size="sm" className="flex items-center gap-1.5 rounded-lg border border-red-200 bg-transparent px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 dark:border-red-400/20 dark:text-red-300 dark:hover:bg-red-500/10" onClick={() => onApprove(pendingApproval.runId, pendingApproval.nodeId, false)}>
+            <X size={12} /> {t('approval.reject')}
           </Button>
         </div>
       )}
@@ -138,9 +142,11 @@ export default function InlineWorkflowPanel({
           return <WorkflowPlanPanel arguments={workflowToolCall.arguments} onSubmit={(approved, feedback) => onToolApprove(approved, feedback)} />
         }
         return (
-          <div className="flex items-center gap-2 border-t border-amber-200 bg-amber-50 px-3 py-2.5 dark:border-amber-800 dark:bg-amber-950/30">
-            <Circle size={14} className="text-amber-500 shrink-0" />
-            <div className="flex-1 min-w-0">
+          <div className="flex flex-wrap items-center gap-2.5 border-t border-amber-200/70 bg-amber-50/45 px-3.5 py-3 dark:border-amber-400/15 dark:bg-amber-500/[0.05]">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-600 dark:bg-amber-500/10 dark:text-amber-300">
+              <Circle size={13} />
+            </span>
+            <div className="min-w-0 flex-1">
               <div className="text-xs font-medium text-gray-700 dark:text-gray-300">{renderToolName(workflowToolCall.name)}</div>
               {workflowToolCall.arguments !== '{}' && (() => {
                 try {
@@ -154,11 +160,11 @@ export default function InlineWorkflowPanel({
                 }
               })()}
             </div>
-            <Button variant="primary" tone="green" size="sm" className="flex items-center gap-1 rounded-md bg-green-600 px-2 py-1 text-xs text-white hover:bg-green-700" onClick={() => onToolApprove(true)}>
-              <Check size={11} /> {t('approval.approve')}
+            <Button variant="primary" tone="green" size="sm" className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs text-white shadow-sm hover:bg-emerald-500" onClick={() => onToolApprove(true)}>
+              <Check size={12} /> {t('approval.approve')}
             </Button>
-            <Button variant="danger" size="sm" className="flex items-center gap-1 rounded-md bg-red-600 px-2 py-1 text-xs text-white hover:bg-red-700" onClick={() => onToolApprove(false)}>
-              <X size={11} /> {t('approval.reject')}
+            <Button variant="danger" size="sm" className="flex items-center gap-1.5 rounded-lg border border-red-200 bg-transparent px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 dark:border-red-400/20 dark:text-red-300 dark:hover:bg-red-500/10" onClick={() => onToolApprove(false)}>
+              <X size={12} /> {t('approval.reject')}
             </Button>
           </div>
         )
@@ -218,7 +224,7 @@ function AskQuestionPanel({ arguments: argsJson, onSubmit }: {
   }))
 
   return (
-    <div className="overflow-hidden border-t border-blue-200/70 bg-gradient-to-br from-blue-50/80 to-indigo-50/60 dark:border-blue-800/50 dark:from-blue-950/40 dark:to-indigo-950/30">
+    <div className="overflow-hidden border-t border-blue-200/60 bg-gray-50/35 dark:border-blue-400/10 dark:bg-slate-950/20">
       <QuestionFlow
         questions={flowQuestions}
         currentIndex={currentIdx}
@@ -226,6 +232,7 @@ function AskQuestionPanel({ arguments: argsJson, onSubmit }: {
         onAnswer={(qid, value) => setSelectedAnswers(prev => ({ ...prev, [qid]: value }))}
         onIndexChange={setCurrentIdx}
         onSubmitAll={() => onSubmit(JSON.stringify(questions.map((q2, i2) => ({ id: i2, question: q2.question, answer: selectedAnswers[String(i2)] ?? '' }))))}
+        compact
       />
     </div>
   )
@@ -279,11 +286,12 @@ function WorkflowPlanPanel({ arguments: argsJson, onSubmit }: {
   }
 
   return (
-    <div className="overflow-hidden border-t border-teal-200/70 bg-gradient-to-br from-teal-50/80 to-emerald-50/60 dark:border-teal-800/50 dark:from-teal-950/40 dark:to-emerald-950/30">
+    <div className="overflow-hidden border-t border-teal-200/60 bg-gray-50/35 dark:border-teal-400/10 dark:bg-slate-950/20">
       <PlanFlow
         plan={{ ...plan, feedback }}
         onFeedback={setFeedback}
         onDecide={(approved) => onSubmit(approved, feedback)}
+        hideHeader
       />
     </div>
   )
