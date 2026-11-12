@@ -4,11 +4,7 @@ export default {
     summary: '{{lines}} lines · {{chars}} characters',
   },
   page: {
-    chatSection: 'Sessions',
     projectSection: 'Projects',
-    collapseSearch: 'Hide search',
-    searchSessionsPlaceholder: 'Search chat groups...',
-    newChatGroup: 'New chat group',
     searchProjectsPlaceholder: 'Search projects or sessions...',
     newProject: 'New project',
     projectView: 'Project view',

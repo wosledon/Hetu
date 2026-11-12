@@ -8,7 +8,7 @@
 <meta name="color-scheme" content="light dark">
 
 <title>Agent 工作台 · Hetu</title>
-<meta name="description" content="Agent 工作台详解：会话与话题、SSE 事件类型、输入工具带、五档权限模式、队列与运行中引导、上下文压缩、整理成笔记、快捷键。">
+<meta name="description" content="Agent 工作台详解：项目与 Code 会话、SSE 事件类型、输入工具带、五档权限模式、队列与运行中引导、上下文压缩、整理成笔记、快捷键。">
 <link rel="canonical" href="https://wosledon.github.io/Hetu/guide/workspace.html">
 <link rel="alternate" hreflang="zh-CN" href="https://wosledon.github.io/Hetu/guide/workspace.html">
 <link rel="alternate" hreflang="en" href="https://wosledon.github.io/Hetu/en/guide/workspace.html">
@@ -16,7 +16,7 @@
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Hetu">
 <meta property="og:title" content="Agent 工作台 · Hetu">
-<meta property="og:description" content="Agent 工作台详解：会话与话题、SSE 事件类型、输入工具带、五档权限模式、队列与运行中引导、上下文压缩、整理成笔记、快捷键。">
+<meta property="og:description" content="Agent 工作台详解：项目与 Code 会话、SSE 事件类型、输入工具带、五档权限模式、队列与运行中引导、上下文压缩、整理成笔记、快捷键。">
 <meta property="og:url" content="https://wosledon.github.io/Hetu/guide/workspace.html">
 <meta property="og:image" content="https://wosledon.github.io/Hetu/screenshots/02-code.png">
 <meta name="twitter:card" content="summary_large_image">
@@ -56,18 +56,18 @@
     <aside class="docs-toc" data-docs-toc aria-label="本页目录"></aside>
     <div class="docs-body">
       <h1>Agent 工作台</h1>
-      <p class="lede">入口是左侧导航「Code」（路由 <code>/code</code>）。对话与编码会话在同一界面：左侧是分组 / 话题 / 会话树，右侧是消息流；<code>/chat</code> 与 <code>/work</code> 都重定向到这里。</p>
+      <p class="lede">入口是左侧导航「Code」（路由 <code>/code</code>）。左侧是项目树（项目下挂编码会话），右侧是会话消息流与工作面板；主对话在首页，<code>/chat</code> 与 <code>/work</code> 都重定向到这里。</p>
 
-      <div class="frame"><div class="frame-bar"><i></i><i></i><i></i></div><img width="1440" height="900" loading="lazy" class="shot" src="../screenshots/02-code.png" alt="Agent 工作台：会话树、消息流、工具调用与输入工具带"></div>
+      <div class="frame"><div class="frame-bar"><i></i><i></i><i></i></div><img width="1440" height="900" loading="lazy" class="shot" src="../screenshots/02-code.png" alt="Agent 工作台：项目树、消息流、工具调用与输入工具带"></div>
       <span class="shot-hint">点图看原图</span>
 
-      <h2>会话与话题</h2>
+      <h2>项目与会话</h2>
       <div class="table-wrap"><table>
         <thead><tr><th>概念</th><th>说明</th></tr></thead>
         <tbody>
-          <tr><td>会话组</td><td>话题的容器，用于分区（如按主题或项目分组）</td></tr>
-          <tr><td>话题</td><td>独立模型、系统提示、上下文窗口与历史；可对某条消息分叉成新话题继续探索</td></tr>
-          <tr><td>懒创建</td><td>新建会话 / 话题只占位，不写库；发出第一条消息才真正创建（标题取消息前 50 字）</td></tr>
+          <tr><td>项目</td><td>本地或 SSH 仓库，项目下挂多个 Code 会话</td></tr>
+          <tr><td>Code 会话</td><td>独立的工作区 / 分支、模型与权限模式，消息与检查点按会话保存；主对话在首页单独成页</td></tr>
+          <tr><td>懒创建</td><td>新建会话只占位，不写库；发出第一条消息才真正创建（标题取消息前 50 字）</td></tr>
           <tr><td>消息操作</td><td>复制、编辑后重发、删除；思考过程可折叠；长回复支持复制 Markdown 原文</td></tr>
         </tbody>
       </table></div>
