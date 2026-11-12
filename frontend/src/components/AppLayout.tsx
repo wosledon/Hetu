@@ -14,7 +14,7 @@ import { segmentButtonClass, segmentTextClass } from '../utils/styles'
 import { useUIStore } from '../stores/uiStore'
 import { getNavItem, resolveNavItems } from '../utils/navItems'
 import { inboxService } from '../services/inboxService'
-import { IconButton, PillTabs } from './ui'
+import { IconButton, PillTabs, Tooltip } from './ui'
 
 interface AppLayoutProps {
   children?: ReactNode
@@ -356,13 +356,15 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
           >
             <BrandMark size={34} />
           </IconButton>
-          <button
-            onClick={toggleNav}
-            title={t('nav:expandNav')}
-            className={`flex h-10 w-12 shrink-0 items-center justify-center rounded-lg transition-all ${verticalListItemClass(false)}`}
-          >
-            <PanelLeftOpen size={18} />
-          </button>
+          <Tooltip content={t('nav:expandNav')}>
+            <button
+              onClick={toggleNav}
+              aria-label={t('nav:expandNav')}
+              className={`flex h-10 w-12 shrink-0 items-center justify-center rounded-lg transition-all ${verticalListItemClass(false)}`}
+            >
+              <PanelLeftOpen size={18} />
+            </button>
+          </Tooltip>
         </div>
       ) : (
         <IconButton variant="ghost" tone="gray" className="mb-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-opacity hover:opacity-80" label={appName} onClick={() => navigate('/')}  title={appName}>

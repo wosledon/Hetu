@@ -10,6 +10,7 @@ import { updateService } from './services/updateService'
 import i18n, { applyLanguage } from './i18n'
 import { ACCENT_PRESETS, BACKGROUND_PRESETS, FONT_FAMILY_PRESETS } from './utils/appearance'
 import { sanitizeNavPaths } from './utils/navItems'
+import { TooltipProvider } from './components/ui'
 
 const NotesPage = lazy(() => import('./pages/NotesPage'))
 const MainChatPage = lazy(() => import('./pages/MainChatPage'))
@@ -162,6 +163,8 @@ function App() {
 
   return (
     <>
+      {/* 全局提示气泡：接管所有原生 title，统一成自绘样式 */}
+      <TooltipProvider />
       {toast && (
         <div role="status" className={`fixed right-4 top-4 z-[100] max-w-sm rounded-xl border px-4 py-3 text-sm shadow-lg backdrop-blur ${TOAST_STYLES[toast.level]}`}>
           <div className="flex items-start gap-3">
