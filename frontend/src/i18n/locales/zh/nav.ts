@@ -24,6 +24,8 @@ export default {
   settings: '设置',
   trash: '回收站',
   more: '更多',
+  collapseNav: '折叠导航',
+  expandNav: '展开导航',
   search: '搜索',
   newNote: '新建笔记',
   pinNav: '固定到导航',

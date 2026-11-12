@@ -24,6 +24,8 @@ export default {
   settings: 'Settings',
   trash: 'Trash',
   more: 'More',
+  collapseNav: 'Collapse navigation',
+  expandNav: 'Expand navigation',
   search: 'Search',
   newNote: 'New note',
   pinNav: 'Pin to navigation',

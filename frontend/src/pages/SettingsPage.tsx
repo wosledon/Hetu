@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Settings, Trash2, Monitor, Sun, Moon, ChevronRight, ChevronDown, ChevronUp, GripVertical, RotateCcw, Menu, Columns2, PanelLeft, Coins, PanelTop, GalleryVerticalEnd, AlignLeft, Info, Brain, FolderGit2, Palette, Bot, Cpu, Database } from 'lucide-react'
+import { Settings, Trash2, Monitor, Sun, Moon, ChevronRight, ChevronDown, ChevronUp, GripVertical, RotateCcw, Menu, Columns2, PanelLeft, Coins, PanelTop, GalleryVerticalEnd, AlignLeft, Info, Brain, FolderGit2, Palette, Bot, Cpu, Database, Sparkles, ArrowUp, ArrowDown, ArrowLeft, ArrowRight } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
@@ -16,7 +16,7 @@ import DreamSettings from '../components/DreamSettings'
 import WorktreeCleanupSettings from '../components/WorktreeCleanupSettings'
 import WorktreeLocationSettings from '../components/WorktreeLocationSettings'
 import Select from '../components/Select'
-import { useUIStore } from '../stores/uiStore'
+import { useUIStore, type TooltipSidePref, type TooltipStyle } from '../stores/uiStore'
 import { settingService } from '../services/settingService'
 import { aiProviderService } from '../services/aiProviderService'
 import { applyLanguage } from '../i18n'
@@ -61,6 +61,28 @@ const navStyleOptions = [
   { key: 'vertical' as NavStyle, labelKey: 'navigation.navStyleVertical', descKey: 'navigation.navStyleVerticalDesc', icon: GalleryVerticalEnd },
   { key: 'verticalList' as NavStyle, labelKey: 'navigation.navStyleVerticalList', descKey: 'navigation.navStyleVerticalListDesc', icon: AlignLeft },
 ]
+
+/** 悬停提示气泡的样式与方向选项（设置里可切换） */
+const tooltipStyleOptions = [
+  { key: 'card' as TooltipStyle, labelKey: 'appearance.tooltipStyleCard', descKey: 'appearance.tooltipStyleCardDesc' },
+  { key: 'solid' as TooltipStyle, labelKey: 'appearance.tooltipStyleSolid', descKey: 'appearance.tooltipStyleSolidDesc' },
+  { key: 'outline' as TooltipStyle, labelKey: 'appearance.tooltipStyleOutline', descKey: 'appearance.tooltipStyleOutlineDesc' },
+]
+
+const tooltipSideOptions = [
+  { key: 'auto' as TooltipSidePref, labelKey: 'appearance.tooltipSideAuto', icon: Sparkles },
+  { key: 'top' as TooltipSidePref, labelKey: 'appearance.tooltipSideTop', icon: ArrowUp },
+  { key: 'bottom' as TooltipSidePref, labelKey: 'appearance.tooltipSideBottom', icon: ArrowDown },
+  { key: 'left' as TooltipSidePref, labelKey: 'appearance.tooltipSideLeft', icon: ArrowLeft },
+  { key: 'right' as TooltipSidePref, labelKey: 'appearance.tooltipSideRight', icon: ArrowRight },
+]
+
+/** 设置页里的小气泡预览：只保留形状与配色，不参与定位 */
+const tooltipPreviewStyles: Record<TooltipStyle, string> = {
+  card: 'rounded-md border border-gray-200/80 bg-white text-gray-700 shadow-sm dark:border-white/[0.08] dark:bg-gray-800 dark:text-gray-100',
+  solid: 'rounded bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900',
+  outline: 'rounded border border-gray-300/80 bg-white/70 text-gray-600 dark:border-white/15 dark:bg-gray-900/70 dark:text-gray-200',
+}
 
 /** 正文字号预设 → 文案 key（避免用数字做 i18n key） */
 const fontSizeLabels: Record<number, string> = { 14: 'small', 16: 'standard', 18: 'large', 20: 'xlarge' }
@@ -625,6 +647,10 @@ function AppearanceSettingsSection({
   const { t } = useTranslation('settings')
   const isDark = useIsDark()
   const glass = useUIStore((state) => state.glass)
+  const tooltipStyle = useUIStore((state) => state.tooltipStyle)
+  const tooltipSide = useUIStore((state) => state.tooltipSide)
+  const setTooltipStyle = useUIStore((state) => state.setTooltipStyle)
+  const setTooltipSide = useUIStore((state) => state.setTooltipSide)
   const accent: 'blue' | 'violet' | 'cyan' | 'emerald' | 'amber' | 'rose' =
     (snapshot?.themeAccent as 'blue') ?? 'blue'
   const background: 'solid' | 'dawn' | 'dusk' | 'grid' | 'dots' | 'aurora' =
@@ -764,6 +790,60 @@ function AppearanceSettingsSection({
             }`} style={{ marginTop: '2px' }} />
           </button>
         </div>
+      </div>
+
+      {/* 悬停提示气泡 */}
+      <div className="border-t border-gray-100 pt-8 dark:border-white/[0.06]">
+        <div className="mb-4">
+          <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">{t('appearance.tooltipTitle')}</h3>
+          <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">{t('appearance.tooltipSubtitle')}</p>
+        </div>
+        <div className="grid grid-cols-3 gap-3">
+          {tooltipStyleOptions.map((opt) => {
+            const isActive = tooltipStyle === opt.key
+            return (
+              <button
+                key={opt.key}
+                onClick={() => setTooltipStyle(opt.key)}
+                className={`group flex flex-col items-center gap-2 rounded-xl border-2 px-3 py-3.5 transition-all duration-200 ${
+                  isActive
+                    ? 'border-blue-500 bg-blue-50/60 shadow-sm shadow-blue-500/10 dark:border-blue-400/60 dark:bg-blue-950/30'
+                    : 'border-gray-200/80 hover:border-blue-200 hover:bg-blue-50/60 dark:border-white/[0.08] dark:hover:border-blue-500/30 dark:hover:bg-blue-950/20'
+                }`}
+              >
+                <span className={`px-2.5 py-1 text-[11px] leading-none ${tooltipPreviewStyles[opt.key]}`}>
+                  {t('appearance.tooltipPreview')}
+                </span>
+                <span className={`text-xs font-medium ${isActive ? 'text-blue-700 dark:text-blue-200' : 'text-gray-600 dark:text-gray-300'}`}>
+                  {t(opt.labelKey)}
+                </span>
+                <span className="text-center text-[11px] text-gray-400 dark:text-gray-500">{t(opt.descKey)}</span>
+              </button>
+            )
+          })}
+        </div>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <span className="text-xs text-gray-500 dark:text-gray-400">{t('appearance.tooltipSide')}</span>
+          {tooltipSideOptions.map((opt) => {
+            const Icon = opt.icon
+            const isActive = tooltipSide === opt.key
+            return (
+              <button
+                key={opt.key}
+                onClick={() => setTooltipSide(opt.key)}
+                className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs transition-all ${
+                  isActive
+                    ? 'border-blue-500 bg-blue-50 text-blue-700 dark:border-blue-400/60 dark:bg-blue-950/30 dark:text-blue-200'
+                    : 'border-gray-200/80 text-gray-500 hover:bg-gray-50 dark:border-white/[0.08] dark:text-gray-400 dark:hover:bg-white/[0.04]'
+                }`}
+              >
+                <Icon size={12} />
+                {t(opt.labelKey)}
+              </button>
+            )
+          })}
+        </div>
+        <p className="mt-3 text-[11px] text-gray-400 dark:text-gray-500">{t('appearance.tooltipHint')}</p>
       </div>
 
       {/* 界面字体 */}

@@ -6,6 +6,10 @@ import { DEFAULT_DYNAMIC_NAV_ITEMS, DEFAULT_FIXED_NAV_ITEMS } from '../utils/nav
 type Theme = 'light' | 'dark' | 'system';
 type SecondaryMenuStyle = 'flat' | 'collapsed';
 type NavStyle = 'top' | 'vertical' | 'verticalList';
+/** 提示气泡样式：卡片（毛玻璃）/ 实底 / 描边 */
+export type TooltipStyle = 'card' | 'solid' | 'outline';
+/** 提示气泡弹出方向：auto 跟随元素位置（贴左导轨向右，其余向上） */
+export type TooltipSidePref = 'auto' | 'top' | 'bottom' | 'left' | 'right';
 /** 项目树分组依据：分类 / 项目分组 / 连接方式 / 不分组 */
 export type ProjectGroupBy = 'category' | 'group' | 'connection' | 'none';
 /** 项目树排序依据：手动排序 / 名称 / 更新时间 / 会话数 */
@@ -35,6 +39,12 @@ interface UIState {
   /** Code 页项目树的排序方式 */
   projectSortBy: ProjectSortBy;
   navStyle: NavStyle;
+  /** 垂直列表导航是否折叠为窄导轨（仅 verticalList 生效） */
+  navCollapsed: boolean;
+  /** 悬停提示气泡样式 */
+  tooltipStyle: TooltipStyle;
+  /** 悬停提示气泡弹出方向 */
+  tooltipSide: TooltipSidePref;
   /** 笔记页当前浏览的父级笔记；为空表示根级 */
   selectedNoteParentId?: string;
   /** 当前打开的笔记 Id（跨侧栏 / 列表 / 编辑器联动） */
@@ -63,6 +73,9 @@ interface UIState {
   setProjectGroupBy: (groupBy: ProjectGroupBy) => void;
   setProjectSortBy: (sortBy: ProjectSortBy) => void;
   setNavStyle: (style: NavStyle) => void;
+  toggleNav: () => void;
+  setTooltipStyle: (style: TooltipStyle) => void;
+  setTooltipSide: (side: TooltipSidePref) => void;
   setSelectedNoteParentId: (id?: string) => void;
   setSelectedNoteId: (id?: string) => void;
   setSelectedTagId: (id?: string) => void;
@@ -91,6 +104,9 @@ export const useUIStore = create<UIState>()(
       projectGroupBy: 'category',
       projectSortBy: 'manual',
       navStyle: 'top',
+      navCollapsed: false,
+      tooltipStyle: 'card',
+      tooltipSide: 'auto',
       selectedNoteParentId: undefined,
       selectedNoteId: undefined,
       selectedTagId: undefined,
@@ -114,6 +130,9 @@ export const useUIStore = create<UIState>()(
       setProjectGroupBy: (groupBy) => set({ projectGroupBy: groupBy }),
       setProjectSortBy: (sortBy) => set({ projectSortBy: sortBy }),
       setNavStyle: (style) => set({ navStyle: style }),
+      toggleNav: () => set((state) => ({ navCollapsed: !state.navCollapsed })),
+      setTooltipStyle: (style) => set({ tooltipStyle: style }),
+      setTooltipSide: (side) => set({ tooltipSide: side }),
       setSelectedNoteParentId: (id) => set({ selectedNoteParentId: id, selectedTagId: undefined }),
       setSelectedNoteId: (id) => set({ selectedNoteId: id }),
       setSelectedTagId: (id) => set({ selectedTagId: id, selectedNoteParentId: undefined }),
@@ -125,7 +144,7 @@ export const useUIStore = create<UIState>()(
     }),
     {
       name: 'hetu-ui',
-      version: 7,
+      version: 9,
       migrate: (persistedState: unknown, version: number) => {
         const state = persistedState as { pinnedNavItems?: string[] } | null
         if (state && Array.isArray(state.pinnedNavItems)) {
@@ -143,6 +162,8 @@ export const useUIStore = create<UIState>()(
         }
         // v6：新增项目树分组/排序偏好，旧状态缺字段，走默认值
         // v7：新增字体/字号/界面缩放偏好，旧状态缺字段，走默认值
+        // v8：新增垂直列表导航折叠偏好，旧状态缺字段，走默认值
+        // v9：新增提示气泡样式与方向偏好，旧状态缺字段，走默认值
         return state as Partial<UIState>
       },
       partialize: (state) => ({
@@ -156,6 +177,9 @@ export const useUIStore = create<UIState>()(
         projectGroupBy: state.projectGroupBy,
         projectSortBy: state.projectSortBy,
         navStyle: state.navStyle,
+        navCollapsed: state.navCollapsed,
+        tooltipStyle: state.tooltipStyle,
+        tooltipSide: state.tooltipSide,
         fixedNavItems: state.fixedNavItems,
         dynamicNavItems: state.dynamicNavItems,
         pinnedNavItems: state.pinnedNavItems,
