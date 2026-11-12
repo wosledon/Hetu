@@ -4,11 +4,7 @@ export default {
     summary: '{{lines}} 行 · {{chars}} 字符',
   },
   page: {
-    chatSection: '会话',
     projectSection: '项目',
-    collapseSearch: '收起搜索',
-    searchSessionsPlaceholder: '搜索会话组...',
-    newChatGroup: '新建会话组',
     searchProjectsPlaceholder: '搜索项目或会话...',
     newProject: '新建项目',
     projectView: '项目视图',

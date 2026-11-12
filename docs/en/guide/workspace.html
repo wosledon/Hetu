@@ -8,7 +8,7 @@
 <meta name="color-scheme" content="light dark">
 
 <title>Agent workspace · Hetu</title>
-<meta name="description" content="Agent workspace in detail: sessions and topics, SSE event types, input toolbelt, five permission modes, queue and mid-run steering, context compression, distill to note, shortcuts.">
+<meta name="description" content="Agent workspace in detail: projects and Code sessions, SSE event types, input toolbelt, five permission modes, queue and mid-run steering, context compression, distill to note, shortcuts.">
 <link rel="canonical" href="https://wosledon.github.io/Hetu/en/guide/workspace.html">
 <link rel="alternate" hreflang="en" href="https://wosledon.github.io/Hetu/en/guide/workspace.html">
 <link rel="alternate" hreflang="zh-CN" href="https://wosledon.github.io/Hetu/guide/workspace.html">
@@ -16,7 +16,7 @@
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Hetu">
 <meta property="og:title" content="Agent workspace · Hetu">
-<meta property="og:description" content="Agent workspace in detail: sessions and topics, SSE event types, input toolbelt, five permission modes, queue and mid-run steering, context compression, distill to note, shortcuts.">
+<meta property="og:description" content="Agent workspace in detail: projects and Code sessions, SSE event types, input toolbelt, five permission modes, queue and mid-run steering, context compression, distill to note, shortcuts.">
 <meta property="og:url" content="https://wosledon.github.io/Hetu/en/guide/workspace.html">
 <meta property="og:image" content="https://wosledon.github.io/Hetu/screenshots/02-code.png">
 <meta name="twitter:card" content="summary_large_image">
@@ -56,18 +56,18 @@
     <aside class="docs-toc" data-docs-toc aria-label="On this page"></aside>
     <div class="docs-body">
       <h1>Agent workspace</h1>
-      <p class="lede">Entry point: <strong>Code</strong> in the left navigation (route <code>/code</code>). Chat and coding sessions share one screen: a group / topic / session tree on the left, the message stream on the right. <code>/chat</code> and <code>/work</code> redirect here.</p>
+      <p class="lede">Entry point: <strong>Code</strong> in the left navigation (route <code>/code</code>). The left side is the project tree (each project holds its coding sessions); the right side is the session message stream and the work panels. Main chat lives on the home page, and <code>/chat</code> and <code>/work</code> redirect here.</p>
 
-      <div class="frame"><div class="frame-bar"><i></i><i></i><i></i></div><img width="1440" height="900" loading="lazy" class="shot" src="../../screenshots/02-code.png" alt="Agent workspace: session tree, message stream, tool calls and input toolbelt"></div>
+      <div class="frame"><div class="frame-bar"><i></i><i></i><i></i></div><img width="1440" height="900" loading="lazy" class="shot" src="../../screenshots/02-code.png" alt="Agent workspace: project tree, message stream, tool calls and input toolbelt"></div>
       <span class="shot-hint">Click for full size</span>
 
-      <h2>Sessions and topics</h2>
+      <h2>Projects and sessions</h2>
       <div class="table-wrap"><table>
         <thead><tr><th>Concept</th><th>Behaviour</th></tr></thead>
         <tbody>
-          <tr><td>Group</td><td>Container for topics, used to partition by theme or project</td></tr>
-          <tr><td>Topic</td><td>Own model, system prompt, context window and history; any message can be forked into a new topic</td></tr>
-          <tr><td>Lazy creation</td><td>New sessions / topics only take a placeholder slot — nothing is written until the first message is sent (the title comes from its first 50 characters)</td></tr>
+          <tr><td>Project</td><td>A local or SSH repository; each project holds several Code sessions</td></tr>
+          <tr><td>Code session</td><td>Own workspace / branch, model and permission mode; messages and checkpoints are stored per session. Main chat has its own page on the home route</td></tr>
+          <tr><td>Lazy creation</td><td>A new session only takes a placeholder slot — nothing is written until the first message is sent (the title comes from its first 50 characters)</td></tr>
           <tr><td>Message actions</td><td>Copy, edit and resend, delete; thinking traces collapse; long replies can be copied as Markdown</td></tr>
         </tbody>
       </table></div>
