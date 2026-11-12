@@ -129,7 +129,7 @@ export default {
     navStyleVerticalDesc: 'Navigation stacked along the far left',
     navStyleVerticalList: 'Vertical list',
     navStyleVerticalListDesc: 'Icon and title on one line, along the far left',
-    navStyleHint: 'Controls where the feature entries live: the top bar is the default; vertical pills and vertical list move navigation to the far left of the window',
+    navStyleHint: 'Controls where the feature entries live: the top bar is the default; vertical pills and vertical list move navigation to the far left of the window, and the vertical list can collapse into a narrow rail',
     menuStyle: 'Secondary menu style',
     menuStyleFlat: 'Flat',
     menuStyleFlatDesc: 'Parent and child menus side by side',

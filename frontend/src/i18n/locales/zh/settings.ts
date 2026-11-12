@@ -129,7 +129,7 @@ export default {
     navStyleVerticalDesc: '导航纵向排列在最左侧',
     navStyleVerticalList: '垂直列表',
     navStyleVerticalListDesc: '图标与标题同行排列在最左侧',
-    navStyleHint: '控制顶部功能入口的位置：顶部横栏为默认样式，垂直胶囊与垂直列表将导航移动至窗口最左侧',
+    navStyleHint: '控制顶部功能入口的位置：顶部横栏为默认样式，垂直胶囊与垂直列表将导航移动至窗口最左侧，垂直列表可折叠为窄导轨',
     menuStyle: '二级菜单样式',
     menuStyleFlat: '平铺',
     menuStyleFlatDesc: '父子菜单两栏并排',

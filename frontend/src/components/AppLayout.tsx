@@ -1,7 +1,7 @@
 import { type ReactNode, useState, useRef, useLayoutEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { ChevronDown, Settings, Waypoints, Gauge, Inbox } from 'lucide-react'
+import { ChevronDown, Settings, Waypoints, Gauge, Inbox, PanelLeftClose, PanelLeftOpen, Ellipsis } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import Sidebar from './Sidebar'
@@ -55,7 +55,7 @@ const verticalListItemClass = (isActive: boolean) =>
 let lastRailCompact = false
 
 /** 收件箱未读角标：与收件箱页共用查询缓存，读取/归档后自动刷新 */
-function NavUnreadBadge() {
+function NavUnreadBadge({ dot = false }: { dot?: boolean }) {
   const { data } = useQuery({
     queryKey: ['inbox', 'unread-count'],
     queryFn: inboxService.getUnreadCount,
@@ -64,6 +64,7 @@ function NavUnreadBadge() {
   })
   const count = data ?? 0
   if (count <= 0) return null
+  if (dot) return <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-red-500" />
   return (
     <span className="ml-0.5 min-w-[16px] rounded-full bg-red-500 px-1 text-center text-[10px] font-medium leading-4 text-white">
       {count > 99 ? '99+' : count}
@@ -99,7 +100,13 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
   const lastMoreItem = useUIStore((state) => state.lastMoreItem)
   const setLastMoreItem = useUIStore((state) => state.setLastMoreItem)
   const navStyle = useUIStore((state) => state.navStyle)
+  const navCollapsed = useUIStore((state) => state.navCollapsed)
+  const toggleNav = useUIStore((state) => state.toggleNav)
   const isVerticalList = navStyle === 'verticalList'
+  /** 垂直列表展开态：图标与标题同行 */
+  const isListExpanded = isVerticalList && !navCollapsed
+  /** 垂直列表折叠态：仅图标窄导轨（胶囊样式仍保留图标 + 小字） */
+  const isListIconOnly = isVerticalList && navCollapsed
   const [moreOpen, setMoreOpen] = useState(false)
   const [moreMenuPos, setMoreMenuPos] = useState<{ top: number; left: number } | null>(null)
   const moreBtnRef = useRef<HTMLButtonElement>(null)
@@ -188,7 +195,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
   }
 
   // 垂直胶囊：图标 + 小字标签，纵向堆叠于最左侧
-  // 垂直列表：图标 + 标题同一行，左对齐铺满导轨
+  // 垂直列表：展开时图标与标题同行，折叠时仅图标
   const renderVerticalNavButton = (item: { path: string; labelKey: string; icon: React.ComponentType<{ size?: number }>; badgeKey?: string }) => {
     const Icon = item.icon
     const label = t(item.labelKey)
@@ -201,15 +208,20 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
         data-rail-item=""
         data-pill-key={item.path}
         className={
-          isVerticalList
+          isListExpanded
             ? `relative flex w-full shrink-0 items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-all ${verticalListItemClass(isActive)}`
-            : `relative flex w-12 shrink-0 flex-col items-center gap-1 rounded-lg py-2 text-[10px] font-medium transition-all ${verticalNavItemClass(isActive)}`
+            : isListIconOnly
+              ? `relative flex h-10 w-12 shrink-0 items-center justify-center rounded-lg transition-all ${verticalListItemClass(isActive)}`
+              : `relative flex w-12 shrink-0 flex-col items-center gap-1 rounded-lg py-2 text-[10px] font-medium transition-all ${verticalNavItemClass(isActive)}`
         }
       >
-        <Icon size={isVerticalList ? 16 : 18} />
-        <span className="max-w-full truncate">{label}</span>
-        {item.path === '/inbox' && <NavUnreadBadge />}
-        {item.badgeKey && <NavBadge badgeKey={item.badgeKey} />}
+        <Icon size={isListExpanded ? 16 : 18} />
+        {!isListIconOnly && <span className="max-w-full truncate">{label}</span>}
+        {item.path === '/inbox' && <NavUnreadBadge dot={isListIconOnly} />}
+        {item.badgeKey && !isListIconOnly && <NavBadge badgeKey={item.badgeKey} />}
+        {item.badgeKey && isListIconOnly && (
+          <span className={`absolute right-1 top-1 h-1.5 w-1.5 rounded-full ${item.badgeKey === 'nav:new' ? 'bg-blue-500' : 'bg-amber-500'}`} />
+        )}
       </button>
     )
   }
@@ -281,10 +293,12 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
 
   const railExpanded = !railCompactActive
 
-  /** 垂直导航分组容器：胶囊态套 SlidingPill 滑块，列表态就是普通纵向排列 */
+  /** 垂直导航分组容器：胶囊态套 SlidingPill 滑块；列表展开态普通纵向排列；折叠态仅图标无底槽 */
   const railTrack = (trackId: string, children: ReactNode) =>
-    isVerticalList ? (
+    isListExpanded ? (
       <div className="flex w-full shrink-0 flex-col gap-0.5">{children}</div>
+    ) : isListIconOnly ? (
+      <div className="flex w-full shrink-0 flex-col items-center gap-1">{children}</div>
     ) : (
       <SlidingPill
         value={location.pathname}
@@ -297,29 +311,59 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
       </SlidingPill>
     )
 
-  const railDividerClass = isVerticalList
+  const railDividerClass = isListExpanded
     ? 'my-1.5 h-px w-full bg-gray-200 dark:bg-white/10'
     : 'my-1.5 h-px w-7 bg-gray-300 dark:bg-white/10'
 
   const verticalRail = (
-    <nav className={`flex shrink-0 flex-col ${isVerticalList ? 'w-52' : 'w-16'}`}>
+    <nav className={`flex shrink-0 flex-col ${isListExpanded ? 'w-52' : 'w-16'}`}>
       {/* 导轨与内容区同处一块亚克力面（材质挂在 AppLayout 根上），中间只留一条分隔线，
           拼接处不圆角，整软件只有外框四个角是圆的。滚动条必须隐藏：占位会吃掉 64px
           内容区 ~7px，胶囊轨道被挤到左边（右侧露底色），且内容跨过溢出阈值时滚动条
           出现/消失会让整条轨道左右跳。滚轮滚动仍可用。 */}
       <div
         ref={railRef}
-        className={`flex min-h-0 w-full flex-1 flex-col gap-1.5 overflow-y-auto border-r border-gray-200/80 py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden dark:border-white/[0.06] ${isVerticalList ? 'items-stretch px-2' : 'items-center'}`}
+        className={`flex min-h-0 w-full flex-1 flex-col gap-1.5 overflow-y-auto border-r border-gray-200/80 py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden dark:border-white/[0.06] ${isListExpanded ? 'items-stretch px-2' : 'items-center'}`}
       >
-      {isVerticalList ? (
-        <button
-          onClick={() => navigate('/')}
-          title={appName}
-          className="mb-1 flex items-center gap-2.5 rounded-lg px-3 py-2 transition-opacity hover:opacity-80"
-        >
-          <BrandMark size={30} />
-          <span className="truncate text-lg font-bold tracking-tight text-gray-800 dark:text-gray-100">{appName}</span>
-        </button>
+      {isListExpanded ? (
+        <div className="mb-1 flex items-center gap-1">
+          <button
+            onClick={() => navigate('/')}
+            title={appName}
+            className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-3 py-2 transition-opacity hover:opacity-80"
+          >
+            <BrandMark size={30} />
+            <span className="truncate text-lg font-bold tracking-tight text-gray-800 dark:text-gray-100">{appName}</span>
+          </button>
+          <IconButton
+            variant="ghost"
+            tone="gray"
+            className="mr-0.5 shrink-0"
+            label={t('nav:collapseNav')}
+            onClick={toggleNav}
+          >
+            <PanelLeftClose size={16} />
+          </IconButton>
+        </div>
+      ) : isListIconOnly ? (
+        <div className="mb-1 flex flex-col items-center gap-1">
+          <IconButton
+            variant="ghost"
+            tone="gray"
+            className="h-11 w-11 shrink-0 items-center justify-center rounded-full transition-opacity hover:opacity-80"
+            label={appName}
+            onClick={() => navigate('/')}
+          >
+            <BrandMark size={34} />
+          </IconButton>
+          <button
+            onClick={toggleNav}
+            title={t('nav:expandNav')}
+            className={`flex h-10 w-12 shrink-0 items-center justify-center rounded-lg transition-all ${verticalListItemClass(false)}`}
+          >
+            <PanelLeftOpen size={18} />
+          </button>
+        </div>
       ) : (
         <IconButton variant="ghost" tone="gray" className="mb-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-opacity hover:opacity-80" label={appName} onClick={() => navigate('/')}  title={appName}>
           <BrandMark size={34} />
@@ -347,13 +391,17 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
               title={t('nav:more')}
               data-rail-item=""
               className={
-                isVerticalList
+                isListExpanded
                   ? `flex w-full shrink-0 items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-all ${verticalListItemClass(moreOpen)}`
-                  : `flex w-12 shrink-0 flex-col items-center gap-1 rounded-lg py-2 text-[10px] font-medium transition-all ${verticalNavItemClass(moreOpen)}`
+                  : isListIconOnly
+                    ? `flex h-10 w-12 shrink-0 items-center justify-center rounded-lg transition-all ${verticalListItemClass(moreOpen)}`
+                    : `flex w-12 shrink-0 flex-col items-center gap-1 rounded-lg py-2 text-[10px] font-medium transition-all ${verticalNavItemClass(moreOpen)}`
               }
             >
-              <ChevronDown size={isVerticalList ? 16 : 18} className={`transition-transform ${moreOpen ? 'rotate-180' : ''}`} />
-              <span className="max-w-full truncate">{t('nav:more')}</span>
+              {isListIconOnly
+                ? <Ellipsis size={18} />
+                : <ChevronDown size={isListExpanded ? 16 : 18} className={`transition-transform ${moreOpen ? 'rotate-180' : ''}`} />}
+              {!isListIconOnly && <span className="max-w-full truncate">{t('nav:more')}</span>}
             </button>
           )}
         </>
@@ -365,7 +413,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
 
       {railTrack('rail-bottom', (
         <>
-          <GithubEntry variant={isVerticalList ? 'railList' : 'rail'} />
+          <GithubEntry variant={isListExpanded ? 'railList' : isListIconOnly ? 'railIcon' : 'rail'} />
 
           <button
             onClick={() => navigate('/settings')}
@@ -373,16 +421,18 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
             data-rail-item=""
             data-pill-key="/settings"
             className={
-              isVerticalList
+              isListExpanded
                 ? `relative flex w-full shrink-0 items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-all ${verticalListItemClass(location.pathname === '/settings')}`
-                : `relative flex w-12 shrink-0 flex-col items-center gap-1 rounded-lg py-2 text-[10px] font-medium transition-all ${verticalNavItemClass(location.pathname === '/settings')}`
+                : isListIconOnly
+                  ? `relative flex h-10 w-12 shrink-0 items-center justify-center rounded-lg transition-all ${verticalListItemClass(location.pathname === '/settings')}`
+                  : `relative flex w-12 shrink-0 flex-col items-center gap-1 rounded-lg py-2 text-[10px] font-medium transition-all ${verticalNavItemClass(location.pathname === '/settings')}`
             }
           >
-            <Settings size={isVerticalList ? 16 : 18} />
-            <span className="max-w-full truncate">{t('nav:settings')}</span>
+            <Settings size={isListExpanded ? 16 : 18} />
+            {!isListIconOnly && <span className="max-w-full truncate">{t('nav:settings')}</span>}
           </button>
 
-          <VersionEntry variant={isVerticalList ? 'railList' : 'rail'} />
+          <VersionEntry variant={isListExpanded ? 'railList' : isListIconOnly ? 'railIcon' : 'rail'} />
         </>
       ))}
       </div>

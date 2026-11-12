@@ -35,6 +35,8 @@ interface UIState {
   /** Code 页项目树的排序方式 */
   projectSortBy: ProjectSortBy;
   navStyle: NavStyle;
+  /** 垂直列表导航是否折叠为窄导轨（仅 verticalList 生效） */
+  navCollapsed: boolean;
   /** 笔记页当前浏览的父级笔记；为空表示根级 */
   selectedNoteParentId?: string;
   /** 当前打开的笔记 Id（跨侧栏 / 列表 / 编辑器联动） */
@@ -63,6 +65,7 @@ interface UIState {
   setProjectGroupBy: (groupBy: ProjectGroupBy) => void;
   setProjectSortBy: (sortBy: ProjectSortBy) => void;
   setNavStyle: (style: NavStyle) => void;
+  toggleNav: () => void;
   setSelectedNoteParentId: (id?: string) => void;
   setSelectedNoteId: (id?: string) => void;
   setSelectedTagId: (id?: string) => void;
@@ -91,6 +94,7 @@ export const useUIStore = create<UIState>()(
       projectGroupBy: 'category',
       projectSortBy: 'manual',
       navStyle: 'top',
+      navCollapsed: false,
       selectedNoteParentId: undefined,
       selectedNoteId: undefined,
       selectedTagId: undefined,
@@ -114,6 +118,7 @@ export const useUIStore = create<UIState>()(
       setProjectGroupBy: (groupBy) => set({ projectGroupBy: groupBy }),
       setProjectSortBy: (sortBy) => set({ projectSortBy: sortBy }),
       setNavStyle: (style) => set({ navStyle: style }),
+      toggleNav: () => set((state) => ({ navCollapsed: !state.navCollapsed })),
       setSelectedNoteParentId: (id) => set({ selectedNoteParentId: id, selectedTagId: undefined }),
       setSelectedNoteId: (id) => set({ selectedNoteId: id }),
       setSelectedTagId: (id) => set({ selectedTagId: id, selectedNoteParentId: undefined }),
@@ -125,7 +130,7 @@ export const useUIStore = create<UIState>()(
     }),
     {
       name: 'hetu-ui',
-      version: 7,
+      version: 8,
       migrate: (persistedState: unknown, version: number) => {
         const state = persistedState as { pinnedNavItems?: string[] } | null
         if (state && Array.isArray(state.pinnedNavItems)) {
@@ -143,6 +148,7 @@ export const useUIStore = create<UIState>()(
         }
         // v6：新增项目树分组/排序偏好，旧状态缺字段，走默认值
         // v7：新增字体/字号/界面缩放偏好，旧状态缺字段，走默认值
+        // v8：新增垂直列表导航折叠偏好，旧状态缺字段，走默认值
         return state as Partial<UIState>
       },
       partialize: (state) => ({
@@ -156,6 +162,7 @@ export const useUIStore = create<UIState>()(
         projectGroupBy: state.projectGroupBy,
         projectSortBy: state.projectSortBy,
         navStyle: state.navStyle,
+        navCollapsed: state.navCollapsed,
         fixedNavItems: state.fixedNavItems,
         dynamicNavItems: state.dynamicNavItems,
         pinnedNavItems: state.pinnedNavItems,
