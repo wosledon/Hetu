@@ -60,42 +60,60 @@ export default function ChatToolCallRow({ name, args, result, isError, running, 
   const { t } = useTranslation('chat')
   const [open, setOpen] = useState(false)
   const isText = text !== undefined
+  const isCommand = name === 'run_command' || name === 'work_run_command'
   const Icon = isText ? Brain : (TOOL_ICON[name] ?? Wrench)
   const rowLabel = isText ? (label ?? t('shared.thinking')) : renderToolName(name)
-  const summary = isText ? null : summarizeArgs(name, args)
+  const summary = isText
+    ? (text.replace(/\s+/g, ' ').trim().slice(0, 160) || null)
+    : summarizeArgs(name, args)
   const done = result !== undefined && !running
-  const canRun = !isText && !!onRunCommand && (name === 'run_command' || name === 'work_run_command')
+  const canRun = !isText && !!onRunCommand && isCommand
+  const iconTone = isError
+    ? 'bg-red-100 text-red-600 dark:bg-red-500/10 dark:text-red-300'
+    : isText
+      ? 'bg-violet-100 text-violet-600 dark:bg-violet-500/10 dark:text-violet-300'
+      : isCommand
+        ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-300'
+        : 'bg-blue-100 text-blue-600 dark:bg-blue-500/10 dark:text-blue-300'
 
   return (
-    <div className="overflow-hidden rounded-lg border border-gray-200 bg-gray-50/60 dark:border-gray-800 dark:bg-gray-800/40">
+    <div className={`overflow-hidden rounded-xl border shadow-[0_1px_2px_rgba(15,23,42,0.03)] ${
+      isError
+        ? 'border-red-200/80 bg-red-50/40 dark:border-red-400/15 dark:bg-red-500/[0.04]'
+        : isText
+          ? 'border-violet-200/70 bg-violet-50/35 dark:border-violet-400/10 dark:bg-violet-500/[0.045]'
+          : 'border-gray-200/80 bg-white/65 dark:border-white/[0.07] dark:bg-slate-900/35'
+    }`}>
       {/* 整行可点展开；内联图标用小尺寸按钮（不用 IconButton：它最小 28px，会把行撑到 44px） */}
       <div
         onClick={() => setOpen(!open)}
-        className="flex cursor-pointer items-center gap-2 px-2 py-1 text-left"
+        className="group flex min-h-11 cursor-pointer items-center gap-2 px-2.5 py-2 text-left transition-colors hover:bg-white/55 dark:hover:bg-white/[0.025]"
       >
         <button
           type="button"
           aria-label={open ? t('tool.collapseDetails') : t('tool.expandDetails')}
           title={open ? t('tool.collapseDetails') : t('tool.expandDetails')}
           onClick={(e) => { e.stopPropagation(); setOpen(!open) }}
-          className="shrink-0 rounded p-0.5 text-gray-400 transition-colors hover:bg-gray-200 dark:hover:bg-gray-700"
+          className="shrink-0 rounded-md p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06] dark:hover:text-gray-200"
         >
-          {open ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
+          {open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
         </button>
-        <Icon size={11} className={`shrink-0 ${isText || name !== 'run_command' ? 'text-gray-400' : 'text-emerald-500'}`} />
-        <span className="shrink-0 text-[11px] font-medium text-gray-600 dark:text-gray-300">{rowLabel}</span>
+        <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-lg ${iconTone}`}>
+          <Icon size={13} />
+        </span>
+        <span className="shrink-0 text-xs font-semibold text-gray-700 dark:text-gray-200">{rowLabel}</span>
         {summary && (
           onOpenPath && isFileTarget(name) ? (
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); onOpenPath(summary) }}
               title={t('tool.openInEditor')}
-              className="min-w-0 flex-1 truncate text-left font-mono text-[10px] text-gray-400 underline-offset-2 hover:text-blue-500 hover:underline"
+              className="min-w-0 flex-1 truncate text-left font-mono text-[11px] text-gray-500 underline-offset-2 hover:text-blue-500 hover:underline dark:text-gray-400"
             >
               {summary}
             </button>
           ) : (
-            <span className="min-w-0 flex-1 truncate font-mono text-[10px] text-gray-400" title={summary}>{summary}</span>
+            <span className={`min-w-0 flex-1 truncate text-[11px] text-gray-500 dark:text-gray-400 ${isText ? '' : 'font-mono'}`} title={summary}>{summary}</span>
           )
         )}
         {!summary && <span className="flex-1" />}
@@ -111,31 +129,37 @@ export default function ChatToolCallRow({ name, args, result, isError, running, 
           </button>
         )}
         {running ? (
-          <Loader2 size={11} className="ml-auto shrink-0 animate-spin text-gray-400" />
+          <span className="ml-auto flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-600 dark:bg-blue-500/10 dark:text-blue-300" title={t('tool.running')}>
+            <Loader2 size={11} className="animate-spin" />
+          </span>
         ) : !isText && (
-          done
-            ? isError
-              ? <X size={11} className="ml-auto shrink-0 text-red-500" />
-              : <Check size={11} className="ml-auto shrink-0 text-emerald-500" />
-            : <Play size={11} className="ml-auto shrink-0 text-gray-300 dark:text-gray-600" />
+          <span className={`ml-auto flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${
+            done
+              ? isError
+                ? 'bg-red-100 text-red-600 dark:bg-red-500/10 dark:text-red-300'
+                : 'bg-emerald-100 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-300'
+              : 'bg-gray-100 text-gray-400 dark:bg-white/[0.05] dark:text-gray-500'
+          }`}>
+            {done ? (isError ? <X size={11} /> : <Check size={11} />) : <Play size={10} />}
+          </span>
         )}
       </div>
       {open && (
-        <div className="border-t border-gray-100 bg-white px-2.5 py-2 dark:border-gray-800 dark:bg-gray-900">
+        <div className="border-t border-gray-200/70 bg-white/70 px-3.5 py-3 dark:border-white/[0.06] dark:bg-gray-950/30">
           {isText ? (
-            <pre className="max-h-72 overflow-auto whitespace-pre-wrap break-words text-[11px] leading-relaxed text-gray-500 dark:text-gray-400">
+            <pre className="max-h-72 overflow-auto whitespace-pre-wrap break-words font-sans text-xs leading-6 text-gray-600 dark:text-gray-300">
               {text}
             </pre>
           ) : (
             <>
-              <pre className="overflow-x-auto whitespace-pre-wrap break-all text-[11px] text-gray-500 dark:text-gray-400">
+              <pre className="overflow-x-auto whitespace-pre-wrap break-all rounded-lg bg-gray-50/80 p-2.5 font-mono text-[11px] leading-5 text-gray-600 dark:bg-black/15 dark:text-gray-300">
                 {(() => { try { return JSON.stringify(JSON.parse(args), null, 2) } catch { return args } })()}
               </pre>
               {result !== undefined && (
-                <pre className={`mt-1.5 max-h-48 overflow-auto whitespace-pre-wrap rounded p-2 text-[11px] ${
+                <pre className={`mt-2 max-h-56 overflow-auto whitespace-pre-wrap rounded-lg p-2.5 font-mono text-[11px] leading-5 ${
                   isError
                     ? 'bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-300'
-                    : 'bg-gray-50 text-gray-600 dark:bg-gray-800 dark:text-gray-300'
+                    : 'bg-gray-50/80 text-gray-600 dark:bg-black/15 dark:text-gray-300'
                 }`}>
                   {renderToolResult(name, result, isError)}
                 </pre>

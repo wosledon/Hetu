@@ -252,6 +252,7 @@ export default {
     statusFailed: '失败',
     allTypes: '全部类型',
     typeEmbedding: 'Embedding 生成',
+    typeKnowledgeItemEmbedding: '知识条目 Embedding',
     typeGraphExtract: '知识图谱提取',
     typeWikiGraphExtract: 'Wiki 知识图谱提取',
     typeWikiGenerate: 'Wiki 生成',

@@ -141,11 +141,11 @@ export default function TagsPage() {
           {/* 页头：标题 + 内联统计 */}
           <div className="mb-6 flex flex-wrap items-center gap-x-5 gap-y-3">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-sm shadow-blue-500/20">
-                <TagIcon size={20} className="text-white" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-blue-200/70 bg-blue-50 text-blue-600 shadow-sm dark:border-blue-400/15 dark:bg-blue-500/10 dark:text-blue-300">
+                <TagIcon size={20} />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('tags.title')}</h1>
+                <h1 className="text-xl font-semibold tracking-tight text-gray-900 dark:text-gray-100">{t('tags.title')}</h1>
                 <p className="text-xs text-gray-500 dark:text-gray-400">{t('tags.subtitle')}</p>
               </div>
             </div>
@@ -159,7 +159,7 @@ export default function TagsPage() {
           </div>
 
           {/* 控制行：筛选居左，搜索 + 新建居右 */}
-          <div className="mb-6 flex flex-wrap items-center gap-3">
+          <div className="mb-6 flex flex-wrap items-center gap-3 rounded-2xl border border-gray-200/70 bg-white/45 p-2.5 dark:border-white/[0.07] dark:bg-white/[0.025]">
             <PillTabs
               value={filter}
               onSelect={(key) => setFilter(key as typeof filter)}
@@ -181,7 +181,7 @@ export default function TagsPage() {
                 className="w-full"
               />
             </div>
-            <Button variant="primary" tone="blue" pill className="flex shrink-0 items-center gap-1.5 rounded-full bg-blue-500 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-blue-500/20 transition-all hover:bg-blue-600 active:scale-[0.97]" onClick={() => setEdit({ mode: 'create' })}>
+            <Button variant="primary" tone="blue" pill className="flex shrink-0 items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-blue-500/20 transition-all hover:bg-blue-600 active:scale-[0.97]" onClick={() => setEdit({ mode: 'create' })}>
               <Plus size={16} />
               {t('tags.create')}
             </Button>
@@ -297,7 +297,7 @@ export default function TagsPage() {
       {menu && createPortal(
         <div
           ref={menuRef}
-          className="fixed min-w-[168px] overflow-hidden rounded-xl border border-gray-200 bg-white glass glass-float py-1 text-sm shadow-xl dark:border-gray-700 dark:bg-gray-800"
+          className="fixed min-w-[168px] overflow-hidden rounded-2xl border border-gray-200/90 bg-white/95 p-1.5 text-sm shadow-xl dark:border-white/10 dark:bg-gray-900/95"
           style={{
             left: Math.min(menu.x, window.innerWidth - 188),
             top: Math.min(menu.y, window.innerHeight - 220),
@@ -370,7 +370,7 @@ function TagChip({
     <div
       onContextMenu={onContextMenu}
       title={`${tag.name} · ${used ? t('tags.chipNotes', { n: noteCount }) : t('tags.chipNoNotes')}`}
-      className={`group inline-flex items-center gap-2 rounded-full border glass glass-soft py-1.5 pl-3 pr-1.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${
+      className={`group inline-flex items-center gap-2 rounded-full border border-gray-200/70 bg-white/65 py-1.5 pl-3 pr-1.5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md dark:border-white/[0.07] dark:bg-slate-900/35 ${
         used
           ? 'hover:shadow-gray-300/40 dark:hover:shadow-black/30'
           : 'border-dashed border-transparent bg-gray-50/80 dark:bg-white/[0.02]'

@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tansta
 import {
   ChevronDown, Loader2,
 
-  ListChecks, Coins, User, Copy, Check, X, Braces, FolderOpen, SquareTerminal, Bot, Plus,
+  ListChecks, Coins, Copy, Check, X, Braces, FolderOpen, SquareTerminal, Bot, Plus,
   Download, Stethoscope, RotateCcw, FileCode, PanelRightClose, PanelRightOpen, Zap,
   Globe, Database, Pencil, Trash2, Gauge,
 } from 'lucide-react'
@@ -50,6 +50,7 @@ import { parseAgentMode, type AgentRunMode } from '../../utils/agentMode'
 import type { IContextUsage } from '../../types/context'
 import AgentReasoningSelect from '../agent/AgentReasoningSelect'
 import { parsePermissionMode } from '../../utils/agentPermission'
+import { POPOVER_PANEL_CLASS, popoverItemClass } from '../../utils/styles'
 import { fromWorkStreamItems, subagentEntriesToTimeline } from '../../utils/agentTimeline'
 import { loadInputHistory, pushInputHistory } from '../../utils/inputHistory'
 import { workStreamRuns } from '../../utils/workStreamRuns'
@@ -57,6 +58,7 @@ import { reasoningEffortDefault } from '../../utils/agentReasoning'
 import { loadTopicSettings, saveTopicSettings } from '../../utils/topicSettings'
 import { useMentionItems } from '../../hooks/useMentionItems'
 import { useWorkflowRun } from '../../hooks/useWorkflowRun'
+import useElementWidth from '../../hooks/useElementWidth'
 import InlineWorkflowPanel from '../workflow/InlineWorkflowPanel'
 import { useConfirm } from '../../components/confirm'
 import ToolInteractionDrawer from '../ToolInteractionDrawer'
@@ -253,6 +255,9 @@ export default function WorkSessionArea({
   const [contextUsage, setContextUsage] = useState<IContextUsage | null>(null)
   const [compacting, setCompacting] = useState(false)
   const [contextNotice, setContextNotice] = useState<string | null>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const containerWidth = useElementWidth(containerRef)
+  const interactionInRail = containerWidth >= 1180
   const scrollRef = useRef<HTMLDivElement>(null)
   const loadingOlderRef = useRef<{ scrollHeight: number; scrollTop: number } | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -1355,12 +1360,15 @@ export default function WorkSessionArea({
   }
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-      {/* 头部：标题与统计在左，打开方式与用量在右 */}
-      <div className="relative flex h-12 shrink-0 items-center gap-2 border-b border-gray-200 bg-transparent px-4 dark:border-gray-800 dark:bg-transparent">
-        {/* 进行中：行首带 ping 光环的标识（比静态小圆点更容易注意到） */}
-        {isStreaming && <RunningIndicator withLabel />}
-        <h2 className="truncate text-sm font-semibold text-gray-800 dark:text-gray-100">{session.title || t('sidebar.newSession')}</h2>
+    <div ref={containerRef} className="flex min-h-0 min-w-0 flex-1 flex-col">
+      {/* 头部：项目会话身份在左，工作区操作在右 */}
+      <div className="relative flex h-14 shrink-0 items-center gap-2.5 border-b border-gray-200/80 bg-white/35 px-4 dark:border-white/[0.07] dark:bg-slate-950/20 sm:px-5">
+        {isStreaming ? <RunningIndicator withLabel /> : (
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-blue-200/70 bg-gradient-to-br from-blue-50 to-indigo-100 text-blue-600 shadow-sm dark:border-blue-400/15 dark:from-blue-500/15 dark:to-indigo-500/20 dark:text-blue-300">
+            <SquareTerminal size={15} />
+          </span>
+        )}
+        <h2 className="truncate text-[15px] font-semibold tracking-tight text-gray-900 dark:text-gray-50">{session.title || t('sidebar.newSession')}</h2>
         {/* 会话开始后工作区/分支已固定：只在标题旁展示，输入框里不再放切换按钮 */}
         {sessionStarted && <WorkSessionWorkspaceBadge session={session} className="hidden md:inline-flex" />}
         {/* 当前分支已有 PR / MR：标题旁显示编号与状态 */}
@@ -1369,7 +1377,7 @@ export default function WorkSessionArea({
           {project ? `${project.name} · ` : ''}{t('session.messageCount', { count: messages.length })}
           {session.turnCount > 0 && ` · ${t('session.turnCount', { count: session.turnCount })}`}
         </span>
-        <div className="ml-auto flex items-center gap-1.5">
+        <div className="ml-auto flex items-center gap-1 rounded-xl border border-gray-200/70 bg-white/50 p-1 dark:border-white/[0.07] dark:bg-white/[0.03]">
           <AgentUsageBadge
             usage={usageTotal}
             className="hidden bg-gray-100 dark:bg-gray-800 sm:inline-flex"
@@ -1416,11 +1424,13 @@ export default function WorkSessionArea({
         )}
       </div>
 
+      <div className="flex min-h-0 min-w-0 flex-1">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       {/* 消息区：瀑布流；空会话时不占位，起步引导随输入框一起居中 */}
       {!emptyConversation && (
       <div className="relative flex min-h-0 flex-1">
-        <div ref={scrollRef} className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden">
-        <div className="mx-auto max-w-3xl space-y-4 px-4 py-5">
+        <div ref={scrollRef} className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden px-4 py-7 sm:px-6">
+        <div className="mx-auto w-full max-w-4xl space-y-6">
           {unloadedCount > 0 ? (
             <Button variant="secondary" pill className="mx-auto flex items-center gap-1 rounded-full border border-gray-200 bg-white glass px-3 py-1 text-[11px] text-gray-500 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.12]" onClick={loadEarlierMessages}>
               <ChevronDown size={11} />{t('session.loadEarlier', { count: unloadedCount })}
@@ -1472,12 +1482,9 @@ export default function WorkSessionArea({
 
           {/* 刚发出、后端尚在持久化的消息（即时反馈） */}
           {showPendingUser && pendingUser && (
-            <div className="flex flex-row-reverse gap-3">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-600 text-white shadow-sm">
-                <User size={15} />
-              </div>
+            <div className="flex justify-end">
               <div className="flex max-w-[85%] flex-col items-end">
-                <Card padded={false} className="glass-bubble px-4 py-3 text-sm text-gray-800 [overflow-wrap:anywhere] dark:text-gray-100">
+                <Card plain padded={false} className="glass-bubble rounded-2xl rounded-tr-md border-blue-200/70 bg-blue-50/95 px-4 py-3 text-[14px] leading-6 text-gray-800 shadow-sm [overflow-wrap:anywhere] dark:border-blue-400/15 dark:bg-blue-500/15 dark:text-gray-100">
                   <UserMessageContent content={pendingUser} />
                 </Card>
               </div>
@@ -1562,12 +1569,15 @@ export default function WorkSessionArea({
       </div>
       )}
 
-      {/* 输入区：空会话时整块居中（起步引导作为 aboveInput 一起居中） */}
-      <div className={emptyConversation ? 'flex min-h-0 flex-1 flex-col justify-center pb-24' : 'contents'}>
-        {/* 空会话：输入框上方放品牌标识，避免整屏只有一个输入框显得空 */}
+      {/* 输入区与正文同宽；空会话时起步引导作为首屏主视觉 */}
+      <div className={emptyConversation ? 'flex min-h-0 w-full flex-1 flex-col justify-center px-4 pb-24 pt-6 sm:px-6' : 'shrink-0 px-4 pb-5 pt-2 sm:px-6'}>
         {emptyConversation && (
-          <div className="mb-10 flex justify-center select-none">
-            <img src="/brand.svg" alt="" width={76} height={76} draggable={false} />
+          <div className="mx-auto mb-8 w-full max-w-4xl text-center select-none">
+            <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl border border-blue-200/60 bg-white/70 shadow-[0_12px_32px_-14px_rgba(59,130,246,0.45)] dark:border-blue-400/15 dark:bg-white/[0.05]">
+              <SquareTerminal size={26} className="text-blue-600 dark:text-blue-300" />
+            </div>
+            <h1 className="text-2xl font-semibold tracking-tight text-gray-900 dark:text-gray-50">{t('session.emptyConversationTitle')}</h1>
+            <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">{project?.name ? t('session.emptyConversationSubtitleInProject', { name: project.name }) : t('session.emptyConversationSubtitle')}</p>
           </div>
         )}
 
@@ -1669,7 +1679,7 @@ export default function WorkSessionArea({
                   </button>
                 </div>
               )}
-              <ToolInteractionDrawer streamKey={session.id} streaming={isStreaming} />
+              {!interactionInRail && <ToolInteractionDrawer streamKey={session.id} streaming={isStreaming} />}
             </>
           ) : undefined}
           trailing={
@@ -1811,6 +1821,9 @@ export default function WorkSessionArea({
           }
         />
       </div>
+      </div>
+      {interactionInRail && <ToolInteractionDrawer streamKey={session.id} streaming={isStreaming} placement="rail" />}
+      </div>
     </div>
     )
   }
@@ -1845,8 +1858,15 @@ function OpenWithButton({ apps, onOpen, onCopyPath }: { apps: IWorkOpenApp[]; on
     const onMouseDown = (e: MouseEvent) => {
       if (!containerRef.current?.contains(e.target as Node)) setMenuOpen(false)
     }
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMenuOpen(false)
+    }
     document.addEventListener('mousedown', onMouseDown)
-    return () => document.removeEventListener('mousedown', onMouseDown)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', onMouseDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
   }, [menuOpen])
 
   if (!current) return null
@@ -1867,24 +1887,25 @@ function OpenWithButton({ apps, onOpen, onCopyPath }: { apps: IWorkOpenApp[]; on
       </Button>
       <IconButton variant="ghost" tone="gray" className="rounded-r-lg border border-l-0 border-gray-200 p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:border-gray-700 dark:hover:bg-gray-800 dark:hover:text-gray-300" label={t('session.pickOpenWith')} onClick={() => setMenuOpen((v) => !v)}
         title={t('session.pickOpenWith')}
-        aria-label={t('session.pickOpenWith')}>
+        aria-label={t('session.pickOpenWith')}
+        data-tooltip-owner={menuOpen ? '' : undefined}>
         <ChevronDown size={12} />
       </IconButton>
       {menuOpen && (
-        <div className="absolute right-0 top-9 z-50 w-48 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-800">
+        <div className={`absolute right-0 top-9 z-50 w-52 overflow-hidden p-1.5 ${POPOVER_PANEL_CLASS}`}>
           {available.map((a) => (
             <button
               key={a.app}
               onClick={() => choose(a.app)}
-              className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12px] transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/50 ${a.app === current.app ? 'text-blue-600 dark:text-blue-300' : 'text-gray-600 dark:text-gray-300'}`}
+              className={`${popoverItemClass(a.app === current.app)} items-center text-[12px]`}
             >
-              <AppIcon app={a.app} iconUrl={a.iconUrl} size={13} />
+              <AppIcon app={a.app} iconUrl={a.iconUrl} size={14} />
               <span className="flex-1">{a.label}</span>
-              {a.app === current.app && <Check size={12} className="shrink-0" />}
+              {a.app === current.app && <Check size={13} className="shrink-0 text-blue-500 dark:text-blue-300" />}
             </button>
           ))}
-          <div className="my-1 border-t border-gray-100 dark:border-gray-700" />
-          <Button variant="ghost" tone="gray" className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12px] text-gray-600 transition-colors hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700/50" onClick={() => { setMenuOpen(false); onCopyPath() }}>
+          <div className="mx-1 my-1.5 border-t border-gray-100 dark:border-white/[0.06]" />
+          <Button variant="ghost" tone="gray" className={`${popoverItemClass(false)} items-center text-[12px]`} onClick={() => { setMenuOpen(false); onCopyPath() }}>
             <Copy size={13} className="shrink-0" />
             {t('session.copyProjectPath')}
           </Button>
@@ -1967,18 +1988,11 @@ function MessageActionBar({ message, actions }: { message: IWorkMessage; actions
 }
 
 function UserBubble({ message, actions }: { message: IWorkMessage; actions?: MessageActions }) {
-  const { t } = useTranslation('work')
   const editing = actions?.isEditing === true
   return (
-    <div className="group flex flex-row-reverse gap-3">
-      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-600 text-white shadow-sm">
-        <User size={15} />
-      </div>
+    <div className="group flex justify-end">
       <div className="flex min-w-0 max-w-[85%] flex-col items-end">
-        <div className="flex items-center gap-2 px-1 pb-0.5">
-          <span className="text-[10px] font-medium text-gray-500 dark:text-gray-400">{t('session.me')}</span>
-          <span className="text-[10px] text-gray-500 dark:text-gray-400">{formatTime(message.createdAt)}</span>
-        </div>
+        <div className="px-1 pb-1 text-[11px] text-gray-400 dark:text-gray-500">{formatTime(message.createdAt)}</div>
         {editing && actions ? (
           <Card className="w-full min-w-[280px] p-2">
             <MessageEditor
@@ -1990,7 +2004,7 @@ function UserBubble({ message, actions }: { message: IWorkMessage; actions?: Mes
             />
           </Card>
         ) : (
-          <Card padded={false} className="glass-bubble px-4 py-3 text-sm text-gray-800 [overflow-wrap:anywhere] dark:text-gray-100">
+          <Card plain padded={false} className="glass-bubble rounded-2xl rounded-tr-md border-blue-200/70 bg-blue-50/95 px-4 py-3 text-[14px] leading-6 text-gray-800 shadow-sm [overflow-wrap:anywhere] dark:border-blue-400/15 dark:bg-blue-500/15 dark:text-gray-100">
             <UserMessageContent content={message.content} />
           </Card>
         )}
@@ -2016,10 +2030,6 @@ function AgentTextBlock({ message, onCodeAction, actions }: {
   const editing = actions?.isEditing === true
   return (
     <div className="group">
-      <div className="mb-1 flex items-center gap-2">
-        <span className="text-[10px] font-medium text-gray-500 dark:text-gray-400">Agent</span>
-        <span className="text-[10px] text-gray-500 dark:text-gray-400">{formatTime(message.createdAt)}</span>
-      </div>
       {editing && actions ? (
         <MessageEditor
           value={actions.editingContent}

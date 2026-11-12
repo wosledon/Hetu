@@ -293,17 +293,32 @@ export default function SettingsPage() {
     <AppLayout
       showSidebar={false}
       mainContent={
-        <PageContainer>
-          {/* Page Header */}
-          <div className="mb-8">
-            <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-50">{t('page.title')}</h1>
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('page.subtitle')}</p>
+        <PageContainer className="settings-workspace">
+          <div className="mb-6 flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-blue-200 bg-blue-50 text-blue-600 shadow-sm dark:border-blue-400/20 dark:bg-blue-500/10 dark:text-blue-300">
+              <Settings size={20} />
+            </div>
+            <div>
+              <h1 className="text-2xl font-semibold tracking-tight text-gray-900 dark:text-gray-50">{t('page.title')}</h1>
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('page.subtitle')}</p>
+            </div>
           </div>
 
-          <div className="flex gap-8">
-            {/* Sidebar Navigation */}
-            <aside className="w-60 shrink-0">
-              <Card padded={false} className="sticky top-8">
+          <div className="mb-4 lg:hidden">
+            <Select
+              value={activeSection}
+              onChange={(value) => {
+                const section = settingsSections.find((item) => item.key === value)
+                if (section) setActiveSection(section.key)
+              }}
+              options={settingsSections.map((item) => ({ value: item.key, label: t(item.labelKey) }))}
+              triggerClassName="flex w-full items-center justify-between gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-800 outline-none transition-all focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20 dark:border-white/10 dark:bg-gray-900 dark:text-gray-100 dark:focus:border-blue-500/50 dark:focus:bg-gray-900"
+            />
+          </div>
+
+          <div className="flex flex-col gap-5 lg:flex-row lg:gap-6">
+            <aside className="hidden w-60 shrink-0 lg:block">
+              <Card plain padded={false} className="sticky top-8 border-gray-200 bg-white shadow-sm dark:border-white/10 dark:bg-gray-900">
               <SlidingPill
                 value={activeSection}
                 orientation="vertical"
@@ -357,7 +372,7 @@ export default function SettingsPage() {
 
             {/* Content Area */}
             <div className="min-w-0 flex-1 animate-fade-in">
-              <Card className="p-8 shadow-sm shadow-gray-100/50 dark:bg-white/[0.03] dark:shadow-none">
+              <Card plain className="border-gray-200 bg-white p-5 shadow-sm sm:p-7 dark:border-white/10 dark:bg-gray-900">
                 {activeSection === 'app' && <AppSettingsSection
                   appName={appName}
                   assistantName={assistantName}
@@ -485,62 +500,63 @@ function AppSettingsSection({
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('app.subtitle')}</p>
       </div>
 
-      <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('app.displayName')}</label>
-        <div className="flex max-w-sm items-center gap-2">
-          <Input tone="blue" size="lg"
-            type="text"
-            value={appName}
-            onChange={(e) => onAppNameChange(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && onAppNameSave()}
-            className="flex-1"
-            placeholder={t('app.displayNamePlaceholder')}
-          />
-          <Button variant="primary" tone="blue" className="shrink-0 rounded-xl bg-blue-500 px-4 py-2.5 text-sm font-medium text-white shadow-sm shadow-blue-500/25 transition-all hover:bg-blue-600 active:scale-[0.98]" onClick={onAppNameSave}>
-            {t('common:save')}
-          </Button>
-        </div>
-        <p className="text-xs text-gray-400 dark:text-gray-500">{t('app.displayNameHint')}</p>
-      </div>
-
-      {/* Assistant Name */}
-      <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('app.assistantName')}</label>
-        <div className="flex max-w-sm items-center gap-2">
-          <Input tone="blue" size="lg"
-            type="text"
-            value={assistantName}
-            onChange={(e) => onAssistantNameChange(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && onAssistantNameSave()}
-            className="flex-1"
-            placeholder={t('app.assistantNamePlaceholder')}
-          />
-          <Button variant="primary" tone="blue" className="shrink-0 rounded-xl bg-blue-500 px-4 py-2.5 text-sm font-medium text-white shadow-sm shadow-blue-500/25 transition-all hover:bg-blue-600 active:scale-[0.98]" onClick={onAssistantNameSave}>
-            {t('common:save')}
-          </Button>
-        </div>
-        <p className="text-xs text-gray-400 dark:text-gray-500">{t('app.assistantNameHint')}</p>
-      </div>
-
-      {/* Assistant Persona */}
-      <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('app.persona')}</label>
-        <div className="max-w-xl">
-          <Textarea tone="blue" size="lg"
-            value={assistantPersona}
-            onChange={(e) => onAssistantPersonaChange(e.target.value)}
-            rows={4}
-            className="w-full"
-            placeholder={t('app.personaPlaceholder')}
-          />
-          <div className="mt-2 flex items-center justify-between">
-            <p className="text-xs text-gray-400 dark:text-gray-500">{t('app.personaHint')}</p>
-            <Button variant="primary" tone="blue" size="sm" className="shrink-0 rounded-xl bg-blue-500 px-4 py-1.5 text-xs font-medium text-white shadow-sm shadow-blue-500/25 transition-all hover:bg-blue-600 active:scale-[0.98]" onClick={onAssistantPersonaSave}>
+      <div className="grid gap-4 xl:grid-cols-2">
+        <section className="rounded-xl border border-gray-200 bg-gray-50/70 p-4 dark:border-white/10 dark:bg-white/[0.03]">
+          <label htmlFor="settings-app-name" className="block text-sm font-medium text-gray-800 dark:text-gray-200">{t('app.displayName')}</label>
+          <div className="mt-3 flex items-center gap-2">
+            <Input tone="blue" size="lg" glass={false}
+              id="settings-app-name"
+              type="text"
+              value={appName}
+              onChange={(e) => onAppNameChange(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && onAppNameSave()}
+              className="flex-1 dark:border-white/10 dark:bg-gray-800 dark:text-gray-100 dark:focus:bg-gray-800"
+              placeholder={t('app.displayNamePlaceholder')}
+            />
+            <Button variant="primary" tone="blue" className="shrink-0 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm shadow-blue-600/20 transition-all hover:bg-blue-700 active:scale-[0.98]" onClick={onAppNameSave}>
               {t('common:save')}
             </Button>
           </div>
-        </div>
+          <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">{t('app.displayNameHint')}</p>
+        </section>
+
+        <section className="rounded-xl border border-gray-200 bg-gray-50/70 p-4 dark:border-white/10 dark:bg-white/[0.03]">
+          <label htmlFor="settings-assistant-name" className="block text-sm font-medium text-gray-800 dark:text-gray-200">{t('app.assistantName')}</label>
+          <div className="mt-3 flex items-center gap-2">
+            <Input tone="blue" size="lg" glass={false}
+              id="settings-assistant-name"
+              type="text"
+              value={assistantName}
+              onChange={(e) => onAssistantNameChange(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && onAssistantNameSave()}
+              className="flex-1 dark:border-white/10 dark:bg-gray-800 dark:text-gray-100 dark:focus:bg-gray-800"
+              placeholder={t('app.assistantNamePlaceholder')}
+            />
+            <Button variant="primary" tone="blue" className="shrink-0 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm shadow-blue-600/20 transition-all hover:bg-blue-700 active:scale-[0.98]" onClick={onAssistantNameSave}>
+              {t('common:save')}
+            </Button>
+          </div>
+          <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">{t('app.assistantNameHint')}</p>
+        </section>
       </div>
+
+      <section className="rounded-xl border border-gray-200 bg-gray-50/70 p-4 dark:border-white/10 dark:bg-white/[0.03]">
+        <label htmlFor="settings-assistant-persona" className="block text-sm font-medium text-gray-800 dark:text-gray-200">{t('app.persona')}</label>
+        <Textarea tone="blue" size="lg" glass={false}
+          id="settings-assistant-persona"
+          value={assistantPersona}
+          onChange={(e) => onAssistantPersonaChange(e.target.value)}
+          rows={4}
+          className="mt-3 w-full dark:border-white/10 dark:bg-gray-800 dark:text-gray-100 dark:focus:bg-gray-800"
+          placeholder={t('app.personaPlaceholder')}
+        />
+        <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="flex-1 text-xs text-gray-500 dark:text-gray-400">{t('app.personaHint')}</p>
+          <Button variant="primary" tone="blue" size="sm" className="shrink-0 self-end rounded-xl bg-blue-600 px-4 py-2 text-xs font-medium text-white shadow-sm shadow-blue-600/20 transition-all hover:bg-blue-700 active:scale-[0.98] sm:self-auto" onClick={onAssistantPersonaSave}>
+            {t('common:save')}
+          </Button>
+        </div>
+      </section>
 
       {/* Language Selector */}
       <div className="space-y-3">
@@ -548,37 +564,35 @@ function AppSettingsSection({
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('settings:language.title')}</label>
           <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">{t('settings:language.desc')}</p>
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {languageOptions.map((opt) => {
             const isActive = language === opt.key
             return (
               <button
                 key={opt.key}
+                type="button"
+                aria-pressed={isActive}
                 onClick={() => onLanguageChange(opt.key)}
-                className={`group relative flex flex-col items-center gap-2 rounded-xl border-2 px-4 py-4 transition-all duration-200 ${
+                className={`group flex items-center gap-3 rounded-xl border px-4 py-3.5 text-left transition-colors ${
                   isActive
-                    ? 'border-blue-500 bg-blue-50/60 shadow-sm shadow-blue-500/10 dark:border-blue-400/60 dark:bg-blue-950/30'
-                    : 'border-gray-200/80 hover:border-blue-200 hover:bg-blue-50/60 dark:border-white/[0.08] dark:hover:border-blue-500/30 dark:hover:bg-blue-950/20'
+                    ? 'border-blue-500 bg-blue-50 dark:border-blue-400/60 dark:bg-blue-500/10'
+                    : 'border-gray-200 bg-gray-50/70 hover:border-blue-300 hover:bg-blue-50 dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-blue-400/40 dark:hover:bg-blue-500/[0.06]'
                 }`}
               >
-                <div className={`flex h-9 w-9 items-center justify-center rounded-lg text-[13px] font-semibold transition-colors ${
+                <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[13px] font-semibold ${
                   isActive
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-gray-100 text-gray-500 group-hover:bg-gray-200 dark:bg-white/[0.06] dark:text-gray-400'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-white text-gray-600 ring-1 ring-gray-200 group-hover:text-gray-800 dark:bg-white/[0.08] dark:text-gray-300 dark:ring-white/10 dark:group-hover:text-white'
                 }`}>
                   {opt.badge}
                 </div>
-                <div className="text-center">
-                  <div className={`text-sm font-medium ${isActive ? 'text-blue-700 dark:text-blue-200' : 'text-gray-700 dark:text-gray-300'}`}>
+                <div className="min-w-0 flex-1">
+                  <div className={`text-sm font-medium ${isActive ? 'text-blue-700 dark:text-blue-200' : 'text-gray-800 dark:text-gray-200'}`}>
                     {t(opt.labelKey)}
                   </div>
-                  <div className="text-[11px] text-gray-400 dark:text-gray-500">{t(opt.descKey)}</div>
+                  <div className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{t(opt.descKey)}</div>
                 </div>
-                {isActive && (
-                  <div className="absolute -top-px -right-px rounded-bl-lg rounded-tr-[10px] bg-blue-500 px-2 py-0.5 text-[10px] font-medium text-white">
-                    {t('app.current')}
-                  </div>
-                )}
+                {isActive && <span className="shrink-0 text-xs font-medium text-blue-600 dark:text-blue-300">{t('app.current')}</span>}
               </button>
             )
           })}
@@ -600,9 +614,13 @@ function AppSettingsSection({
             </p>
           </div>
           <button
+            type="button"
+            role="switch"
+            aria-checked={snapshot?.closeToTray !== 'false'}
+            aria-label={t('app.closeToTray')}
             onClick={() => onSettingChange('CloseToTray', snapshot?.closeToTray === 'false' ? 'true' : 'false')}
-            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:ring-offset-2 dark:focus:ring-offset-gray-900 ${
-              snapshot?.closeToTray !== 'false' ? 'bg-blue-500' : 'bg-gray-300 glass dark:bg-gray-600'
+            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:ring-offset-2 dark:focus:ring-offset-gray-900 ${
+              snapshot?.closeToTray !== 'false' ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-700'
             }`}
           >
             <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition duration-200 ${
@@ -665,7 +683,7 @@ function AppearanceSettingsSection({
       {/* Theme Selector */}
       <div className="space-y-3">
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('appearance.theme')}</label>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           {themeOptions.map((opt) => {
             const Icon = opt.icon
             const isActive = theme === opt.key
@@ -1059,7 +1077,7 @@ function NavigationSettingsSection({
       {/* Nav Style Selector */}
       <div className="space-y-3">
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('navigation.navStyle')}</label>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           {navStyleOptions.map((opt) => {
             const Icon = opt.icon
             const isActive = navStyle === opt.key
@@ -1501,7 +1519,7 @@ function DefaultModelSelect({
   const { t } = useTranslation('settings')
   const placeholderText = placeholder ?? t('models.notSet')
   return (
-    <div className="flex items-start justify-between gap-4 rounded-xl border border-gray-100 bg-gray-50/50 p-4 dark:border-white/[0.06] dark:bg-white/[0.02]">
+    <div className="flex flex-col gap-3 rounded-xl border border-gray-100 bg-gray-50/50 p-4 sm:flex-row sm:items-start sm:justify-between sm:gap-4 dark:border-white/[0.06] dark:bg-white/[0.02]">
       <div className="flex-1">
         <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{label}</label>
         <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">{description}</p>
@@ -1514,7 +1532,7 @@ function DefaultModelSelect({
           ...models.map((m) => ({ value: m.id, label: `${m.displayName} (${m.modelId})` })),
         ]}
         placeholder={placeholderText}
-        className="w-56"
+        className="w-full sm:w-56"
       />
     </div>
   )
@@ -1530,7 +1548,7 @@ function TrashSection({ onNavigate }: { onNavigate: (path: string) => void }) {
         <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-50">{t('trash.title')}</h2>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('trash.subtitle')}</p>
       </div>
-      <Button variant="primary" tone="blue" className="inline-flex items-center gap-2 rounded-xl bg-blue-500 px-5 py-2.5 text-sm font-medium text-white shadow-sm shadow-blue-500/25 transition-all hover:bg-blue-600 hover:shadow-md hover:shadow-blue-500/30 active:scale-[0.98]" onClick={() => onNavigate('/trash')}>
+      <Button variant="primary" tone="blue" className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm shadow-blue-600/20 transition-all hover:bg-blue-700 hover:shadow-md active:scale-[0.98]" onClick={() => onNavigate('/trash')}>
         <Trash2 size={15} />
         {t('trash.open')}
       </Button>

@@ -177,7 +177,7 @@ export default function AiSettings() {
           <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-50">{t('ai.title')}</h2>
           <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">{t('ai.subtitle')}</p>
         </div>
-        <Button variant="primary" tone="blue" className="inline-flex items-center gap-1.5 rounded-xl bg-blue-500 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-blue-500/25 transition-all hover:bg-blue-600 hover:shadow-md hover:shadow-blue-500/30 active:scale-[0.98]" onClick={() => setShowProviderForm(true)}>
+        <Button variant="primary" tone="blue" className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-blue-600/20 transition-all hover:bg-blue-700 hover:shadow-md active:scale-[0.98]" onClick={() => setShowProviderForm(true)}>
           <Plus size={15} /> {t('ai.addProvider')}
         </Button>
       </div>
@@ -529,7 +529,7 @@ function ProviderForm({
           placeholder={t('ai.baseUrlPlaceholder')}
         />
         <div className="flex items-center gap-2 pt-1">
-          <Button variant="primary" tone="blue" className="rounded-xl bg-blue-500 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-blue-500/25 transition-all hover:bg-blue-600 active:scale-[0.98] disabled:opacity-50" onClick={() => onSubmit({
+          <Button variant="primary" tone="blue" className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-blue-600/20 transition-all hover:bg-blue-700 active:scale-[0.98] disabled:opacity-50" onClick={() => onSubmit({
               providerType,
               name,
               apiKey,
@@ -992,7 +992,7 @@ function ModelForm({
 
         {/* Footer */}
         <div className="flex gap-2 border-t border-gray-100 px-6 py-4 dark:border-white/[0.06]">
-          <Button variant="primary" tone="blue" className="flex-1 rounded-xl bg-blue-500 py-2.5 text-sm font-medium text-white shadow-sm shadow-blue-500/25 transition-all hover:bg-blue-600 active:scale-[0.98] disabled:opacity-50" onClick={handleSubmit}
+          <Button variant="primary" tone="blue" className="flex-1 rounded-xl bg-blue-600 py-2.5 text-sm font-medium text-white shadow-sm shadow-blue-600/20 transition-all hover:bg-blue-700 active:scale-[0.98] disabled:opacity-50" onClick={handleSubmit}
             disabled={!modelId.trim()}>
             {isEdit ? t('ai.update') : t('common:add')}
           </Button>
@@ -1151,7 +1151,7 @@ function FetchModelsForm({
                   <Button variant="ghost" tone="gray" size="sm" className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 dark:border-white/[0.08] dark:text-gray-400 dark:hover:bg-white/[0.04]" onClick={() => setSelected(new Set())}>
                     {t('ai.clearSelection')}
                   </Button>
-                  <Button variant="primary" tone="blue" size="sm" className="ml-auto rounded-lg bg-blue-500 px-3 py-1.5 text-xs font-medium text-white transition-all hover:bg-blue-600 active:scale-[0.97] disabled:opacity-50" onClick={() => {
+                  <Button variant="primary" tone="blue" size="sm" className="ml-auto rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white transition-all hover:bg-blue-700 active:scale-[0.97] disabled:opacity-50" onClick={() => {
                       onAddBatch(selectedModels)
                       setSelected(new Set())
                       setCatalogQuery('')
@@ -1198,7 +1198,7 @@ function FetchModelsForm({
                     <p className="text-xs text-gray-400">{t('ai.contextLabel', { value: m.contextWindow.toLocaleString() })}</p>
                   )}
                 </div>
-                <Button variant="primary" tone="blue" size="sm" className="rounded-lg bg-blue-500 px-3 py-1.5 text-xs font-medium text-white transition-all hover:bg-blue-600 active:scale-[0.97]" onClick={() => onAdd(m.modelId)}>
+                <Button variant="primary" tone="blue" size="sm" className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white transition-all hover:bg-blue-700 active:scale-[0.97]" onClick={() => onAdd(m.modelId)}>
                   {t('common:add')}
                 </Button>
               </div>

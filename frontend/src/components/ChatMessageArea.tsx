@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { Bot, FileText, Search, GitBranch, X, Brain, Globe, Database, ChevronDown, ChevronRight, Loader2, Atom, Zap, AlertCircle, User, Eraser, Gauge } from 'lucide-react'
+import { Bot, FileText, Search, GitBranch, X, Globe, Database, ChevronDown, Loader2, Atom, Zap, AlertCircle, Eraser, Gauge } from 'lucide-react'
 import i18n from '../i18n'
 import { chatMessageService, chatTopicService, promptPresetService } from '../services/chatService'
 import { settingService } from '../services/settingService'
@@ -9,13 +9,13 @@ import { workProjectService } from '../services/workService'
 import type { ChatMessageSearchResult } from '../services/chatService'
 import { skillService } from '../services/skillService'
 import { aiModelService, aiProviderService } from '../services/aiProviderService'
-import ThemedMarkdown from './ThemedMarkdown'
 import UserMessageContent from './UserMessageContent'
 import ChatMessageItem from './ChatMessageItem'
 import ConversationRail from './ConversationRail'
 
 import AgentUsageBadge from './agent/AgentUsageBadge'
 import AgentTimeline from './agent/AgentTimeline'
+import AgentThoughtBlock from './agent/AgentThoughtBlock'
 import AgentWorkingIndicator from './agent/AgentWorkingIndicator'
 import AgentInputBox from './agent/AgentInputBox'
 import AgentPermissionSelect from './agent/AgentPermissionSelect'
@@ -34,6 +34,7 @@ import { useStreaming } from '../hooks/useStreaming'
 import { reasoningEffortDefault } from '../utils/agentReasoning'
 import { useMentionItems } from '../hooks/useMentionItems'
 import { useWorkflowRun } from '../hooks/useWorkflowRun'
+import useElementWidth from '../hooks/useElementWidth'
 import { useChatStreamStore, chatStreamControl } from '../stores/chatStreamStore'
 import { useConfirm } from './confirm'
 import { loadTopicSettings, saveTopicSettings } from '../utils/topicSettings'
@@ -105,7 +106,6 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
   const {
     streamingContent, setStreamingContent,
     streamingThinking,
-    showThinking, setShowThinking,
     timeline,
     isStreaming, pendingUserMessage,
     streamingSearchResults,
@@ -161,6 +161,8 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
   // 跟踪消息加载状态：首次加载无动画滚到底部
   const isInitialLoadRef = useRef(true)
   const containerRef = useRef<HTMLDivElement>(null)
+  const containerWidth = useElementWidth(containerRef)
+  const interactionInRail = containerWidth >= 1180
   const scrollRef = useRef<HTMLDivElement>(null)
   const loadingOlderRef = useRef<{ scrollHeight: number; scrollTop: number } | null>(null)
 
@@ -798,15 +800,18 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
 
   return (
     <div ref={containerRef} className="flex min-h-0 min-w-0 flex-1 flex-col">
-      <div className="flex h-12 shrink-0 items-center justify-between gap-4 border-b border-gray-200 bg-transparent px-4 dark:border-gray-800 dark:bg-transparent">
-        <div className="min-w-0 flex-1">
-          <h2 className="flex items-center gap-2 truncate text-sm font-semibold text-gray-800 dark:text-gray-100">
-            <span className={`h-2 w-2 shrink-0 rounded-full ${isStreaming ? 'animate-pulse bg-emerald-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
-            {topic.title}
-          </h2>
-          <p className="mt-0.5 text-xs text-gray-500">{group ? `${group.name} · ` : ''}{t('messageArea.messagesCount', { count: messages.length })}</p>
+      <div className="flex h-14 shrink-0 items-center justify-between gap-4 border-b border-gray-200/80 bg-white/35 px-4 dark:border-white/[0.07] dark:bg-slate-950/20 sm:px-6">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
+          <span className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-blue-200/70 bg-gradient-to-br from-blue-50 to-indigo-100 text-blue-600 shadow-sm dark:border-blue-400/15 dark:from-blue-500/15 dark:to-indigo-500/20 dark:text-blue-300">
+            <Bot size={16} />
+            <span className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-white dark:border-gray-900 ${isStreaming ? 'animate-pulse bg-emerald-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
+          </span>
+          <div className="min-w-0">
+            <h2 className="truncate text-[15px] font-semibold tracking-tight text-gray-900 dark:text-gray-50">{topic.title}</h2>
+            <p className="mt-0.5 truncate text-[11px] text-gray-500 dark:text-gray-400">{group ? `${group.name} · ` : ''}{t('messageArea.messagesCount', { count: messages.length })}</p>
+          </div>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0.5 rounded-xl border border-gray-200/70 bg-white/50 p-1 dark:border-white/[0.07] dark:bg-white/[0.03]">
           {topic.isMain && (
             <IconButton variant="ghost" tone="gray" className="p-2 text-gray-400 hover:bg-gray-100 hover:text-red-500 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed dark:hover:bg-gray-800 dark:hover:text-red-400" label={t('messageArea.clearMain')} onClick={handleClearTopic}
               disabled={isStreaming || clearTopicMutation.isPending}
@@ -835,7 +840,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
       </div>
 
       {showSearch && (
-        <div className="p-3 border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50">
+        <div className="shrink-0 border-b border-gray-200/80 bg-white/35 px-4 py-3 dark:border-white/[0.07] dark:bg-slate-950/20 sm:px-6">
           <div className="flex gap-2 mb-2">
             <div className="relative flex-1">
               <SearchInput tone="indigo" size="sm"
@@ -847,17 +852,17 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
                 className="w-full"
               />
             </div>
-            <Button variant="primary" tone="indigo" className="px-3 py-1.5 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700" onClick={handleSearch}>{t('common:search')}</Button>
+            <Button variant="primary" tone="indigo" className="rounded-lg bg-indigo-600 px-4 py-1.5 text-sm text-white shadow-sm hover:bg-indigo-500" onClick={handleSearch}>{t('common:search')}</Button>
           </div>
           {searchResults.length > 0 && (
-            <div className="max-h-48 overflow-y-auto space-y-1">
+            <div className="mt-2 max-h-56 space-y-1.5 overflow-y-auto">
               {searchResults.map(r => (
-                <div key={r.id} className="p-2 text-xs bg-white dark:bg-gray-900 rounded border border-gray-100 dark:border-gray-700">
-                  <div className="flex items-center gap-2 text-gray-500">
-                    <span className={`px-1 rounded ${r.role === 'user' ? 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-300' : 'bg-gray-100 dark:bg-gray-800'}`}>{r.role === 'user' ? t('messageArea.roleMe') : 'AI'}</span>
-                    <span>{r.topicTitle}</span>
+                <div key={r.id} className="rounded-xl border border-gray-200/70 bg-white/75 p-3 text-xs shadow-sm transition-colors hover:border-indigo-200 dark:border-white/[0.07] dark:bg-gray-900/60 dark:hover:border-indigo-400/25">
+                  <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
+                    <span className={`rounded-md px-1.5 py-0.5 text-[10px] font-medium ${r.role === 'user' ? 'bg-indigo-100 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-300' : 'bg-blue-100 text-blue-600 dark:bg-blue-500/15 dark:text-blue-300'}`}>{r.role === 'user' ? t('messageArea.roleMe') : 'AI'}</span>
+                    <span className="truncate">{r.topicTitle}</span>
                   </div>
-                  <p className="mt-1 text-gray-600 dark:text-gray-400 line-clamp-2">{r.contentSnippet}</p>
+                  <p className="mt-1.5 line-clamp-2 leading-5 text-gray-600 dark:text-gray-300">{r.contentSnippet}</p>
                 </div>
               ))}
             </div>
@@ -868,10 +873,12 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
         </div>
       )}
 
+      <div className="flex min-h-0 min-w-0 flex-1">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       {!emptyChat && (
       <div className="relative flex min-h-0 flex-1">
-        <div ref={scrollRef} className="min-w-0 flex-1 overflow-y-auto px-6 py-6">
-        <div className="mx-auto max-w-3xl space-y-5">
+        <div ref={scrollRef} className="min-w-0 flex-1 overflow-y-auto px-4 py-7 sm:px-6">
+        <div className="mx-auto w-full max-w-4xl space-y-7">
           {/* 长会话渲染虚拟化：离屏消息跳过布局/绘制，但保留 DOM 供导轨锚点与查找使用 */}
           {totalMessages > messages.length && (
             <div className="flex justify-center">
@@ -902,15 +909,9 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
         {/* 落库判据必须同时满足「时间不早于流开始 + 内容与待发消息一致」：只用时间窗口会把上一轮
             相同内容的消息算进来，重发相同内容时乐观气泡被误撤，而新消息尚未刷新出来，两头都看不到 */}
         {pendingUserMessage && !messages.some((m) => m.role === 'user' && new Date(m.createdAt).getTime() >= streamStartedAt && m.content.trim() === pendingUserMessage.trim()) && (
-          <div className="flex flex-row-reverse gap-3">
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-sm">
-              <User size={13} />
-            </div>
+          <div className="flex justify-end">
             <div className="flex min-w-0 flex-1 flex-col items-end">
-              <div className="mb-1.5">
-                <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{t('shared.you')}</span>
-              </div>
-              <Card padded={false} className="w-fit max-w-[85%] px-4 py-2.5 text-sm text-gray-900 [overflow-wrap:anywhere] dark:text-gray-100">
+              <Card plain padded={false} className="glass-bubble w-fit max-w-[85%] rounded-2xl rounded-tr-md border-blue-200/70 bg-blue-50/95 px-4 py-3 text-[14px] leading-6 text-gray-800 shadow-sm [overflow-wrap:anywhere] dark:border-blue-400/15 dark:bg-blue-500/15 dark:text-gray-100">
                 <UserMessageContent content={pendingUserMessage} />
               </Card>
             </div>
@@ -929,18 +930,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
                 />
                 {/* 时间线为空但仍有思考内容的降级渲染 */}
                 {timeline.length === 0 && streamingThinking && (
-                  <div className="mb-3 overflow-hidden rounded-lg border border-gray-200 bg-gray-50/60 dark:border-gray-800 dark:bg-gray-800/40">
-                    <Button variant="ghost" tone="gray" className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-[11px] font-medium text-gray-500 transition-colors hover:bg-gray-100/60 dark:text-gray-400 dark:hover:bg-gray-800/60" onClick={() => setShowThinking(!showThinking)}>
-                      {showThinking ? <ChevronDown size={11} className="shrink-0 text-gray-400" /> : <ChevronRight size={11} className="shrink-0 text-gray-400" />}
-                      <Brain size={11} className="shrink-0 text-gray-400" />
-                      <span>{t('messageArea.deepThinking')}</span>
-                    </Button>
-                    {showThinking && (
-                      <div className="max-h-48 overflow-y-auto border-t border-gray-100 bg-transparent px-2.5 py-2 dark:border-gray-800 dark:bg-transparent">
-                        <ThemedMarkdown source={streamingThinking} />
-                      </div>
-                    )}
-                  </div>
+                  <div className="mb-3"><AgentThoughtBlock text={streamingThinking} streaming={isStreaming} /></div>
                 )}
                 {/* Search results citations - show when web search was used */}
                 {(streamWebSearch || streamingSearchResults.length > 0) && streamingSearchResults.length > 0 && (
@@ -1049,12 +1039,15 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
       </div>
       )}
 
-      {/* 输入区：不画分隔线（Code 会话的输入区也没有，两边保持一致） */}
-      <div className={`bg-transparent px-6 py-4 dark:bg-transparent ${emptyChat ? 'flex flex-1 flex-col justify-center pb-24' : ''}`}>
-        {/* 空会话：输入框上方放品牌标识，避免整屏只有一个输入框显得空 */}
+      {/* 输入区与正文同宽；空会话时作为首屏主视觉居中 */}
+      <div className={emptyChat ? 'flex w-full flex-1 flex-col justify-center px-4 pb-24 pt-6 sm:px-6' : 'shrink-0 px-4 pb-5 pt-2 sm:px-6'}>
         {emptyChat && (
-          <div className="mb-10 flex justify-center select-none">
-            <img src="/brand.svg" alt="" width={76} height={76} draggable={false} />
+          <div className="mx-auto mb-8 w-full max-w-4xl text-center select-none">
+            <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl border border-blue-200/60 bg-white/70 shadow-[0_12px_32px_-14px_rgba(59,130,246,0.45)] dark:border-blue-400/15 dark:bg-white/[0.05]">
+              <img src="/brand.svg" alt="" width={36} height={36} draggable={false} />
+            </div>
+            <h1 className="text-2xl font-semibold tracking-tight text-gray-900 dark:text-gray-50">{t('messageArea.emptyTitle')}</h1>
+            <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">{t('messageArea.emptySubtitle')}</p>
           </div>
         )}
         {/* 智能体 / 工作流的选中状态由输入框工具栏的选择器展示，这里不再重复渲染提示条 */}
@@ -1094,7 +1087,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
                   {queueNotice}
                 </p>
               )}
-              <ToolInteractionDrawer streamKey={topicId ?? ''} streaming={isStreaming} />
+              {!interactionInRail && <ToolInteractionDrawer streamKey={topicId ?? ''} streaming={isStreaming} />}
             </>
           }
           value={input}
@@ -1351,6 +1344,9 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
             </>
           }
         />
+      </div>
+      </div>
+      {interactionInRail && <ToolInteractionDrawer streamKey={topicId ?? ''} streaming={isStreaming} placement="rail" />}
       </div>
     </div>
   )

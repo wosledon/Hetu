@@ -61,14 +61,14 @@ export default function WorktreeLocationSettings() {
 
       <div className="rounded-xl border border-gray-200 p-4 dark:border-gray-700">
         <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">{t('worktreeLocation.rootLabel')}</label>
-        <div className="flex items-center gap-2">
-          <Input tone="indigo" glass
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <Input tone="indigo" glass={false}
             value={draft}
             placeholder={t('worktreeLocation.placeholder')}
             onChange={(e) => setEdit({ base: savedRoot, value: e.target.value })}
-            className="min-w-0 flex-1 font-mono text-[12px]"
+            className="min-w-0 flex-1 font-mono text-[12px] dark:border-white/10 dark:bg-gray-800 dark:text-gray-100 dark:focus:bg-gray-800"
           />
-          <Button variant="ghost" tone="gray" className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-2 text-[12px] text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-white/[0.06]" onClick={() => {
+          <Button variant="ghost" tone="gray" className="inline-flex shrink-0 items-center gap-1.5 self-end rounded-lg border border-gray-200 px-3 py-2 text-[12px] text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-50 sm:self-auto dark:border-gray-600 dark:text-gray-300 dark:hover:bg-white/[0.06]" onClick={() => {
               setEdit(null)
               save('')
             }}
@@ -77,7 +77,7 @@ export default function WorktreeLocationSettings() {
             <RotateCcw size={13} />
             {t('worktreeLocation.reset')}
           </Button>
-          <Button variant="primary" tone="emerald" className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-emerald-500 px-4 py-2 text-[12px] font-medium text-white shadow-sm transition-colors hover:bg-emerald-600 disabled:opacity-50" onClick={() => save(draft)}
+          <Button variant="primary" tone="emerald" className="inline-flex shrink-0 items-center gap-1.5 self-end rounded-lg bg-emerald-600 px-4 py-2 text-[12px] font-medium text-white shadow-sm transition-colors hover:bg-emerald-700 disabled:opacity-50 sm:self-auto" onClick={() => save(draft)}
             disabled={saveMutation.isPending || !dirty}>
             {saveMutation.isPending ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
             {t('worktreeLocation.save')}

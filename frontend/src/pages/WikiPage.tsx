@@ -66,9 +66,13 @@ export default function WikiPage() {
   } = useQuery({
     queryKey: ['projects'],
     queryFn: projectService.getAll,
-    // 首次进入（后端刚启动）可能撞上瞬时失败：多重试一次，别把「加载失败」显示成「没有项目」
-    retry: 2,
-    retryDelay: 800,
+    // 首次进入（后端刚启动）或短暂断连：多重试，别把「加载失败」显示成「没有项目」
+    retry: 4,
+    // 后端冷启动可能超过几秒：拉长重试窗口，并在回到页面/网络恢复时自动续试。
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 5000),
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   })
 
   const { data: sets = [], isPending: setsPending, isError: setsError, refetch: refetchSets } = useQuery({
@@ -399,14 +403,14 @@ export default function WikiPage() {
     <AppLayout showSidebar={false} mainContent={
       <PageContainer variant="fill" className="flex-col">
         {/* 页头 */}
-        <div className="shrink-0 border-b border-gray-200 dark:border-gray-800">
+        <div className="shrink-0 border-b border-gray-200/80 bg-white/35 dark:border-white/[0.07] dark:bg-slate-950/20">
           <div className="flex flex-wrap items-center gap-x-4 gap-y-3 px-4 py-3 sm:px-6 sm:py-4">
             <div className="flex min-w-0 flex-1 items-center gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 shadow-sm shadow-emerald-500/20">
-                <BookText size={20} className="text-white" />
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-emerald-200/70 bg-emerald-50 text-emerald-600 shadow-sm dark:border-emerald-400/15 dark:bg-emerald-500/10 dark:text-emerald-300">
+                <BookText size={20} />
               </div>
               <div className="min-w-0">
-                <h1 className="truncate text-lg font-bold text-gray-900 dark:text-gray-100 sm:text-xl" title={headerTitle}>
+                <h1 className="truncate text-lg font-semibold tracking-tight text-gray-900 dark:text-gray-100 sm:text-xl" title={headerTitle}>
                   {headerTitle}
                 </h1>
                 <p className="truncate text-xs text-gray-500 dark:text-gray-400">
@@ -432,13 +436,13 @@ export default function WikiPage() {
                 />
               </div>
               {selectedSet && (
-                <IconButton variant="secondary" size="md" className="rounded-full" label={t('wiki.syncTitle')} onClick={() => syncMutation.mutate(selectedSet.setId)}
+                <IconButton variant="secondary" size="md" className="rounded-xl" label={t('wiki.syncTitle')} onClick={() => syncMutation.mutate(selectedSet.setId)}
                   disabled={syncMutation.isPending}>
                   {syncMutation.isPending ? <Loader2 size={15} className="animate-spin" /> : <Database size={15} />}
                 </IconButton>
               )}
               {selectedSet && (
-                <IconButton variant="secondary" size="md" className="rounded-full" label={t('wiki.exportTitle')} onClick={() => exportMutation.mutate(selectedSet.setId)}
+                <IconButton variant="secondary" size="md" className="rounded-xl" label={t('wiki.exportTitle')} onClick={() => exportMutation.mutate(selectedSet.setId)}
                   disabled={exportMutation.isPending}>
                   {exportMutation.isPending ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}
                 </IconButton>
@@ -447,7 +451,7 @@ export default function WikiPage() {
 
               {/* 生成模型选择 */}
               <div className="relative">
-                <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-gray-200 bg-white glass px-3.5 py-1.5 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300" ref={modelBtnRef} onClick={() => setModelPickerOpen((v) => !v)}
+                <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl border border-gray-200/80 bg-white/80 px-3.5 py-1.5 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300" ref={modelBtnRef} onClick={() => setModelPickerOpen((v) => !v)}
                   title={t('wiki.modelPickerTitle')}>
                   <Cpu size={14} />
                   <span className="max-w-[140px] truncate">{chosenModelName ?? t('wiki.defaultModel')}</span>
@@ -455,7 +459,7 @@ export default function WikiPage() {
                 {modelPickerOpen && createPortal(
                   <>
                     <div className="fixed inset-0 z-[99998]" onClick={() => setModelPickerOpen(false)} />
-                    <div style={modelPanelStyle} className="z-[99999] rounded-xl border border-gray-200 bg-white glass glass-float p-1 shadow-lg dark:border-gray-700 dark:bg-gray-800">
+                    <div style={modelPanelStyle} className="z-[99999] rounded-2xl border border-gray-200/90 bg-white/95 p-1.5 shadow-xl dark:border-white/10 dark:bg-gray-900/95">
                       <button
                         onClick={() => { setChosenModelId(undefined); setModelPickerOpen(false) }}
                         className={`flex w-full items-center rounded-lg px-3 py-2 text-left text-[13px] transition-colors ${
@@ -488,7 +492,7 @@ export default function WikiPage() {
               </div>
 
               <span className="mx-0.5 hidden h-5 w-px shrink-0 bg-gray-200 dark:bg-gray-700 md:block" aria-hidden="true" />
-              <Button variant="primary" tone="emerald" pill className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full bg-emerald-600 px-4 py-1.5 text-[13px] font-medium text-white shadow-sm transition-all hover:bg-emerald-700 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50" onClick={() => selectedProject && generateMutation.mutate(selectedProject.id)}
+              <Button variant="primary" tone="emerald" pill className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl bg-emerald-600 px-4 py-1.5 text-[13px] font-medium text-white shadow-sm transition-all hover:bg-emerald-700 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50" onClick={() => selectedProject && generateMutation.mutate(selectedProject.id)}
                 disabled={!selectedProject || generating}
                 title={
                   !selectedProject
@@ -503,13 +507,13 @@ export default function WikiPage() {
         </div>
         <div className="flex min-h-0 min-w-0 flex-1">
         {/* 项目列表 */}
-        <div className="hidden h-full w-44 shrink-0 flex-col border-r border-gray-200/80 md:flex dark:border-white/[0.06] xl:w-52">
+        <div className="hidden h-full w-44 shrink-0 flex-col border-r border-gray-200/80 bg-white/30 md:flex dark:border-white/[0.07] dark:bg-slate-950/15 xl:w-52">
           <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
             <button
               onClick={() => selectProject(null)}
               className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[13px] transition-colors ${
                 !projectParam
-                  ? 'bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-300'
+                  ? 'bg-blue-50 text-blue-600 shadow-[inset_2px_0_0_#3b82f6] dark:bg-blue-500/10 dark:text-blue-300'
                   : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/[0.06]'
               }`}
             >
@@ -522,7 +526,7 @@ export default function WikiPage() {
               <span className="text-[11px] font-medium uppercase tracking-wider text-gray-400">{t('wiki.projects')}</span>
             </div>
             <div className="mt-1 space-y-0.5">
-              {projectsError ? (
+              {projectsError && orderedProjects.length === 0 ? (
                 <div className="px-2.5 py-1">
                   <p className="text-[11px] leading-relaxed text-red-500 dark:text-red-400">{t('wiki.projectsLoadFailed')}</p>
                   <button
@@ -546,7 +550,7 @@ export default function WikiPage() {
                       onClick={() => selectProject(project)}
                       className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[13px] transition-colors ${
                         active
-                          ? 'bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-300'
+                          ? 'bg-blue-50 text-blue-600 shadow-[inset_2px_0_0_#3b82f6] dark:bg-blue-500/10 dark:text-blue-300'
                           : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/[0.06]'
                       }`}
                     >
@@ -565,7 +569,7 @@ export default function WikiPage() {
 
         {/* Wiki 套件与页面 */}
         <div className="flex h-full w-48 shrink-0 flex-col border-r border-gray-200/80 dark:border-white/[0.06] xl:w-56">
-          <div className="shrink-0 border-b border-gray-100 px-4 py-2.5 dark:border-gray-800">
+          <div className="shrink-0 border-b border-gray-200/80 bg-white/35 px-4 py-2.5 dark:border-white/[0.07] dark:bg-slate-950/20">
             <h2 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">{t('wiki.sets')}</h2>
             <p className="mt-0.5 text-[10px] leading-relaxed text-gray-400">{t('wiki.setsHint')}</p>
           </div>
@@ -603,7 +607,7 @@ export default function WikiPage() {
                     <div
                       className={`flex items-center gap-1 px-2 py-2 transition-colors ${
                         expanded
-                          ? 'bg-emerald-50/60 dark:bg-emerald-950/20'
+                          ? 'bg-emerald-50/60 shadow-[inset_2px_0_0_#10b981] dark:bg-emerald-500/10'
                           : 'hover:bg-gray-50 dark:hover:bg-white/[0.04]'
                       }`}
                     >

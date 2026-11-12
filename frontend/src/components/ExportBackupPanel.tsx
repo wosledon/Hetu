@@ -65,11 +65,11 @@ export default function ExportBackupPanel() {
       </div>
 
       {/* Action Cards */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <button
           onClick={handleExportNotes}
           disabled={isLoading}
-          className="group flex items-center gap-3 rounded-xl border border-gray-200/80 bg-white glass px-4 py-4 text-left shadow-sm transition-all hover:border-blue-200 hover:shadow-md hover:shadow-blue-500/5 dark:border-white/[0.08] dark:bg-white/[0.02] dark:hover:border-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="group flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50/70 px-4 py-4 text-left shadow-sm transition-all hover:border-blue-300 hover:bg-blue-50 dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-blue-400/40 dark:hover:bg-blue-500/[0.06] disabled:cursor-not-allowed disabled:opacity-50"
         >
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-blue-500 transition-colors group-hover:bg-blue-100 dark:bg-blue-500/10 dark:text-blue-400">
             <Download size={18} />
@@ -83,7 +83,7 @@ export default function ExportBackupPanel() {
         <button
           onClick={handleBackup}
           disabled={isLoading}
-          className="group flex items-center gap-3 rounded-xl border border-gray-200/80 bg-white glass px-4 py-4 text-left shadow-sm transition-all hover:border-emerald-200 hover:shadow-md hover:shadow-emerald-500/5 dark:border-white/[0.08] dark:bg-white/[0.02] dark:hover:border-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="group flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50/70 px-4 py-4 text-left shadow-sm transition-all hover:border-emerald-300 hover:bg-emerald-50 dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-emerald-400/40 dark:hover:bg-emerald-500/[0.06] disabled:cursor-not-allowed disabled:opacity-50"
         >
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-500 transition-colors group-hover:bg-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-400">
             <Database size={18} />
@@ -105,7 +105,7 @@ export default function ExportBackupPanel() {
           <p className="mt-1 mb-4 max-w-xs text-xs text-gray-400 dark:text-gray-500">
             {t('backup.restoreDesc')}
           </p>
-          <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-amber-500 px-5 py-2.5 text-sm font-medium text-white shadow-sm shadow-amber-500/25 transition-all hover:bg-amber-600 hover:shadow-md hover:shadow-amber-500/30 active:scale-[0.98]">
+          <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-amber-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm shadow-amber-600/20 transition-all hover:bg-amber-700 hover:shadow-md active:scale-[0.98]">
             <Upload size={14} />
             {t('backup.chooseFile')}
             <input

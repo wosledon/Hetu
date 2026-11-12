@@ -4,6 +4,7 @@ import { Gauge } from 'lucide-react'
 import type { IContextUsage } from '../../types/context'
 import { formatTokens } from '../../utils/agentStream'
 import { Button } from '../ui'
+import { POPOVER_PANEL_CLASS } from '../../utils/styles'
 
 export interface AgentContextUsageProps {
   usage: IContextUsage | null
@@ -57,8 +58,15 @@ export default function AgentContextUsage({ usage, onRefresh, onCompact, compact
     const onClick = (e: MouseEvent) => {
       if (!ref.current?.contains(e.target as Node)) setOpen(false)
     }
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false)
+    }
     document.addEventListener('mousedown', onClick)
-    return () => document.removeEventListener('mousedown', onClick)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', onClick)
+      document.removeEventListener('keydown', onKeyDown)
+    }
   }, [open])
 
   useEffect(() => {
@@ -78,9 +86,10 @@ export default function AgentContextUsage({ usage, onRefresh, onCompact, compact
       onMouseEnter={() => { cancelClose(); setOpen(true); onRefresh?.() }}
       onMouseLeave={scheduleClose}
     >
-      <Button variant="ghost" tone="gray" className="flex h-[27px] items-center gap-1 rounded-lg px-1.5 text-[11px] font-medium text-gray-500 transition-colors hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700/50" onClick={() => { setOpen((v) => !v); onRefresh?.() }}
-        title={t('contextUsage.trigger')}
-        aria-label={t('contextUsage.trigger')}>
+      <Button variant="ghost" tone="gray" className="flex h-[27px] items-center gap-1 rounded-lg px-1.5 text-[11px] font-medium text-gray-500 transition-colors hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700/50" onClick={() => { setOpen(true); onRefresh?.() }}
+        title={open ? undefined : t('contextUsage.trigger')}
+        aria-label={t('contextUsage.trigger')}
+        data-tooltip-owner={open ? '' : undefined}>
         <svg width="20" height="20" viewBox="0 0 20 20" className="shrink-0 -rotate-90">
           <circle cx="10" cy="10" r={radius} fill="none" strokeWidth="3.5" className="stroke-gray-200 dark:stroke-gray-700" />
           <circle
@@ -99,11 +108,13 @@ export default function AgentContextUsage({ usage, onRefresh, onCompact, compact
       </Button>
 
       {open && (
-        <div className="absolute bottom-full right-0 z-50 mb-2 w-72 rounded-xl bg-white glass glass-float p-3 shadow-xl ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-700">
-          <div className="mb-2 flex items-center gap-1.5">
-            <Gauge size={13} className={tone.stroke} />
-            <span className="text-[11px] font-semibold text-gray-700 dark:text-gray-200">{t('contextUsage.title')}</span>
-            <span className="ml-auto text-[11px] tabular-nums text-gray-500 dark:text-gray-400">
+        <div className={`absolute bottom-full right-0 z-50 mb-2 w-80 max-w-[calc(100vw-2rem)] p-3.5 ${POPOVER_PANEL_CLASS}`}>
+          <div className="mb-3 flex items-center gap-2.5">
+            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-gray-50 dark:bg-white/[0.05]">
+              <Gauge size={14} className={tone.stroke} />
+            </span>
+            <span className="text-xs font-semibold text-gray-800 dark:text-gray-100">{t('contextUsage.title')}</span>
+            <span className="ml-auto rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium tabular-nums text-gray-500 dark:bg-white/[0.06] dark:text-gray-300">
               {usage ? `${percent}%` : t('contextUsage.notCounted')}
             </span>
           </div>
@@ -112,13 +123,18 @@ export default function AgentContextUsage({ usage, onRefresh, onCompact, compact
             <div className="text-[11px] text-gray-400">{t('common:empty')}</div>
           ) : (
             <>
-              <div className="mb-2 text-[11px] text-gray-500 dark:text-gray-400">
-                {t('contextUsage.window')} <span className="font-medium text-gray-700 dark:text-gray-200">{formatTokens(usage.window)}</span>
-                <span className="mx-1">·</span>
-                {t('contextUsage.used')} <span className="font-medium text-gray-700 dark:text-gray-200">{formatTokens(usage.used)}</span>
+              <div className="mb-3 grid grid-cols-2 gap-2">
+                <div className="rounded-xl bg-gray-50/70 px-3 py-2 dark:bg-white/[0.035]">
+                  <div className="text-[10px] text-gray-400">{t('contextUsage.window')}</div>
+                  <div className="mt-0.5 text-xs font-semibold tabular-nums text-gray-800 dark:text-gray-100">{formatTokens(usage.window)}</div>
+                </div>
+                <div className="rounded-xl bg-gray-50/70 px-3 py-2 dark:bg-white/[0.035]">
+                  <div className="text-[10px] text-gray-400">{t('contextUsage.used')}</div>
+                  <div className="mt-0.5 text-xs font-semibold tabular-nums text-gray-800 dark:text-gray-100">{formatTokens(usage.used)}</div>
+                </div>
               </div>
 
-              <div className="mb-2.5 flex h-3 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-700">
+              <div className="mb-3 flex h-2.5 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-700">
                 {usage.parts.filter((p) => p.tokens > 0).map((p) => (
                   <div
                     key={p.key}
@@ -151,7 +167,7 @@ export default function AgentContextUsage({ usage, onRefresh, onCompact, compact
               </p>
 
               {(onCompact || onRefresh) && (
-                <div className="mt-3">
+                <div className="mt-3 border-t border-gray-100 pt-3 dark:border-white/[0.06]">
                   {onCompact && (
                     <Button variant="primary" tone="violet" className="w-full rounded-lg bg-violet-500 px-3 py-1.5 text-[11px] font-medium text-white transition-colors hover:bg-violet-600 disabled:cursor-not-allowed disabled:bg-gray-300 dark:disabled:bg-gray-700" onClick={onCompact}
                       disabled={compacting}>

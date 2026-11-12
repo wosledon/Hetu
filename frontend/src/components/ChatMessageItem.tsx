@@ -1,5 +1,5 @@
 import { memo } from 'react'
-import { Search, Database, Atom, Copy, Check, Coins, Pencil, Trash2, X, User } from 'lucide-react'
+import { Search, Database, Atom, Copy, Check, Coins, Pencil, Trash2, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import ThemedMarkdown from './ThemedMarkdown'
 import UserMessageContent from './UserMessageContent'
@@ -127,23 +127,17 @@ export default memo(function ChatMessageItem({
       : { kind: 'tool', name: '', args: '{}' },
   )
   return (
-    <div className={`group relative flex gap-3 ${isUser ? 'flex-row-reverse' : ''}`}>
-      {isUser && (
-        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-sm">
-          <User size={13} />
-        </div>
-      )}
+    <div className={`group relative flex ${isUser ? 'justify-end' : ''}`}>
       <div className={`flex min-w-0 flex-1 flex-col ${isUser ? 'items-end' : ''}`}>
         {isUser && (
-          <div className="mb-1.5 flex items-center gap-2">
-            <span className="text-xs text-gray-500 dark:text-gray-400">{new Date(message.createdAt).toLocaleTimeString(uiLocale(), { hour: '2-digit', minute: '2-digit' })}</span>
-            <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{t('shared.you')}</span>
+          <div className="mb-1 px-1 text-[11px] text-gray-400 dark:text-gray-500">
+            {new Date(message.createdAt).toLocaleTimeString(uiLocale(), { hour: '2-digit', minute: '2-digit' })}
           </div>
         )}
-        {/* Copilot 式瀑布流：无聊天气泡。用户消息右浮动（头像在右）；AI 回复按 思考 → 工具调用 → 引用 → 正文 纵向堆叠 */}
+        {/* Copilot 式瀑布流：用户消息右浮动；AI 回复按 思考 → 工具调用 → 引用 → 正文 纵向堆叠 */}
         {/* overflow-wrap:anywhere 让 base64/URL/CSV 这类无空格长串能断行（同时影响 min-content，w-fit 气泡才会收缩），否则会横向撑破气泡 */}
-        {/* 用户气泡套用全局 Card 材质；AI 回复没有气泡，用 before:hidden 退掉表面只留透明 div */}
-        <Card padded={false} className={`text-gray-800 [overflow-wrap:anywhere] dark:text-gray-100 ${isUser ? 'glass-bubble w-fit max-w-[85%] px-4 py-2.5' : 'w-full bg-transparent before:hidden'}`}>
+        {/* 用户气泡用淡蓝表面；AI 回复不加气泡，过程卡片与正文直接排列 */}
+        <Card plain={isUser} padded={false} className={`text-gray-800 [overflow-wrap:anywhere] dark:text-gray-100 ${isUser ? 'glass-bubble w-fit max-w-[85%] rounded-2xl rounded-tr-md border-blue-200/70 bg-blue-50/95 px-4 py-3 text-[14px] leading-6 shadow-sm dark:border-blue-400/15 dark:bg-blue-500/15' : 'w-full bg-transparent before:hidden'}`}>
           {isEditing ? (
             <div className="space-y-2">
               <Textarea tone="blue" glass
@@ -256,9 +250,9 @@ export default memo(function ChatMessageItem({
                   const results = (JSON.parse(message.searchResultsJson) as Array<Record<string, unknown>>).map((r) => toCamelKeys<{ title: string; url: string; snippet: string }>(r))
                   if (results.length === 0) return null
                   return (
-                    <Card padded={false} className="mt-2 overflow-hidden">
-                      <div className="flex items-center gap-1 border-b border-gray-100 px-2.5 py-1.5 text-[11px] font-medium text-gray-400 dark:border-gray-800">
-                        <Search size={11} />
+                    <Card plain padded={false} className="mt-3 overflow-hidden rounded-xl border-gray-200/75 bg-white/65 shadow-[0_1px_2px_rgba(15,23,42,0.03)] dark:border-white/[0.07] dark:bg-slate-900/35">
+                      <div className="flex items-center gap-2 border-b border-gray-200/70 bg-gray-50/45 px-3 py-2 text-[11px] font-semibold text-gray-600 dark:border-white/[0.06] dark:bg-white/[0.025] dark:text-gray-300">
+                        <Search size={12} className="text-blue-500" />
                         {t('shared.sources')}
                       </div>
                       <div className="space-y-0.5 p-1.5">
@@ -287,9 +281,9 @@ export default memo(function ChatMessageItem({
                   const results = (JSON.parse(message.knowledgeResultsJson) as Array<Record<string, unknown>>).map((r) => toCamelKeys<{ title: string; contentSnippet: string; id: string }>(r))
                   if (results.length === 0) return null
                   return (
-                    <Card padded={false} className="mt-2 overflow-hidden">
-                      <div className="flex items-center gap-1 border-b border-gray-100 px-2.5 py-1.5 text-[11px] font-medium text-gray-400 dark:border-gray-800">
-                        <Database size={11} />
+                    <Card plain padded={false} className="mt-3 overflow-hidden rounded-xl border-gray-200/75 bg-white/65 shadow-[0_1px_2px_rgba(15,23,42,0.03)] dark:border-white/[0.07] dark:bg-slate-900/35">
+                      <div className="flex items-center gap-2 border-b border-gray-200/70 bg-gray-50/45 px-3 py-2 text-[11px] font-semibold text-gray-600 dark:border-white/[0.06] dark:bg-white/[0.025] dark:text-gray-300">
+                        <Database size={12} className="text-amber-500" />
                         {t('shared.knowledgeSources')}
                       </div>
                       <div className="space-y-0.5 p-1.5">
@@ -317,9 +311,9 @@ export default memo(function ChatMessageItem({
                   const results = (JSON.parse(message.memoryResultsJson) as Array<Record<string, unknown>>).map((r) => toCamelKeys<{ id: string; content: string; category?: string; score?: number }>(r))
                   if (results.length === 0) return null
                   return (
-                    <Card padded={false} className="mt-2 overflow-hidden">
-                      <div className="flex items-center gap-1 border-b border-gray-100 px-2.5 py-1.5 text-[11px] font-medium text-gray-400 dark:border-gray-800">
-                        <Atom size={11} />
+                    <Card plain padded={false} className="mt-3 overflow-hidden rounded-xl border-gray-200/75 bg-white/65 shadow-[0_1px_2px_rgba(15,23,42,0.03)] dark:border-white/[0.07] dark:bg-slate-900/35">
+                      <div className="flex items-center gap-2 border-b border-gray-200/70 bg-gray-50/45 px-3 py-2 text-[11px] font-semibold text-gray-600 dark:border-white/[0.06] dark:bg-white/[0.025] dark:text-gray-300">
+                        <Atom size={12} className="text-violet-500" />
                         {t('shared.memorySources')}
                       </div>
                       <div className="space-y-0.5 p-1.5">

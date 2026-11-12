@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Check, ChevronDown, Cpu } from 'lucide-react'
 import { reasoningEffortLabel, reasoningEffortOptions } from '../../utils/agentReasoning'
-import { segmentButtonClass } from '../../utils/styles'
+import { POPOVER_EMPTY_CLASS, POPOVER_PANEL_CLASS, popoverItemClass, segmentButtonClass } from '../../utils/styles'
 import { SearchInput } from '../ui'
 
 export interface ModelPickerModel {
@@ -67,7 +67,7 @@ export default function AgentModelPicker({
 }: AgentModelPickerProps) {
   const { t } = useTranslation('agent')
   const modelLabel = placeholder ?? t('modelPicker.model')
-  // 独立面板：模型列表 / 推理强度 / 上下文大小
+  // 统一模型设置面板：模型列表 / 推理强度 / 上下文大小
   const [menu, setMenu] = useState<'model' | 'effort' | 'context' | null>(null)
   // 手动切换过的供应商 tab；未手动切换时跟随当前模型所在供应商
   const [pickedProvider, setPickedProvider] = useState<string | null>(null)
@@ -99,8 +99,15 @@ export default function AgentModelPicker({
     const onMouseDown = (e: MouseEvent) => {
       if (!containerRef.current?.contains(e.target as Node)) setMenu(null)
     }
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMenu(null)
+    }
     document.addEventListener('mousedown', onMouseDown)
-    return () => document.removeEventListener('mousedown', onMouseDown)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', onMouseDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
   }, [menu])
 
   /** 供应商 tab：仅有模型的供应商，保持 providers 顺序 */
@@ -196,15 +203,29 @@ export default function AgentModelPicker({
         ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300'
         : 'text-gray-500 hover:bg-gray-100 hover:text-gray-600 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-300'
     }`
-  const panelClass =
-    'absolute bottom-full left-0 z-50 mb-2 rounded-xl bg-white glass glass-float p-3 shadow-xl ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-700'
   const panelTitleClass = 'mb-2 truncate text-[11px] font-medium text-gray-500 dark:text-gray-400'
   const groupTitleClass = 'mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400'
+  const modelSettings = (target: ModelPickerModel, selected: boolean) => (
+    <div className="flex flex-col gap-2.5">
+      {target.reasoningMode === 'native' && (
+        <div>
+          <div className={groupTitleClass}>{t('reasoning.effort')}</div>
+          {effortGroup(target, selected)}
+        </div>
+      )}
+      {target.reasoningMode === 'tag' && <div className="text-[10px] text-gray-400">{t('reasoning.tagHint')}</div>}
+      <div>
+        <div className={groupTitleClass}>{t('modelPicker.context')}</div>
+        {contextGroup(target, selected)}
+        <p className="mt-1.5 text-[10px] leading-relaxed text-gray-400">{t('modelPicker.contextHint')}</p>
+      </div>
+    </div>
+  )
 
   return (
     <div className="relative" ref={containerRef}>
       <div className="flex items-center gap-0.5">
-        <button onClick={() => toggleMenu('model')} title={triggerTitle} className={triggerSegmentClass(menu === 'model')}>
+        <button onClick={() => toggleMenu('model')} title={menu === 'model' ? undefined : triggerTitle} data-tooltip-owner={menu === 'model' ? '' : undefined} className={triggerSegmentClass(menu === 'model')}>
           <Cpu size={14} className="shrink-0" />
           <span className="max-w-40 truncate">{current?.displayName ?? modelLabel}</span>
           <ChevronDown size={10} className="shrink-0" />
@@ -213,7 +234,7 @@ export default function AgentModelPicker({
         {currentEffort && (
           <>
             <span className="text-gray-300 dark:text-gray-600">·</span>
-            <button onClick={() => toggleMenu('effort')} title={t('reasoning.effort')} className={triggerSegmentClass(menu === 'effort')}>
+            <button onClick={() => toggleMenu('effort')} title={menu === 'effort' ? undefined : t('reasoning.effort')} data-tooltip-owner={menu === 'effort' ? '' : undefined} className={triggerSegmentClass(menu === 'effort')}>
               {t('reasoning.effortLevel', { label: reasoningEffortLabel(currentEffort) })}
             </button>
           </>
@@ -222,21 +243,21 @@ export default function AgentModelPicker({
         {currentCtxK && (
           <>
             <span className="text-gray-300 dark:text-gray-600">·</span>
-            <button onClick={() => toggleMenu('context')} title={t('modelPicker.context')} className={triggerSegmentClass(menu === 'context')}>
+            <button onClick={() => toggleMenu('context')} title={menu === 'context' ? undefined : t('modelPicker.context')} data-tooltip-owner={menu === 'context' ? '' : undefined} className={triggerSegmentClass(menu === 'context')}>
               {formatK(currentCtxK)}
             </button>
           </>
         )}
       </div>
 
-      {menu === 'model' && (
-        <div className="absolute bottom-full left-0 z-50 mb-2 flex max-w-[calc(100vw-3rem)] items-start">
+      {menu && (
+        <div className={`absolute bottom-full left-0 z-50 mb-2 flex max-w-[calc(100vw-3rem)] items-start overflow-hidden ${POPOVER_PANEL_CLASS}`}>
           {/* 一张卡片：左侧供应商纵列 + 右侧搜索与模型列表 */}
           <div
             ref={modelCardRef}
-            className="flex overflow-hidden rounded-xl bg-white glass glass-float shadow-xl ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-700"
+            className="flex"
           >
-            <div className="flex w-28 shrink-0 flex-col overflow-y-auto border-r border-gray-100 py-1 dark:border-gray-700">
+            <div className="hidden w-28 shrink-0 flex-col overflow-y-auto border-r border-gray-100 bg-gray-50/55 py-1.5 dark:border-white/[0.06] dark:bg-white/[0.02] min-[480px]:flex">
               {tabs.map((p) => {
                 const active = !query && activeProvider === p.id
                 return (
@@ -246,11 +267,11 @@ export default function AgentModelPicker({
                     title={p.name}
                     className={`flex items-center gap-1.5 px-2.5 py-2 text-left text-[11px] font-medium transition-colors ${
                       active
-                        ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-300'
-                        : 'text-gray-500 hover:bg-gray-50 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700/40 dark:hover:text-gray-200'
+                        ? 'bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-200'
+                        : 'text-gray-500 hover:bg-white/80 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/[0.045] dark:hover:text-gray-200'
                     }`}
                   >
-                    <span className={`h-3.5 w-0.5 shrink-0 rounded-full ${active ? 'bg-indigo-500' : 'bg-transparent'}`} />
+                    <span className={`h-3.5 w-0.5 shrink-0 rounded-full ${active ? 'bg-blue-500' : 'bg-transparent'}`} />
                     <span className="truncate">{p.name}</span>
                     <span className="ml-auto shrink-0 text-[10px] tabular-nums text-gray-400">
                       {models.filter((m) => m.providerId === p.id).length}
@@ -261,7 +282,7 @@ export default function AgentModelPicker({
             </div>
 
             <div className="flex w-60 shrink-0 flex-col">
-              <div className="relative border-b border-gray-100 p-2 dark:border-gray-700">
+              <div className="relative border-b border-gray-100 p-2 dark:border-white/[0.06]">
                 <SearchInput tone="indigo" size="sm"
                   autoFocus
                   value={query}
@@ -271,8 +292,8 @@ export default function AgentModelPicker({
                 />
               </div>
 
-              <div className="max-h-80 min-h-56 overflow-y-auto p-1.5">
-                {visibleModels.length === 0 && <div className="p-3 text-center text-xs text-gray-500">{t('modelPicker.empty')}</div>}
+              <div className="max-h-60 min-h-48 overflow-y-auto p-1.5 min-[1536px]:max-h-80 min-[1536px]:min-h-56">
+                {visibleModels.length === 0 && <div className={POPOVER_EMPTY_CLASS}>{t('modelPicker.empty')}</div>}
                 {visibleModels.map((m) => {
                   const selected = m.id === effectiveModelId
                   return (
@@ -287,73 +308,38 @@ export default function AgentModelPicker({
                         setHoveredId(m.id)
                         trackFlyout(e.currentTarget)
                       }}
-                      className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left transition-colors ${
-                        selected ? 'bg-indigo-50 dark:bg-indigo-900/25' : 'hover:bg-gray-50 dark:hover:bg-gray-700/40'
-                      }`}
+                      className={`${popoverItemClass(selected)} items-center`}
                     >
-                      <span className={`min-w-0 flex-1 truncate text-xs font-medium ${selected ? 'text-indigo-700 dark:text-indigo-300' : 'text-gray-800 dark:text-gray-200'}`}>
+                      <span className={`min-w-0 flex-1 truncate text-xs font-medium ${selected ? 'text-blue-700 dark:text-blue-200' : 'text-gray-800 dark:text-gray-200'}`}>
                         {m.displayName}
                       </span>
-                      {selected && <Check size={12} className="shrink-0 text-indigo-500" />}
+                      {selected && <Check size={13} className="shrink-0 text-blue-500 dark:text-blue-300" />}
                     </button>
                   )
                 })}
               </div>
-            </div>
-          </div>
-
-          {/* 右侧：推理强度 / 上下文，纵向对齐当前模型行 */}
-          <div ref={flyoutRef} className="relative ml-2 w-56 shrink-0">
-            <div className="absolute inset-x-0 rounded-xl bg-white glass glass-float p-3 shadow-xl ring-1 ring-gray-200 dark:bg-gray-800 dark:ring-gray-700" style={{ top: flyoutTop }}>
-              {!flyoutModel ? (
-                <div className="text-[11px] text-gray-400">{t('modelPicker.pickModelHint')}</div>
-              ) : (
-                <div className="flex flex-col gap-2.5">
-                  <div className={panelTitleClass}>{flyoutModel.displayName}</div>
-
-                  {flyoutModel.reasoningMode === 'native' && (
-                    <div>
-                      <div className={groupTitleClass}>{t('reasoning.effort')}</div>
-                      {effortGroup(flyoutModel, flyoutSelected)}
-                    </div>
-                  )}
-
-                  {flyoutModel.reasoningMode === 'tag' && (
-                    <div className="text-[10px] text-gray-400">{t('reasoning.tagHint')}</div>
-                  )}
-
-                  <div>
-                    <div className={groupTitleClass}>{t('modelPicker.context')}</div>
-                    {contextGroup(flyoutModel, flyoutSelected)}
-                    <p className="mt-1.5 text-[10px] leading-relaxed text-gray-400">{t('modelPicker.contextHint')}</p>
-                  </div>
+              {current && (
+                <div className="border-t border-gray-100 p-3 dark:border-white/[0.06] min-[1536px]:hidden">
+                  <div className={panelTitleClass}>{current.displayName}</div>
+                  {modelSettings(current, true)}
                 </div>
               )}
             </div>
           </div>
-        </div>
-      )}
 
-      {menu === 'effort' && current && (
-        <div className={`${panelClass} w-64`}>
-          <div className={panelTitleClass}>{current.displayName}</div>
-          {current.reasoningMode === 'native' ? (
-            <>
-              <div className={groupTitleClass}>{t('reasoning.effort')}</div>
-              {effortGroup(current, true)}
-            </>
-          ) : (
-            <div className="text-[10px] text-gray-400">{t('reasoning.tagHint')}</div>
-          )}
-        </div>
-      )}
-
-      {menu === 'context' && current && (
-        <div className={`${panelClass} w-64`}>
-          <div className={panelTitleClass}>{current.displayName}</div>
-          <div className={groupTitleClass}>{t('modelPicker.context')}</div>
-          {contextGroup(current, true)}
-          <p className="mt-1.5 text-[10px] leading-relaxed text-gray-400">{t('modelPicker.contextHint')}</p>
+          {/* 右侧：推理强度 / 上下文，纵向对齐当前模型行 */}
+          <div ref={flyoutRef} className="relative hidden w-56 shrink-0 border-l border-gray-100 bg-gray-50/45 dark:border-white/[0.06] dark:bg-white/[0.02] min-[1536px]:block">
+            <div className="absolute inset-x-0 p-3" style={{ top: flyoutTop }}>
+              {!flyoutModel ? (
+                <div className="text-[11px] text-gray-400">{t('modelPicker.pickModelHint')}</div>
+              ) : (
+                <>
+                  <div className={panelTitleClass}>{flyoutModel.displayName}</div>
+                  {modelSettings(flyoutModel, flyoutSelected)}
+                </>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -10,9 +10,10 @@ import { Button, Card, Input } from './ui'
 function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void }) {
   return (
     <button
+      type="button"
       onClick={onChange}
       className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors duration-200 ${
-        checked ? 'bg-emerald-500' : 'bg-gray-300 glass dark:bg-gray-600'
+        checked ? 'bg-emerald-600' : 'bg-gray-300 dark:bg-gray-700'
       }`}
     >
       <span
@@ -79,7 +80,7 @@ export default function WorktreeCleanupSettings() {
   }
 
   const numberField = (value: number, min: number, max: number, onChange: (v: number) => void) => (
-    <Input tone="indigo" glass
+    <Input tone="indigo" glass={false}
       type="number"
       min={min}
       max={max}
@@ -88,7 +89,7 @@ export default function WorktreeCleanupSettings() {
         const v = parseInt(e.target.value || '0', 10) || 0
         onChange(Math.min(max, Math.max(min, v)))
       }}
-      className="w-28"
+      className="w-28 dark:border-white/10 dark:bg-gray-800 dark:text-gray-100 dark:focus:bg-gray-800"
     />
   )
 
@@ -148,7 +149,7 @@ export default function WorktreeCleanupSettings() {
           <p className="font-medium">{t('worktreeCleanup.manualTitle')}</p>
           <p className="mt-0.5 text-emerald-600/80 dark:text-emerald-300/80">{t('worktreeCleanup.manualHint')}</p>
         </div>
-        <Button variant="primary" tone="emerald" className="flex shrink-0 items-center gap-1.5 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-emerald-600 disabled:opacity-50" onClick={() => runMutation.mutate()}
+        <Button variant="primary" tone="emerald" className="flex shrink-0 items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-emerald-700 disabled:opacity-50" onClick={() => runMutation.mutate()}
           disabled={runMutation.isPending}>
           {runMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
           {runMutation.isPending ? t('worktreeCleanup.running') : t('worktreeCleanup.runOnce')}

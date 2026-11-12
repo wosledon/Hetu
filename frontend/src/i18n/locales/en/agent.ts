@@ -32,6 +32,8 @@ export default {
     emptyProjectAgents: 'This project defines no .github agents',
     workflowGroup: 'Workflows',
     emptyWorkflows: 'No workflows yet',
+    search: 'Search agents or workflows...',
+    noMatches: 'No matches',
   },
   thought: {
     title: 'Reasoning',

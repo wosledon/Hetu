@@ -331,13 +331,13 @@ export default function KanbanPage() {
       mainContent={
         <PageContainer variant="fill" className="flex-col">
           {/* Header */}
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-3 border-b border-gray-100 px-8 py-4 dark:border-gray-800">
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-3 border-b border-gray-200/80 bg-white/35 px-8 py-5 dark:border-white/[0.07] dark:bg-slate-950/20">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 ring-1 ring-indigo-100 dark:bg-indigo-500/10 dark:ring-indigo-500/20">
-                <SquareKanban size={20} className="text-indigo-600 dark:text-indigo-400" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-indigo-200/70 bg-indigo-50 text-indigo-600 shadow-sm dark:border-indigo-400/15 dark:bg-indigo-500/10 dark:text-indigo-300">
+                <SquareKanban size={20} />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('board.title')}</h1>
+                <h1 className="text-xl font-semibold tracking-tight text-gray-900 dark:text-gray-100">{t('board.title')}</h1>
                 <p className="text-xs text-gray-500 dark:text-gray-400">{t('board.subtitle')}</p>
               </div>
             </div>
@@ -369,7 +369,7 @@ export default function KanbanPage() {
                 title={t('common:refresh')}>
                 <RefreshCw size={16} className={isRefetching ? 'animate-spin' : ''} />
               </IconButton>
-              <Button variant="primary" tone="indigo" className="flex items-center gap-1.5 rounded-lg bg-indigo-500 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-600" onClick={() => openCreate('Backlog')}>
+              <Button variant="primary" tone="indigo" className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-500" onClick={() => openCreate('Backlog')}>
                 <Plus size={16} />{t('board.newTask')}
               </Button>
             </div>
@@ -432,7 +432,7 @@ export default function KanbanPage() {
                     onDragOver={(e) => { e.preventDefault(); if (canDrop) setDragOverColumn(col.status) }}
                     onDragLeave={() => setDragOverColumn((c) => (c === col.status ? null : c))}
                     onDrop={() => handleDrop(col.status, null)}
-                    className={`flex h-full w-72 shrink-0 flex-col transition-colors ${
+                    className={`flex h-full w-72 shrink-0 flex-col border-gray-200/70 bg-white/45 shadow-sm transition-colors dark:border-white/[0.07] dark:bg-slate-900/25 ${
                       dragOverColumn === col.status
                         ? 'border-indigo-300 ring-2 ring-indigo-300/70 dark:border-indigo-500/40 dark:ring-indigo-500/40'
                         : ''
@@ -473,7 +473,7 @@ export default function KanbanPage() {
                       ))}
                       {isLoading && <div className="py-8 text-center text-xs text-gray-400">{t('common:loading')}</div>}
                       {boardReady && tasks.length === 0 && (
-                        <div className="py-8 text-center text-xs text-gray-300 dark:text-gray-600">{t('board.noTasks')}</div>
+                        <div className="mx-1 my-4 rounded-xl border border-dashed border-gray-200 px-3 py-6 text-center text-[11px] text-gray-400 dark:border-white/[0.08] dark:text-gray-500">{t('board.noTasks')}</div>
                       )}
                     </div>
                   </Card>
@@ -641,7 +641,7 @@ export default function KanbanPage() {
                 </div>
                 <div className="flex items-center justify-end gap-2 border-t border-gray-100 px-5 py-3 dark:border-gray-700">
                   <Button variant="ghost" tone="gray" className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700" onClick={closeForm}>{t('common:cancel')}</Button>
-                  <Button variant="primary" tone="indigo" className="rounded-lg bg-indigo-500 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-600 disabled:cursor-not-allowed disabled:opacity-50" onClick={handleSave}
+                  <Button variant="primary" tone="indigo" className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50" onClick={handleSave}
                     disabled={!form.title.trim() || createMutation.isPending || updateMutation.isPending}>
                     {editingId ? t('common:save') : t('common:create')}
                   </Button>
@@ -720,7 +720,7 @@ function TaskCard({ task, isDragging, onEdit, onDelete, onOpenDetail, onDragStar
       }}
       onDragLeave={() => setDropAbove(false)}
       onDrop={(e) => { e.preventDefault(); e.stopPropagation(); setDropAbove(false); onDropBefore() }}
-      className={`group cursor-pointer p-3 shadow-sm transition-colors active:cursor-grabbing dark:bg-gray-800 ${
+      className={`group cursor-pointer border-gray-200/70 bg-white/75 p-3 shadow-sm transition-colors active:cursor-grabbing dark:border-white/[0.07] dark:bg-slate-900/35 ${
         isDragging ? 'opacity-40' : ''
       } ${dropAbove ? 'border-indigo-400' : 'hover:border-white/40 dark:hover:border-white/10'} ${task.priority === 'Urgent' ? 'ring-1 ring-red-200 dark:ring-red-500/30' : ''}`}
     >

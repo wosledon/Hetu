@@ -32,6 +32,8 @@ export default {
     inputFallback: 'Type a message...',
     attachedImages: '{{count}} images attached, type a message...',
     inputPlaceholder: 'Type a message, Enter to send, / for skills, @ to mention notes...',
+    emptyTitle: 'What shall we work on today?',
+    emptySubtitle: 'Capture an idea, organize your knowledge, or hand a task to an agent.',
     imageUnsupported: '{{name}} (the current model does not support image input; it will be ignored when sending)',
     noMatchingSlash: 'No matching skills or agents',
     noMatchingMention: 'No matching mentions',

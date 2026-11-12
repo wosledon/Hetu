@@ -225,12 +225,12 @@ export default function ProjectsPage() {
 
         <div className="flex min-w-0 flex-1 flex-col">
           {/* 页头 */}
-          <div className="flex shrink-0 items-center gap-3 border-b border-gray-200 px-6 py-4 dark:border-gray-800">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-300">
+          <div className="flex shrink-0 items-center gap-3 border-b border-gray-200/80 bg-white/35 px-6 py-5 dark:border-white/[0.07] dark:bg-slate-950/20">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-indigo-200/70 bg-indigo-50 text-indigo-600 shadow-sm dark:border-indigo-400/15 dark:bg-indigo-500/10 dark:text-indigo-300">
               <FolderInput size={20} />
             </div>
             <div className="min-w-0">
-              <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('page.title')}</h1>
+              <h1 className="text-xl font-semibold tracking-tight text-gray-900 dark:text-gray-100">{t('page.title')}</h1>
               <p className="text-xs text-gray-500 dark:text-gray-400">
                 {t('page.subtitle', { projects: projects.length, groups: groups.length })}
               </p>
@@ -244,11 +244,11 @@ export default function ProjectsPage() {
                   className="w-56"
                 />
               </div>
-              <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-3.5 py-1.5 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300" onClick={() => setGroupManagerOpen(true)}>
+              <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 rounded-xl border border-gray-200/80 bg-white/80 px-3.5 py-1.5 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300" onClick={() => setGroupManagerOpen(true)}>
                 <Settings2 size={14} />
                 {t('page.manageGroups')}
               </Button>
-              <Button variant="primary" tone="indigo" pill className="flex shrink-0 items-center gap-1.5 rounded-full bg-indigo-600 px-4 py-1.5 text-[13px] font-medium text-white shadow-sm transition-all hover:bg-indigo-700 active:scale-[0.97]" onClick={openCreate}>
+              <Button variant="primary" tone="indigo" pill className="flex shrink-0 items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-1.5 text-[13px] font-medium text-white shadow-sm transition-all hover:bg-indigo-700 active:scale-[0.97]" onClick={openCreate}>
                 <Plus size={15} />
                 {t('page.newProject')}
               </Button>
@@ -269,7 +269,7 @@ export default function ProjectsPage() {
           )}
 
           {/* 项目列表 */}
-          <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+          <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
             {isLoading ? (
               <div className="flex justify-center py-24"><Loader2 size={24} className="animate-spin text-indigo-500" /></div>
             ) : projects.length === 0 ? (
@@ -293,12 +293,12 @@ export default function ProjectsPage() {
                 {sections.map((section) => (
                   <section key={section.key}>
                     {section.name && (
-                      <h2 className="mb-2.5 flex items-center gap-1.5 text-[13px] font-semibold text-gray-600 dark:text-gray-300">
+                      <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-200">
                         {section.name}
-                        <span className="text-[11px] font-normal text-gray-400">{section.projects.length}</span>
+                        <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] font-normal tabular-nums text-gray-400 dark:bg-white/[0.05]">{section.projects.length}</span>
                       </h2>
                     )}
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
                       {section.projects.map((project) => (
                         <Card
                           key={project.id}
@@ -314,7 +314,7 @@ export default function ProjectsPage() {
                             e.currentTarget.classList.remove('ring-1', 'ring-blue-300')
                             handleCardDrop(section, project.id, e.dataTransfer.getData('application/x-project-id'))
                           }}
-                          className="group relative flex flex-col p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-white/40 hover:shadow-md dark:hover:border-white/10"
+                          className="group relative flex flex-col border-gray-200/70 bg-white/70 p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-indigo-200/70 hover:shadow-md dark:border-white/[0.07] dark:bg-slate-900/35 dark:hover:border-indigo-400/20"
                         >
                           <div className="flex items-start gap-3">
                             <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-base font-bold ${avatarClass(project.name)}`}>
@@ -322,7 +322,7 @@ export default function ProjectsPage() {
                             </span>
                             <div className="min-w-0 flex-1 pr-32">
                               <div className="flex items-center gap-1.5">
-                                <span className="truncate text-[13px] font-medium text-gray-800 dark:text-gray-100" title={project.name}>
+                                <span className="truncate text-sm font-semibold text-gray-800 dark:text-gray-100" title={project.name}>
                                   {project.name}
                                 </span>
                                 {project.isPinned && <Pin size={11} className="shrink-0 text-amber-400" />}
@@ -336,7 +336,7 @@ export default function ProjectsPage() {
                                 </span>
                               </div>
                               <p
-                                className="mt-0.5 truncate font-mono text-[11px] text-gray-400"
+                                className="mt-0.5 truncate font-mono text-[11px] text-gray-500 dark:text-gray-400"
                                 title={project.projectType === 'Ssh'
                                   ? `${project.sshUser ? `${project.sshUser}@` : ''}${project.sshHost}:${project.sshPort} ${project.directoryPath}`
                                   : project.directoryPath}
@@ -349,7 +349,7 @@ export default function ProjectsPage() {
                           </div>
 
                           {project.description && (
-                            <p className="mt-2 line-clamp-2 text-[12px] leading-relaxed text-gray-500 dark:text-gray-400">
+                            <p className="mt-2 line-clamp-2 text-xs leading-5 text-gray-600 dark:text-gray-300">
                               {project.description}
                             </p>
                           )}
@@ -366,29 +366,32 @@ export default function ProjectsPage() {
                                 {project.category}
                               </span>
                             )}
-                            {project.tags.map((tag) => (
-                              <span key={tag} className="rounded-full bg-gray-100 glass px-2 py-0.5 text-[10px] text-gray-500 dark:bg-white/[0.06] dark:text-gray-400">
+                            {project.tags.slice(0, 3).map((tag) => (
+                              <span key={tag} className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] text-gray-500 dark:bg-white/[0.06] dark:text-gray-400">
                                 {tag}
                               </span>
                             ))}
+                            {project.tags.length > 3 && (
+                              <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-400 dark:bg-white/[0.04]">+{project.tags.length - 3}</span>
+                            )}
                           </div>
 
                           {/* 操作区：空间不足时自动换行，避免操作按钮被裁出卡片 */}
                           <div className="mt-3 flex flex-wrap items-center gap-x-1 gap-y-1.5 border-t border-gray-100 pt-2.5 dark:border-gray-800">
                             {project.projectType === 'Local' && (
-                              <Button variant="ghost" tone="gray" className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-lg px-2 py-1 text-[11px] font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800" onClick={() => openMutation.mutate(project.id)}>
-                                <HardDrive size={12} />
-                                {t('page.openDirectory')}
+                              <Button variant="ghost" tone="gray" className="flex h-7 shrink-0 items-center gap-1 whitespace-nowrap rounded-lg px-2 text-[11px] font-medium text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-800 dark:text-gray-300 dark:hover:bg-white/[0.06] dark:hover:text-gray-100" onClick={() => openMutation.mutate(project.id)}
+                                title={t('page.openDirectory')} aria-label={t('page.openDirectory')}>
+                                <HardDrive size={12} /><span>{t('page.openDirectory')}</span>
                               </Button>
                             )}
-                            <Button variant="ghost" tone="gray" className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-lg px-2 py-1 text-[11px] font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800" onClick={() => copyPath(project)}>
-                              {copiedId === project.id ? <Check size={12} /> : <Copy size={12} />}
-                              {copiedId === project.id ? t('common:copied') : t('page.copyPath')}
+                            <Button variant="ghost" tone="gray" className="flex h-7 shrink-0 items-center gap-1 whitespace-nowrap rounded-lg px-2 text-[11px] font-medium text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-800 dark:text-gray-300 dark:hover:bg-white/[0.06] dark:hover:text-gray-100" onClick={() => copyPath(project)}
+                              title={copiedId === project.id ? t('common:copied') : t('page.copyPath')} aria-label={copiedId === project.id ? t('common:copied') : t('page.copyPath')}>
+                              {copiedId === project.id ? <Check size={12} /> : <Copy size={12} />}<span>{copiedId === project.id ? t('common:copied') : t('page.copyPath')}</span>
                             </Button>
                             {/* 与 Code 工作区互通：直接跳到对应工作项目 */}
-                            <Button variant="ghost" tone="blue" className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-lg px-2 py-1 text-[11px] font-medium text-blue-600 transition-colors hover:bg-blue-50 dark:text-blue-300 dark:hover:bg-blue-950/40" onClick={() => navigate(project.workProjectId ? `/code?project=${project.workProjectId}` : '/code')}>
+                            <Button variant="ghost" tone="blue" className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-lg px-2 py-1 text-[11px] font-medium text-blue-600 transition-colors hover:bg-blue-50 dark:text-blue-300 dark:hover:bg-blue-500/10" onClick={() => navigate(project.workProjectId ? `/code?project=${project.workProjectId}` : '/code')} title={t('page.openInCode')} aria-label={t('page.openInCode')}>
                               <Code size={12} />
-                              {t('page.openInCode')}
+                              Code
                             </Button>
                             {/* 生成项目 Wiki：本地项目进入即触发生成，远程项目仅跳转（不支持） */}
                             <Button variant="ghost" tone="emerald" className="flex shrink-0 items-center gap-1 whitespace-nowrap rounded-lg px-2 py-1 text-[11px] font-medium text-emerald-600 transition-colors hover:bg-emerald-50 dark:text-emerald-300 dark:hover:bg-emerald-950/40" onClick={() => navigate(
@@ -398,7 +401,7 @@ export default function ProjectsPage() {
                               )}
                               title={project.projectType === 'Local' ? t('page.generateWikiTitle') : t('page.wikiRemoteUnsupported')}>
                               <BookText size={12} />
-                              {t('page.generateWiki')}
+                              Wiki
                             </Button>
                             {/* 管理操作：固定在卡片右上角、始终可见，不再占用操作行导致底部留空 */}
                             <div className="absolute right-2.5 top-2.5 z-10 flex shrink-0 items-center gap-0.5 rounded-lg bg-gray-50/80 p-0.5 transition dark:bg-white/[0.04] dark:group-hover:bg-white/[0.07]">

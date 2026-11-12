@@ -161,6 +161,7 @@ export function TooltipProvider() {
   useEffect(() => {
     let timer: number | null = null
     let active: HTMLElement | null = null
+    let pointerFocus = false
 
     const clearTimer = () => {
       if (timer !== null) {
@@ -234,6 +235,9 @@ export function TooltipProvider() {
     }
 
     const onFocusIn = (event: FocusEvent) => {
+      // 鼠标/触摸点击按钮也会聚焦；此时不重新显示刚被 pointerdown 收起的提示，
+      // 否则下拉触发器的气泡会立即盖住刚展开的菜单。键盘 Tab 聚焦仍正常提示。
+      if (pointerFocus) return
       const el = resolve(event.target)
       if (el) show(el, 0)
     }
@@ -241,11 +245,18 @@ export function TooltipProvider() {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') hide()
     }
+    const onPointerDown = () => {
+      pointerFocus = true
+      hide()
+    }
+    const onPointerUp = () => { pointerFocus = false }
 
     document.addEventListener('pointerover', onPointerOver, true)
     document.addEventListener('pointerout', onPointerOut, true)
     document.addEventListener('focusin', onFocusIn, true)
-    document.addEventListener('pointerdown', hide, true)
+    document.addEventListener('pointerdown', onPointerDown, true)
+    document.addEventListener('pointerup', onPointerUp, true)
+    document.addEventListener('pointercancel', onPointerUp, true)
     document.addEventListener('keydown', onKeyDown, true)
     window.addEventListener('scroll', hide, true)
     window.addEventListener('resize', hide)
@@ -254,7 +265,9 @@ export function TooltipProvider() {
       document.removeEventListener('pointerover', onPointerOver, true)
       document.removeEventListener('pointerout', onPointerOut, true)
       document.removeEventListener('focusin', onFocusIn, true)
-      document.removeEventListener('pointerdown', hide, true)
+      document.removeEventListener('pointerdown', onPointerDown, true)
+      document.removeEventListener('pointerup', onPointerUp, true)
+      document.removeEventListener('pointercancel', onPointerUp, true)
       document.removeEventListener('keydown', onKeyDown, true)
       window.removeEventListener('scroll', hide, true)
       window.removeEventListener('resize', hide)

@@ -18,9 +18,11 @@ export default function AgentCheckpointRow({ label, fileCount, onRestore }: Agen
   const [restoring, setRestoring] = useState(false)
 
   return (
-    <div className="flex items-center gap-2 rounded-lg border border-sky-100 bg-sky-50/60 px-2.5 py-1.5 dark:border-sky-900/40 dark:bg-sky-950/20">
-      <History size={12} className="shrink-0 text-sky-500" />
-      <span className="min-w-0 flex-1 truncate text-[11px] text-sky-800 dark:text-sky-300">
+    <div className="flex min-h-11 items-center gap-2.5 rounded-xl border border-sky-200/70 bg-sky-50/45 px-3 py-2 shadow-[0_1px_2px_rgba(15,23,42,0.03)] dark:border-sky-400/15 dark:bg-sky-500/[0.05]">
+      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-sky-100 text-sky-600 dark:bg-sky-500/10 dark:text-sky-300">
+        <History size={13} />
+      </span>
+      <span className="min-w-0 flex-1 truncate text-xs font-medium text-sky-800 dark:text-sky-200">
         {t('checkpoint.label', { label })}
         {fileCount != null && fileCount > 0 && t('checkpoint.files', { n: fileCount })}
       </span>

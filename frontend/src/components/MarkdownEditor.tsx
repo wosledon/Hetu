@@ -621,18 +621,17 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
 
   if (!note) {
     return (
-      <div className="flex min-h-0 flex-1 items-center justify-center bg-transparent">
-        <div className="text-center">
-          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-500/25">
-            <PenLine size={28} className="text-white" />
+      <div className="flex min-h-0 flex-1 items-center justify-center bg-transparent p-6">
+        <div className="w-full max-w-sm rounded-2xl border border-gray-200/70 bg-white/60 px-8 py-10 text-center shadow-sm dark:border-white/[0.07] dark:bg-slate-900/35">
+          <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-500/25">
+            <PenLine size={26} className="text-white" />
           </div>
-          <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('editor.emptyHint')}</p>
-          <p className="mt-1.5 text-xs text-gray-400 dark:text-gray-500">{t('editor.emptySubHint')}</p>
+          <p className="text-base font-semibold text-gray-700 dark:text-gray-200">{t('editor.emptyHint')}</p>
+          <p className="mt-2 text-xs leading-5 text-gray-400 dark:text-gray-500">{t('editor.emptySubHint')}</p>
         </div>
       </div>
     )
   }
-
   // 格式工具按钮组：常驻工具条与选中浮动工具栏共用
   const formatToolbarContent = (
     <>

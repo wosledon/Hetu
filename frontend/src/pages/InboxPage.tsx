@@ -162,7 +162,7 @@ export default function InboxPage() {
                 <Inbox size={22} className="text-white" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('inbox.title')}</h1>
+                <h1 className="text-xl font-semibold tracking-tight text-gray-900 dark:text-gray-100">{t('inbox.title')}</h1>
                 <p className="text-xs text-gray-500 dark:text-gray-400">
                   {archived ? t('inbox.subtitleArchived') : t('inbox.subtitleInbox')}
                 </p>
@@ -174,7 +174,7 @@ export default function InboxPage() {
                   <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-600 dark:bg-blue-500/10 dark:text-blue-300">
                     {t('inbox.unreadCount', { n: unreadCount })}
                   </span>
-                  <Button variant="secondary" size="sm" pill className="flex items-center gap-1 rounded-full border border-gray-200 bg-white glass px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => runBatch('read', unreadIds)}>
+                  <Button variant="secondary" size="sm" pill className="flex items-center gap-1 rounded-xl border border-gray-200/80 bg-white/80 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => runBatch('read', unreadIds)}>
                     <CheckCheck size={13} />{t('inbox.markAllRead')}
                   </Button>
                 </>
@@ -183,7 +183,7 @@ export default function InboxPage() {
           </div>
 
           {/* 归档切换 + 分类筛选 */}
-          <div className="mb-4 flex flex-wrap items-center gap-3">
+          <div className="mb-4 flex flex-wrap items-center gap-3 rounded-2xl border border-gray-200/70 bg-white/45 p-2.5 dark:border-white/[0.07] dark:bg-white/[0.025]">
             <PillTabs
               value={archived ? 'archived' : 'inbox'}
               onSelect={(key) => switchTab(key === 'archived')}
@@ -241,7 +241,7 @@ export default function InboxPage() {
           ) : (
             <div className="space-y-2.5">
               {/* 工具栏：全选 + 批量操作 */}
-              <Card padded={false} className="flex flex-wrap items-center gap-2 px-3.5 py-2.5">
+              <Card padded={false} className="flex flex-wrap items-center gap-2 border-gray-200/70 bg-white/65 px-3.5 py-2.5 dark:border-white/[0.07] dark:bg-slate-900/35">
                 <label className="flex cursor-pointer items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
                   <input
                     type="checkbox"
@@ -253,7 +253,7 @@ export default function InboxPage() {
                 </label>
                 {selected.length > 0 ? (
                   <div className="flex flex-wrap items-center gap-1">
-                    <span className="rounded-full bg-gray-100 glass px-2 py-0.5 text-[11px] text-gray-500 dark:bg-white/[0.06] dark:text-gray-400">
+                    <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] text-gray-500 dark:bg-white/[0.06] dark:text-gray-400">
                       {t('inbox.selectedCount', { n: selected.length })}
                     </span>
                     <BatchButton icon={CheckCheck} label={t('inbox.read')} onClick={() => runBatch('read')} />
@@ -277,7 +277,7 @@ export default function InboxPage() {
                   <Card
                     key={item.id}
                     onClick={() => handleItemClick(item)}
-                    className={`group flex cursor-pointer items-start gap-3 p-3.5 transition-all hover:shadow-sm ${
+                    className={`group flex cursor-pointer items-start gap-3 border-gray-200/70 p-3.5 transition-all hover:shadow-sm dark:border-white/[0.07] ${
                       item.isRead
                         ? 'hover:border-blue-300 dark:hover:border-white/10'
                         : 'border-blue-200/70 bg-blue-50/40 hover:border-blue-300 dark:border-blue-500/20 dark:bg-blue-500/[0.06] dark:hover:border-blue-500/30'
@@ -304,7 +304,7 @@ export default function InboxPage() {
                           {item.title}
                         </span>
                         {item.occurrenceCount > 1 && (
-                          <span className="shrink-0 rounded-full bg-gray-100 glass px-1.5 py-0.5 text-[10px] text-gray-500 dark:bg-white/[0.06] dark:text-gray-400">
+                          <span className="shrink-0 rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500 dark:bg-white/[0.06] dark:text-gray-400">
                             ×{item.occurrenceCount}
                           </span>
                         )}

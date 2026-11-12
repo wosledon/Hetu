@@ -43,12 +43,12 @@ export default function ProjectsSidebar({
   const navItemClass = (active: boolean) =>
     `flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[13px] transition-colors ${
       active
-        ? 'bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-300'
+        ? 'bg-blue-50 text-blue-600 shadow-[inset_2px_0_0_#3b82f6] dark:bg-blue-500/10 dark:text-blue-300'
         : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/[0.06]'
     }`
 
   return (
-    <aside className="flex h-full w-52 shrink-0 flex-col border-r border-gray-100 dark:border-white/[0.06]">
+    <aside className="flex h-full w-52 shrink-0 flex-col border-r border-gray-200/80 bg-white/30 dark:border-white/[0.07] dark:bg-slate-950/15">
       <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
         <button
           onClick={() => onFilterChange(ALL_FILTER)}
@@ -139,7 +139,7 @@ export default function ProjectsSidebar({
                     className={`flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] transition-colors ${
                       active
                         ? 'border-blue-300 bg-blue-50 text-blue-600 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-300'
-                        : 'border-gray-200 text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:border-gray-700 dark:text-gray-400'
+                        : 'border-transparent text-gray-500 hover:bg-white/70 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/[0.05]'
                     }`}
                   >
                     <Tag size={9} />

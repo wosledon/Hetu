@@ -259,7 +259,7 @@ export default function KanbanTaskDetailPage() {
               <div className="min-w-0 space-y-6">
                 <Card>
                   <div className="flex flex-wrap items-center gap-2">
-                    <h1 className="text-lg font-semibold text-gray-800 dark:text-gray-100">{task.title}</h1>
+                    <h1 className="text-xl font-semibold tracking-tight text-gray-900 dark:text-gray-100">{task.title}</h1>
                     <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${STATUS_META[task.status].cls}`}>
                       {t(STATUS_META[task.status].labelKey)}
                     </span>

@@ -278,11 +278,11 @@ export default function KnowledgeBasePage() {
           {/* Header */}
           <div className="mb-6 flex flex-wrap items-center gap-x-5 gap-y-3">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 shadow-sm shadow-emerald-500/20">
-                <Database size={20} className="text-white" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-emerald-200/70 bg-emerald-50 text-emerald-600 shadow-sm dark:border-emerald-400/15 dark:bg-emerald-500/10 dark:text-emerald-300">
+                <Database size={20} />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('kb.title')}</h1>
+                <h1 className="text-xl font-semibold tracking-tight text-gray-900 dark:text-gray-100">{t('kb.title')}</h1>
                 <p className="text-xs text-gray-500 dark:text-gray-400">{t('kb.subtitle')}</p>
               </div>
             </div>
@@ -310,7 +310,7 @@ export default function KnowledgeBasePage() {
           {activeTab === 'overview' && (
             <div className="space-y-4">
               {/* 索引驾驶舱：进度环 + 关键指标 + 批量操作 */}
-              <Card padded="lg" className="glass-soft border-transparent dark:border-transparent">
+              <Card padded="lg" className="border-gray-200/70 bg-white/70 shadow-sm dark:border-white/[0.07] dark:bg-slate-900/35">
                 <div className="flex flex-wrap items-center gap-8">
                   {/* 进度环 */}
                   <div className="relative h-24 w-24 shrink-0">
@@ -517,11 +517,11 @@ export default function KnowledgeBasePage() {
                     className="hidden"
                     onChange={handleFileUpload}
                   />
-                  <Button variant="secondary" pill className="flex items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-4 py-2 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => fileInputRef.current?.click()}>
+                  <Button variant="secondary" pill className="flex items-center gap-1.5 rounded-xl border border-gray-200/80 bg-white/80 px-4 py-2 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => fileInputRef.current?.click()}>
                     <Upload size={13} />
                     {t('kb.uploadFile')}
                   </Button>
-                  <Button variant="secondary" pill className="flex items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-4 py-2 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => setShowAddUrl(true)}>
+                  <Button variant="secondary" pill className="flex items-center gap-1.5 rounded-xl border border-gray-200/80 bg-white/80 px-4 py-2 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => setShowAddUrl(true)}>
                     <Plus size={13} />
                     {t('kb.addUrl')}
                   </Button>

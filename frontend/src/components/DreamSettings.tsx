@@ -12,9 +12,10 @@ import { Button, Card, Input } from './ui'
 function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void }) {
   return (
     <button
+      type="button"
       onClick={onChange}
       className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors duration-200 ${
-        checked ? 'bg-emerald-500' : 'bg-gray-300 glass dark:bg-gray-600'
+        checked ? 'bg-emerald-600' : 'bg-gray-300 dark:bg-gray-700'
       }`}
     >
       <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition duration-200 ${
@@ -95,7 +96,7 @@ export default function DreamSettings() {
   }
 
   const numberField = (value: number, min: number, max: number, onChange: (v: number) => void) => (
-    <Input tone="indigo" glass
+    <Input tone="indigo" glass={false}
       type="number"
       min={min}
       max={max}
@@ -104,7 +105,7 @@ export default function DreamSettings() {
         const v = parseInt(e.target.value || '0', 10) || 0
         onChange(Math.min(max, Math.max(min, v)))
       }}
-      className="w-28"
+      className="w-28 dark:border-white/10 dark:bg-gray-800 dark:text-gray-100 dark:focus:bg-gray-800"
     />
   )
 
@@ -181,7 +182,7 @@ export default function DreamSettings() {
           <p className="flex items-center gap-1.5 font-medium"><Sparkles size={13} />{t('dream.manualTitle')}</p>
           <p className="mt-0.5 text-indigo-600/80 dark:text-indigo-300/80">{t('dream.manualHint')}</p>
         </div>
-        <Button variant="primary" tone="indigo" className="flex shrink-0 items-center gap-1.5 rounded-lg bg-indigo-500 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-indigo-600 disabled:opacity-50" onClick={() => dreamMutation.mutate()}
+        <Button variant="primary" tone="indigo" className="flex shrink-0 items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-indigo-700 disabled:opacity-50" onClick={() => dreamMutation.mutate()}
           disabled={dreamMutation.isPending}>
           {dreamMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <Moon size={14} />}
           {dreamMutation.isPending ? t('dream.running') : t('dream.runOnce')}

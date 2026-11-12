@@ -525,7 +525,8 @@ function SessionList({
                 className="min-w-0 flex-1 rounded border border-blue-300 bg-white px-1 py-0.5 text-[12px] outline-none dark:bg-gray-800"
               />
             ) : (session.title || t('sidebar.newSession'))}
-            labelClassName="text-gray-600 dark:text-gray-300"
+            labelClassName={active ? 'text-blue-700 dark:text-blue-200' : 'text-gray-600 dark:text-gray-300'}
+            className={active ? 'bg-blue-100/70 shadow-[inset_2px_0_0_#3b82f6] dark:bg-blue-500/15' : ''}
             onContextMenu={(e) => {
               e.preventDefault()
               e.stopPropagation()
@@ -634,6 +635,7 @@ function ProjectNode({
         expanded={expanded}
         onToggle={onToggle}
         selected={projectSelected}
+        className={projectSelected ? 'bg-blue-100/70 shadow-[inset_2px_0_0_#3b82f6] dark:bg-blue-500/15' : ''}
         icon={(
           <div className={`flex h-5 w-5 shrink-0 items-center justify-center rounded text-white ${COLOR_CLASSES[color]}`}>
             {/* 项目下有会话在跑：彩色方块里的文件夹换成旋转标识（保留项目配色） */}
