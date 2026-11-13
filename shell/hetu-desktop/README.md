@@ -17,6 +17,7 @@ Tauri 2 桌面外壳：在 Rust 侧拉起 `Hetu.Api`（ASP.NET Core 10）作为�
 ```
 
 - **dev 模式**：Tauri 检测到 5000 端口已有健康后端则复用，否则自己 `dotnet run`。主窗口指向 5174，前端走 Vite 代理。
+- **无边框窗口**：主界面使用 36px 自定义标题栏，含最小化、最大化/还原、关闭和拖动；纵向列表导航折叠按钮在标题栏左侧。启动 Splash 无标题栏，居中展示加载动画，启动失败时提供「退出 Hetu」按钮。关闭主界面仍遵循 `CloseToTray`。
 - **prod 模式**：Tauri 启动 sidecar 并挑选随机空闲端口；主窗口指向 sidecar，所有 `/api/...` 同源直连。
 - **数据目录**：默认 OS 用户本地数据目录（Windows `%LOCALAPPDATA%/Hetu`；macOS `~/Library/Application Support/com.hetu.desktop`；Linux `~/.local/share/Hetu`）。可通过 `HETU_DATA_DIR` 环境变量覆盖。
 

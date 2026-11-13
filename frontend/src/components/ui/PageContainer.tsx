@@ -16,13 +16,13 @@ export interface PageContainerProps extends Omit<HTMLAttributes<HTMLDivElement>,
 export default function PageContainer({ variant = 'centered', className, children, ...rest }: PageContainerProps) {
   if (variant === 'fill') {
     return (
-      <div {...rest} className={cn('flex min-h-0 min-w-0 flex-1', className)}>
+      <div {...rest} className={cn('animate-page flex min-h-0 min-w-0 flex-1', className)}>
         {children}
       </div>
     )
   }
   return (
-    <div {...rest} className={cn('flex-1 overflow-y-auto bg-transparent', className)}>
+    <div {...rest} className={cn('animate-page flex-1 overflow-y-auto bg-transparent', className)}>
       <div className="mx-auto max-w-6xl px-8 py-8">{children}</div>
     </div>
   )

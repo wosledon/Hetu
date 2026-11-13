@@ -23,7 +23,8 @@ export default function ProjectsSidebar({
   groups, projects, filter, onFilterChange, onManageGroups, onMoveToGroup,
 }: ProjectsSidebarProps) {
   const { t } = useTranslation('projects')
-  const ungroupedCount = projects.filter((p) => !p.groupId).length
+  const groupIds = new Set(groups.map((group) => group.id))
+  const ungroupedCount = projects.filter((p) => !p.groupId || !groupIds.has(p.groupId)).length
 
   // 分类与标签计数由当前项目列表实时汇总
   const categories = Array.from(

@@ -46,7 +46,7 @@ export default function Modal({ open, onClose, size = 'md', scroll = false, dism
   // 那样 fixed 遮罩会被困在祖先栈上下文里，被后面渲染的兄弟面板（如 Code 会话区）盖住。
   return createPortal(
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
+      className="animate-overlay fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
       onClick={dismissible ? onClose : undefined}
     >
       <div
@@ -54,7 +54,7 @@ export default function Modal({ open, onClose, size = 'md', scroll = false, dism
         aria-modal="true"
         aria-label={label}
         className={cn(
-          'w-full rounded-2xl bg-white shadow-2xl glass glass-float dark:bg-gray-800',
+          'animate-modal w-full rounded-2xl bg-white shadow-2xl glass glass-float dark:bg-gray-800',
           SIZES[size],
           scroll && 'max-h-[85vh] overflow-y-auto',
           className,

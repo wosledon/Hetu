@@ -40,7 +40,7 @@ const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(function IconB
       aria-label={label}
       title={label}
       className={cn(
-        'inline-flex shrink-0 items-center justify-center rounded-lg transition-colors disabled:cursor-not-allowed disabled:opacity-50',
+        'inline-flex shrink-0 items-center justify-center rounded-lg transition-[color,background-color,border-color,box-shadow,transform] duration-150 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100',
         SIZES[size],
         variantCls,
         className,

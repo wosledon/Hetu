@@ -1,4 +1,4 @@
-import { type ReactNode, useState, useRef, useLayoutEffect, useMemo } from 'react'
+import { type ReactNode, startTransition, useCallback, useState, useRef, useLayoutEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { ChevronDown, Settings, Waypoints, Gauge, Inbox, PanelLeftClose, PanelLeftOpen, Ellipsis } from 'lucide-react'
@@ -15,6 +15,7 @@ import { useUIStore } from '../stores/uiStore'
 import { getNavItem, resolveNavItems } from '../utils/navItems'
 import { inboxService } from '../services/inboxService'
 import { IconButton, PillTabs, Tooltip } from './ui'
+import { isTauri } from '../utils/tauri'
 
 interface AppLayoutProps {
   children?: ReactNode
@@ -92,7 +93,9 @@ function NavBadge({ badgeKey }: { badgeKey: string }) {
 export default function AppLayout({ children, mainContent, showSidebar = true }: AppLayoutProps) {
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const navigateTransition = useCallback((path: string) => startTransition(() => navigate(path)), [navigate])
   const location = useLocation()
+  const desktop = isTauri()
   const appName = useUIStore((state) => state.appName)
   const pinnedNavItems = useUIStore((state) => state.pinnedNavItems)
   const fixedNavPaths = useUIStore((state) => state.fixedNavItems)
@@ -182,7 +185,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
     return (
       <button
         key={item.path}
-        onClick={() => navigate(item.path)}
+        onClick={() => navigateTransition(item.path)}
         data-pill-key={item.path}
         className={`relative flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-[13px] font-medium transition-all ${segmentTextClass(isActive)}`}
       >
@@ -203,7 +206,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
     return (
       <button
         key={item.path}
-        onClick={() => navigate(item.path)}
+        onClick={() => navigateTransition(item.path)}
         title={label}
         data-rail-item=""
         data-pill-key={item.path}
@@ -261,7 +264,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
       />
       <div
         ref={moreMenuRef}
-        className="fixed z-[99999] w-40 rounded-xl border border-gray-200/80 bg-white glass glass-float p-1.5 shadow-lg dark:border-white/[0.08] dark:bg-gray-800"
+        className="animate-popover fixed z-[99999] w-40 rounded-xl border border-gray-200/80 bg-white glass glass-float p-1.5 shadow-lg dark:border-white/[0.08] dark:bg-gray-800"
         style={{
           top: moreMenuPos.top,
           left: moreMenuPos.left,
@@ -273,7 +276,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
           return (
             <button
               key={item.path}
-              onClick={() => { navigate(item.path); setLastMoreItem(item.path); setMoreOpen(false) }}
+              onClick={() => { navigateTransition(item.path); setLastMoreItem(item.path); setMoreOpen(false) }}
               className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-[13px] transition-colors ${
                 isActive
                   ? 'bg-blue-50 text-blue-600 dark:bg-blue-950/30 dark:text-blue-300'
@@ -328,22 +331,24 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
       {isListExpanded ? (
         <div className="mb-1 flex items-center gap-1">
           <button
-            onClick={() => navigate('/')}
+            onClick={() => navigateTransition('/')}
             title={appName}
             className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-3 py-2 transition-opacity hover:opacity-80"
           >
             <BrandMark size={30} />
             <span className="truncate text-lg font-bold tracking-tight text-gray-800 dark:text-gray-100">{appName}</span>
           </button>
-          <IconButton
-            variant="ghost"
-            tone="gray"
-            className="mr-0.5 shrink-0"
-            label={t('nav:collapseNav')}
-            onClick={toggleNav}
-          >
-            <PanelLeftClose size={16} />
-          </IconButton>
+          {!desktop && (
+            <IconButton
+              variant="ghost"
+              tone="gray"
+              className="mr-0.5 shrink-0"
+              label={t('nav:collapseNav')}
+              onClick={toggleNav}
+            >
+              <PanelLeftClose size={16} />
+            </IconButton>
+          )}
         </div>
       ) : isListIconOnly ? (
         <div className="mb-1 flex flex-col items-center gap-1">
@@ -352,22 +357,24 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
             tone="gray"
             className="h-11 w-11 shrink-0 items-center justify-center rounded-full transition-opacity hover:opacity-80"
             label={appName}
-            onClick={() => navigate('/')}
+            onClick={() => navigateTransition('/')}
           >
             <BrandMark size={34} />
           </IconButton>
-          <Tooltip content={t('nav:expandNav')}>
-            <button
-              onClick={toggleNav}
-              aria-label={t('nav:expandNav')}
-              className={`flex h-10 w-12 shrink-0 items-center justify-center rounded-lg transition-all ${verticalListItemClass(false)}`}
-            >
-              <PanelLeftOpen size={18} />
-            </button>
-          </Tooltip>
+          {!desktop && (
+            <Tooltip content={t('nav:expandNav')}>
+              <button
+                onClick={toggleNav}
+                aria-label={t('nav:expandNav')}
+                className={`flex h-10 w-12 shrink-0 items-center justify-center rounded-lg transition-all ${verticalListItemClass(false)}`}
+              >
+                <PanelLeftOpen size={18} />
+              </button>
+            </Tooltip>
+          )}
         </div>
       ) : (
-        <IconButton variant="ghost" tone="gray" className="mb-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-opacity hover:opacity-80" label={appName} onClick={() => navigate('/')}  title={appName}>
+        <IconButton variant="ghost" tone="gray" className="mb-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-opacity hover:opacity-80" label={appName} onClick={() => navigateTransition('/')}  title={appName}>
           <BrandMark size={34} />
         </IconButton>
       )}
@@ -418,7 +425,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
           <GithubEntry variant={isListExpanded ? 'railList' : isListIconOnly ? 'railIcon' : 'rail'} />
 
           <button
-            onClick={() => navigate('/settings')}
+            onClick={() => navigateTransition('/settings')}
             title={t('nav:settings')}
             data-rail-item=""
             data-pill-key="/settings"
@@ -446,11 +453,11 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
        圆角只留外框四个角（根的 rounded-2xl + overflow-hidden 裁切）。
        材质用默认卡片的 soft 档（32% 白）才有透出画布的亚克力质感；关掉毛玻璃时
        伪材质消失，靠根自身的 bg-white 退回纯白面板（与 Card 的降级行为一致）。 */
-    <div className={`flex h-screen w-full overflow-hidden rounded-2xl bg-white glass glass-soft text-gray-900 dark:bg-gray-900 dark:text-gray-100 ${isVertical ? 'flex-row' : 'flex-col'}`}>
+    <div className={`${desktop ? 'desktop-window-frame rounded-none' : 'rounded-2xl'} relative flex h-full min-h-0 min-w-0 overflow-hidden bg-white glass glass-soft text-gray-900 dark:bg-gray-900 dark:text-gray-100 ${isVertical ? 'flex-row' : 'flex-col'}`}>
       {isVertical ? verticalRail : (
       <nav className="grid h-14 shrink-0 grid-cols-[1fr_auto_1fr] items-center border-b border-gray-200/80 px-6 dark:border-white/[0.06]">
         <div className="flex items-center justify-start">
-          <button onClick={() => navigate('/')} className="flex items-center gap-2.5 transition-opacity hover:opacity-80">
+          <button onClick={() => navigateTransition('/')} className="flex items-center gap-2.5 transition-opacity hover:opacity-80">
             <span className="flex h-9 w-9 items-center justify-center rounded-full">
               <BrandMark size={30} />
             </span>
@@ -494,7 +501,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
             value={location.pathname}
             trackId="top-secondary"
             className="justify-center gap-0.5 rounded-xl"
-            onSelect={(key) => navigate(key)}
+            onSelect={(key) => navigateTransition(key)}
             items={secondaryNavItems.map((item) => {
               const Icon = item.icon
               const badgeKey = getNavItem(item.path)?.badgeKey
@@ -515,7 +522,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
         <div className="flex items-center justify-end gap-1.5">
           <GithubEntry variant="top" />
           <button
-            onClick={() => navigate('/settings')}
+            onClick={() => navigateTransition('/settings')}
             className={`rounded-lg p-2 transition-all ${
               location.pathname === '/settings'
                 ? 'bg-gray-100/80 text-gray-800 dark:bg-white/10 dark:text-gray-100'
@@ -546,6 +553,6 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
           </div>
           </div>
         </div>
-    </div>
+      </div>
   )
 }

@@ -48,13 +48,11 @@
         from { opacity: 0; transform: translateY(8px); }
         to { opacity: 1; transform: translateY(0); }
       }
-      /* 逐笔绘制由 SVG 自身承担（只播放一次），这里只定尺寸 */
       .logo {
         width: 240px;
         height: 240px;
         object-fit: contain;
       }
-      /* 加载动画：品牌渐变光段在轨道上横向往返（不定量、只表示进行中） */
       .loader {
         position: relative;
         width: 180px;
@@ -70,20 +68,13 @@
         left: 0;
         width: 72px;
         border-radius: inherit;
-        background: linear-gradient(
-          90deg,
-          rgba(124, 92, 255, 0),
-          #7c5cff 35%,
-          #4f7cff 65%,
-          rgba(15, 181, 214, 0)
-        );
+        background: linear-gradient(90deg, rgba(124, 92, 255, 0), #7c5cff 35%, #4f7cff 65%, rgba(15, 181, 214, 0));
         animation: glide 1.5s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
       }
       @keyframes glide {
         from { transform: translateX(-72px); }
         to { transform: translateX(180px); }
       }
-      /* 启动失败才展示：默认隐藏，由 backend-error 事件点亮 */
       .status {
         position: fixed;
         left: 50%;
@@ -91,6 +82,9 @@
         transform: translateX(-50%);
         display: none;
         max-width: 560px;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
         font-size: 12px;
         line-height: 1.7;
         letter-spacing: 1px;
@@ -99,13 +93,22 @@
         color: #6b7280;
       }
       .status.error {
-        display: block;
+        display: flex;
         color: #ef4444;
       }
-      :root.dark .status {
-        color: #9ca3af;
+      #exit-app {
+        border: 1px solid rgba(107, 114, 128, 0.25);
+        border-radius: 999px;
+        padding: 6px 18px;
+        background: transparent;
+        color: inherit;
+        font: inherit;
+        letter-spacing: 0;
+        cursor: pointer;
       }
-    </style>
+      #exit-app:hover { background: var(--track); }
+      :root.dark .status { color: #9ca3af; }
+      :root.dark .status.error { color: #f87171; }    </style>
     <script>
       /*
         首屏明暗跟随应用设置。启动屏与应用页面不同 origin，读不到应用自己的
@@ -140,9 +143,17 @@
       <img class="logo" src="./brand-animated.svg" alt="Hetu" />
       <div class="loader"><i></i></div>
     </div>
-    <div class="status" id="status"></div>
+    <div class="status" id="status">
+      <span id="status-message"></span>
+      <button id="exit-app" type="button">退出 Hetu</button>
+    </div>
     <script type="module">
       const status = document.getElementById('status');
+      const statusMessage = document.getElementById('status-message');
+      document.getElementById('exit-app').addEventListener('click', async () => {
+        const { invoke } = await import('@tauri-apps/api/core');
+        await invoke('exit_app').catch((error) => console.error('Failed to exit app', error));
+      });
 
       // 壳侧持久化的主题（应用设置里保存的那份）：首帧已按系统偏好定色，这里校正
       async function applyPersistedTheme() {

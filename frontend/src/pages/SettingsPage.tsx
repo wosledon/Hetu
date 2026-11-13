@@ -21,6 +21,7 @@ import { settingService } from '../services/settingService'
 import { aiProviderService } from '../services/aiProviderService'
 import { applyLanguage } from '../i18n'
 import { DEFAULT_DYNAMIC_NAV_ITEMS, DEFAULT_FIXED_NAV_ITEMS, reorderNavPaths, resolveNavItems, sanitizeNavPaths, type NavItem } from '../utils/navItems'
+import { recoverableQueryOptions } from '../utils/queryClient'
 import type { IAppSettingsSnapshot } from '../types'
 import { Button, Card, Input, PageContainer, Textarea } from '../components/ui'
 
@@ -128,11 +129,13 @@ export default function SettingsPage() {
   const { data: snapshot } = useQuery({
     queryKey: ['settings'],
     queryFn: settingService.getSnapshot,
+    ...recoverableQueryOptions,
   })
 
   const { data: providers = [] } = useQuery({
     queryKey: ['aiProviders'],
     queryFn: aiProviderService.getAll,
+    ...recoverableQueryOptions,
   })
 
   const allModels = providers.flatMap((p) => p.models)
@@ -371,8 +374,8 @@ export default function SettingsPage() {
             </aside>
 
             {/* Content Area */}
-            <div className="min-w-0 flex-1 animate-fade-in">
-              <Card plain className="border-gray-200 bg-white p-5 shadow-sm sm:p-7 dark:border-white/10 dark:bg-gray-900">
+            <div className="min-w-0 flex-1">
+              <Card key={activeSection} plain className="animate-section border-gray-200 bg-white p-5 shadow-sm sm:p-7 dark:border-white/10 dark:bg-gray-900">
                 {activeSection === 'app' && <AppSettingsSection
                   appName={appName}
                   assistantName={assistantName}

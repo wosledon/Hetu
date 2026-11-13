@@ -75,7 +75,7 @@ export default function SlidingPill({
     const items = Array.from(el.querySelectorAll<HTMLElement>('[data-pill-key]'))
     const active = items.find((it) => it.dataset.pillKey === value)
     const base = items[0]
-    if (!active || !base || base.offsetWidth === 0) {
+    if (!active || !base || active.offsetWidth === 0 || active.offsetHeight === 0 || base.offsetWidth === 0 || base.offsetHeight === 0) {
       setRect(null)
       rectRef.current = null
       return
@@ -127,23 +127,40 @@ export default function SlidingPill({
     const slide = slideInRef.current
     if (slide && el) {
       slideInRef.current = null
-      el.animate(
-        [
-          { transform: `translate(${slide.from.x}px, ${slide.from.y}px)`, width: `${slide.from.w}px`, height: `${slide.from.h}px` },
-          { transform: `translate(${slide.to.x}px, ${slide.to.y}px)`, width: `${slide.to.w}px`, height: `${slide.to.h}px` },
-        ],
-        { duration: DURATION, easing: EASE },
-      )
+      if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        el.animate(
+          [
+            { transform: `translate(${slide.from.x}px, ${slide.from.y}px)`, width: `${slide.from.w}px`, height: `${slide.from.h}px` },
+            { transform: `translate(${slide.to.x}px, ${slide.to.y}px)`, width: `${slide.to.w}px`, height: `${slide.to.h}px` },
+          ],
+          { duration: DURATION, easing: EASE },
+        )
+      }
     }
   })
 
   useEffect(() => {
     const el = ref.current
     if (!el) return
+    let active = true
     const observer = new ResizeObserver(measure)
-    observer.observe(el)
-    for (const item of el.querySelectorAll<HTMLElement>('[data-pill-key]')) observer.observe(item)
-    return () => observer.disconnect()
+    const observeItems = () => {
+      observer.disconnect()
+      observer.observe(el)
+      for (const item of el.querySelectorAll<HTMLElement>('[data-pill-key]')) observer.observe(item)
+    }
+    observeItems()
+    // 异步导航项首次为空时也要在后插入的节点显示后重新测量，不能只能靠刷新。
+    const mutations = new MutationObserver(() => { observeItems(); measure() })
+    mutations.observe(el, { childList: true, subtree: true })
+    const frame = requestAnimationFrame(measure)
+    void document.fonts.ready.then(() => { if (active) measure() })
+    return () => {
+      active = false
+      cancelAnimationFrame(frame)
+      mutations.disconnect()
+      observer.disconnect()
+    }
   }, [measure])
 
   return (

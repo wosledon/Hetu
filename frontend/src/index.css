@@ -120,6 +120,112 @@ body {
   animation: pulseSoft 2.5s ease-in-out infinite;
 }
 
+:root {
+  --motion-fast: 150ms;
+  --motion-normal: 240ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-enter: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes pageEnter {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes sectionEnter {
+  from { opacity: 0; transform: translateX(7px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes listItemEnter {
+  from { opacity: 0; transform: translateY(8px) scale(0.992); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes popoverEnter {
+  from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes overlayEnter {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes modalEnter {
+  from { opacity: 0; transform: translateY(10px) scale(0.975); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes centeredModalEnter {
+  from { opacity: 0; transform: translate(-50%, calc(-50% + 10px)) scale(0.975); }
+  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+
+@keyframes toastEnter {
+  from { opacity: 0; transform: translateY(-8px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.animate-page {
+  animation: pageEnter var(--motion-normal) var(--ease-enter);
+}
+
+.animate-section {
+  animation: sectionEnter var(--motion-normal) var(--ease-enter);
+}
+
+.animate-list-item {
+  animation: listItemEnter var(--motion-normal) var(--ease-enter);
+  animation-fill-mode: backwards;
+}
+
+.animate-popover {
+  transform-origin: top center;
+  animation: popoverEnter var(--motion-fast) var(--ease-enter);
+}
+
+.animate-overlay {
+  animation: overlayEnter var(--motion-fast) var(--ease-standard);
+}
+
+.animate-modal {
+  animation: modalEnter var(--motion-normal) var(--ease-enter);
+}
+
+.animate-centered-modal {
+  animation: centeredModalEnter var(--motion-normal) var(--ease-enter);
+}
+
+.animate-toast {
+  animation: toastEnter var(--motion-normal) var(--ease-enter);
+}
+
+:where(button, a, [role='button']):focus-visible {
+  outline: 2px solid var(--color-blue-500);
+  outline-offset: 2px;
+}
+
+button {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+::selection {
+  background: color-mix(in oklab, var(--color-blue-500) 24%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
+  }
+}
+
 /* ===== Agent 对话进行中：会话末尾声波动画 + 输入框流光边框 ===== */
 @keyframes agentWave {
   0%, 100% { transform: scaleY(0.3); }

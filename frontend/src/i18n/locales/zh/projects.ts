@@ -25,6 +25,8 @@ export default {
     createFirst: '新建第一个项目',
     noMatchTitle: '没有符合条件的项目',
     noMatchHint: '换个关键字，或在左侧切换目录',
+    loadFailed: '项目列表加载失败，请重试',
+    groupsLoadFailed: '分组信息暂时不可用，项目仍已完整展示',
     created: '项目已创建',
     createFailed: '创建失败',
     saved: '已保存',

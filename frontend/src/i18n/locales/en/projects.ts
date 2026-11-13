@@ -25,6 +25,8 @@ export default {
     createFirst: 'Create your first project',
     noMatchTitle: 'No matching projects',
     noMatchHint: 'Try another keyword, or switch the filter on the left',
+    loadFailed: 'Failed to load projects — please retry',
+    groupsLoadFailed: 'Group details are temporarily unavailable; all projects are still shown',
     created: 'Project created',
     createFailed: 'Failed to create',
     saved: 'Saved',

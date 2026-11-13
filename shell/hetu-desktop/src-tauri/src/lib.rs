@@ -47,6 +47,11 @@ async fn open_main_window<R: Runtime>(app: AppHandle<R>) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn exit_app(app: AppHandle) {
+    app.exit(1);
+}
+
+#[tauri::command]
 fn open_data_dir<R: Runtime>(app: AppHandle<R>) -> Result<(), String> {
     let handle = app
         .try_state::<Arc<BackendHandle>>()
@@ -137,6 +142,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             get_backend_info,
             open_main_window,
+            exit_app,
             open_data_dir,
             open_external,
             get_ui_theme,

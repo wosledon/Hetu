@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  AlertCircle, BookText, Check, Code, Copy, FolderInput, HardDrive, Loader2, MoreHorizontal, Pencil, Pin, PinOff, Plus, Server, Settings2, Trash2, X,
+  AlertCircle, BookText, Check, Code, Copy, FolderInput, HardDrive, MoreHorizontal, Pencil, Pin, PinOff, Plus, Server, Settings2, Trash2, X,
 } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
 import ProjectsSidebar from '../components/projects/ProjectsSidebar'
@@ -16,6 +16,7 @@ import type {
   ICreateProjectGroupRequest, IUpdateProjectGroupRequest, IProjectFilter,
 } from '../types/project'
 import { Button, Card, PageContainer, SearchInput } from '../components/ui'
+import { recoverableQueryOptions } from '../utils/queryClient'
 
 const ALL_PROJECTS_FILTER: IProjectFilter = { type: 'all' }
 
@@ -42,7 +43,8 @@ function buildSections(list: IManagedProject[], groups: IProjectGroup[], groupBy
     const items = orderProjects(list.filter((p) => p.groupId === group.id))
     if (items.length > 0) sections.push({ key: group.id, name: group.name, projects: items })
   }
-  const ungrouped = orderProjects(list.filter((p) => !p.groupId))
+  const groupIds = new Set(sortedGroups.map((group) => group.id))
+  const ungrouped = orderProjects(list.filter((p) => !p.groupId || !groupIds.has(p.groupId)))
   if (ungrouped.length > 0) sections.push({ key: '__ungrouped', name: ungroupedName, projects: ungrouped })
   return sections
 }
@@ -77,8 +79,18 @@ export default function ProjectsPage() {
   const [menuFor, setMenuFor] = useState<string | null>(null)
   const [copiedId, setCopiedId] = useState<string | null>(null)
 
-  const { data: projects = [], isLoading } = useQuery({ queryKey: ['projects'], queryFn: projectService.getAll })
-  const { data: groups = [] } = useQuery({ queryKey: ['projectGroups'], queryFn: projectGroupService.getAll })
+  const {
+    data: projects = [],
+    isPending: projectsPending,
+    isError: projectsError,
+    refetch: refetchProjects,
+  } = useQuery({ queryKey: ['projects'], queryFn: projectService.getAll, ...recoverableQueryOptions })
+  const {
+    data: groups = [],
+    isPending: groupsPending,
+    isError: groupsError,
+    refetch: refetchGroups,
+  } = useQuery({ queryKey: ['projectGroups'], queryFn: projectGroupService.getAll, ...recoverableQueryOptions })
 
   const showToast = (ok: boolean, text: string) => {
     setToast({ ok, text })
@@ -225,7 +237,7 @@ export default function ProjectsPage() {
 
         <div className="flex min-w-0 flex-1 flex-col">
           {/* 页头 */}
-          <div className="flex shrink-0 items-center gap-3 border-b border-gray-200/80 bg-white/35 px-6 py-5 dark:border-white/[0.07] dark:bg-slate-950/20">
+          <div className="flex shrink-0 flex-wrap items-center gap-3 border-b border-gray-200/80 bg-white/35 px-6 py-4 dark:border-white/[0.07] dark:bg-slate-950/20">
             <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-indigo-200/70 bg-indigo-50 text-indigo-600 shadow-sm dark:border-indigo-400/15 dark:bg-indigo-500/10 dark:text-indigo-300">
               <FolderInput size={20} />
             </div>
@@ -235,13 +247,13 @@ export default function ProjectsPage() {
                 {t('page.subtitle', { projects: projects.length, groups: groups.length })}
               </p>
             </div>
-            <div className="ml-auto flex items-center gap-2">
-              <div className="relative">
+            <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+              <div className="relative w-40 2xl:w-56">
                 <SearchInput tone="blue" size="sm"
                   value={keyword}
                   onChange={(e) => setKeyword(e.target.value)}
                   placeholder={t('page.searchPlaceholder')}
-                  className="w-56"
+                  className="w-full"
                 />
               </div>
               <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 rounded-xl border border-gray-200/80 bg-white/80 px-3.5 py-1.5 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300" onClick={() => setGroupManagerOpen(true)}>
@@ -257,7 +269,7 @@ export default function ProjectsPage() {
 
           {/* 提示条 */}
           {toast && (
-            <div className={`flex shrink-0 items-center gap-2 px-6 py-2 text-[12px] ${
+            <div className={`flex shrink-0 animate-fade-in items-center gap-2 px-6 py-2 text-[12px] ${
               toast.ok
                 ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300'
                 : 'bg-red-50 text-red-600 dark:bg-red-950/30 dark:text-red-300'
@@ -268,10 +280,41 @@ export default function ProjectsPage() {
             </div>
           )}
 
+          {/* 局部请求失败保留已加载内容，后台自动恢复，也可立即重试 */}
+          {(groupsError || (projectsError && projects.length > 0)) && (
+            <div className="flex shrink-0 animate-fade-in items-center gap-2 bg-amber-50 px-6 py-2 text-[12px] text-amber-700 dark:bg-amber-950/30 dark:text-amber-300">
+              <AlertCircle size={13} className="shrink-0" />
+              <span className="min-w-0 flex-1">{groupsError ? t('page.groupsLoadFailed') : t('page.loadFailed')}</span>
+              <button className="shrink-0 font-medium underline-offset-2 hover:underline" onClick={() => { void refetchProjects(); void refetchGroups() }}>
+                {t('common:retry')}
+              </button>
+            </div>
+          )}
+
           {/* 项目列表 */}
           <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
-            {isLoading ? (
-              <div className="flex justify-center py-24"><Loader2 size={24} className="animate-spin text-indigo-500" /></div>
+            {projectsPending || groupsPending ? (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3" aria-label={t('common:loading')}>
+                {Array.from({ length: 6 }, (_, index) => (
+                  <div key={index} className="h-48 animate-pulse rounded-2xl border border-gray-200/70 bg-white/50 p-4 dark:border-white/[0.07] dark:bg-slate-900/25">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-xl bg-gray-200/80 dark:bg-white/[0.07]" />
+                      <div className="flex-1 space-y-2">
+                        <div className="h-3.5 w-2/5 rounded bg-gray-200/80 dark:bg-white/[0.07]" />
+                        <div className="h-2.5 w-3/5 rounded bg-gray-100 dark:bg-white/[0.04]" />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : projectsError && projects.length === 0 ? (
+              <div className="animate-fade-in rounded-2xl border border-dashed border-red-200 py-16 text-center dark:border-red-900/50">
+                <AlertCircle size={32} className="mx-auto mb-3 text-red-400" />
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-200">{t('page.loadFailed')}</p>
+                <Button variant="secondary" className="mt-4" onClick={() => { void refetchProjects(); void refetchGroups() }}>
+                  {t('common:retry')}
+                </Button>
+              </div>
             ) : projects.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-gray-200 py-16 text-center dark:border-gray-800">
                 <FolderInput size={36} className="mx-auto mb-4 text-gray-300 dark:text-gray-600" />
@@ -299,7 +342,7 @@ export default function ProjectsPage() {
                       </h2>
                     )}
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                      {section.projects.map((project) => (
+                      {section.projects.map((project, projectIndex) => (
                         <Card
                           key={project.id}
                           draggable
@@ -314,7 +357,8 @@ export default function ProjectsPage() {
                             e.currentTarget.classList.remove('ring-1', 'ring-blue-300')
                             handleCardDrop(section, project.id, e.dataTransfer.getData('application/x-project-id'))
                           }}
-                          className="group relative flex flex-col border-gray-200/70 bg-white/70 p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-indigo-200/70 hover:shadow-md dark:border-white/[0.07] dark:bg-slate-900/35 dark:hover:border-indigo-400/20"
+                          style={{ animationDelay: `${Math.min(projectIndex * 35, 140)}ms` }}
+                          className="group animate-list-item relative flex flex-col border-gray-200/70 bg-white/70 p-4 shadow-sm transition-[transform,border-color,box-shadow] duration-200 ease-[var(--ease-enter)] hover:-translate-y-0.5 hover:border-indigo-200/70 hover:shadow-md dark:border-white/[0.07] dark:bg-slate-900/35 dark:hover:border-indigo-400/20"
                         >
                           <div className="flex items-start gap-3">
                             <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-base font-bold ${avatarClass(project.name)}`}>
@@ -452,7 +496,7 @@ export default function ProjectsPage() {
                               {menuFor === project.id && (
                                 <>
                                   <div className="fixed inset-0 z-10" onClick={() => setMenuFor(null)} />
-                                  <div className="absolute right-0 top-7 z-20 w-36 rounded-xl border border-gray-200 bg-white glass glass-float p-1 shadow-lg dark:border-gray-700 dark:bg-gray-800">
+                                  <div className="animate-popover absolute right-0 top-7 z-20 w-36 rounded-xl border border-gray-200 bg-white glass glass-float p-1 shadow-lg dark:border-gray-700 dark:bg-gray-800">
                                     <p className="px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider text-gray-400">{t('page.moveTo')}</p>
                                     <Button variant="ghost" tone="gray" className="flex w-full items-center rounded-lg px-2.5 py-1.5 text-left text-[12px] text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700" onClick={() => moveToGroup(project, null)}>
                                       {t('page.ungrouped')}

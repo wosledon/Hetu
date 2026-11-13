@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from 'react'
+import { Component, lazy, Suspense, useEffect, useState, type ComponentType, type ReactNode } from 'react'
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useQueryClient } from '@tanstack/react-query'
@@ -11,39 +11,82 @@ import i18n, { applyLanguage } from './i18n'
 import { ACCENT_PRESETS, BACKGROUND_PRESETS, FONT_FAMILY_PRESETS } from './utils/appearance'
 import { sanitizeNavPaths } from './utils/navItems'
 import { TooltipProvider } from './components/ui'
+import DesktopTitlebar from './components/DesktopTitlebar'
+import { isTauri } from './utils/tauri'
 
-const NotesPage = lazy(() => import('./pages/NotesPage'))
-const MainChatPage = lazy(() => import('./pages/MainChatPage'))
-const TagsPage = lazy(() => import('./pages/TagsPage'))
-const TrashPage = lazy(() => import('./pages/TrashPage'))
-const SettingsPage = lazy(() => import('./pages/SettingsPage'))
-const GraphPage = lazy(() => import('./pages/GraphPage'))
-const WhiteboardPage = lazy(() => import('./pages/WhiteboardPage'))
-const WhiteboardEditorPage = lazy(() => import('./pages/WhiteboardEditorPage'))
-const AgentsPage = lazy(() => import('./pages/AgentsPage'))
-const SkillsPage = lazy(() => import('./pages/SkillsPage'))
-const KnowledgeBasePage = lazy(() => import('./pages/KnowledgeBasePage'))
-const SharedNotePage = lazy(() => import('./pages/SharedNotePage'))
+function lazyRoute(load: () => Promise<{ default: ComponentType }>) {
+  return lazy(async () => {
+    let error: unknown
+    for (const delay of [0, 350, 1000]) {
+      if (delay > 0) await new Promise((resolve) => window.setTimeout(resolve, delay))
+      try {
+        return await load()
+      } catch (caught) {
+        error = caught
+      }
+    }
+    throw error
+  })
+}
+
+class RouteErrorBoundary extends Component<{ children: ReactNode; resetKey: string }, { failed: boolean; resetKey: string }> {
+  state = { failed: false, resetKey: this.props.resetKey }
+
+  static getDerivedStateFromProps(props: { resetKey: string }, state: { resetKey: string }) {
+    return props.resetKey !== state.resetKey ? { failed: false, resetKey: props.resetKey } : null
+  }
+
+  static getDerivedStateFromError() {
+    return { failed: true }
+  }
+
+  render() {
+    if (this.state.failed) {
+      return (
+        <div className="flex h-full flex-col items-center justify-center gap-4 px-6 text-center">
+          <p className="text-sm text-gray-600 dark:text-gray-300">{i18n.t('common:pageLoadFailed')}</p>
+          <button type="button" className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white" onClick={() => window.location.reload()}>
+            {i18n.t('common:refresh')}
+          </button>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
+
+const NotesPage = lazyRoute(() => import('./pages/NotesPage'))
+const MainChatPage = lazyRoute(() => import('./pages/MainChatPage'))
+const TagsPage = lazyRoute(() => import('./pages/TagsPage'))
+const TrashPage = lazyRoute(() => import('./pages/TrashPage'))
+const SettingsPage = lazyRoute(() => import('./pages/SettingsPage'))
+const GraphPage = lazyRoute(() => import('./pages/GraphPage'))
+const WhiteboardPage = lazyRoute(() => import('./pages/WhiteboardPage'))
+const WhiteboardEditorPage = lazyRoute(() => import('./pages/WhiteboardEditorPage'))
+const AgentsPage = lazyRoute(() => import('./pages/AgentsPage'))
+const SkillsPage = lazyRoute(() => import('./pages/SkillsPage'))
+const KnowledgeBasePage = lazyRoute(() => import('./pages/KnowledgeBasePage'))
+const SharedNotePage = lazyRoute(() => import('./pages/SharedNotePage'))
 const TasksPage = lazy(() => import('./pages/TasksPage'))
-const KanbanPage = lazy(() => import('./pages/KanbanPage'))
-const KanbanTaskDetailPage = lazy(() => import('./pages/KanbanTaskDetailPage'))
-const MemoriesPage = lazy(() => import('./pages/MemoriesPage'))
-const ModelsPage = lazy(() => import('./pages/ModelsPage'))
-const FoundryLocalPage = lazy(() => import('./pages/FoundryLocalPage'))
-const WorkPage = lazy(() => import('./pages/WorkPage'))
-const ProjectsPage = lazy(() => import('./pages/ProjectsPage'))
-const WikiPage = lazy(() => import('./pages/WikiPage'))
-const WorkflowsPage = lazy(() => import('./pages/WorkflowsPage'))
-const ProxyPage = lazy(() => import('./pages/ProxyPage'))
-const UsagePage = lazy(() => import('./pages/UsagePage'))
-const InboxPage = lazy(() => import('./pages/InboxPage'))
-const ToolsPage = lazy(() => import('./pages/ToolsPage'))
+const KanbanPage = lazyRoute(() => import('./pages/KanbanPage'))
+const KanbanTaskDetailPage = lazyRoute(() => import('./pages/KanbanTaskDetailPage'))
+const MemoriesPage = lazyRoute(() => import('./pages/MemoriesPage'))
+const ModelsPage = lazyRoute(() => import('./pages/ModelsPage'))
+const FoundryLocalPage = lazyRoute(() => import('./pages/FoundryLocalPage'))
+const WorkPage = lazyRoute(() => import('./pages/WorkPage'))
+const ProjectsPage = lazyRoute(() => import('./pages/ProjectsPage'))
+const WikiPage = lazyRoute(() => import('./pages/WikiPage'))
+const WorkflowsPage = lazyRoute(() => import('./pages/WorkflowsPage'))
+const ProxyPage = lazyRoute(() => import('./pages/ProxyPage'))
+const UsagePage = lazyRoute(() => import('./pages/UsagePage'))
+const InboxPage = lazyRoute(() => import('./pages/InboxPage'))
+const ToolsPage = lazyRoute(() => import('./pages/ToolsPage'))
 
 /** 路由级代码分割的加载占位：页面按需加载时避免白屏 */
 function RouteFallback() {
   const { t } = useTranslation()
   return (
-    <div className="flex h-screen w-full flex-col items-center justify-center gap-4 text-xs text-gray-400">
+    <div className="flex h-full w-full flex-col items-center justify-center gap-4 text-xs text-gray-400">
       <img src="/ht-monogram-animated.svg" alt="" width={72} height={72} className="select-none" />
       {t('common:loading')}
     </div>
@@ -62,6 +105,7 @@ function App() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const location = useLocation()
+  const desktop = isTauri()
   // 后端主动推的 notify：全局轻量通知（如后台任务完成/失败），5 秒后自动消失
   const [toast, setToast] = useState<{ text: string; level: 'success' | 'error' | 'info' } | null>(null)
 
@@ -162,11 +206,13 @@ function App() {
   }, [])
 
   return (
-    <>
+    <div className="flex h-full flex-col">
+      {desktop && <DesktopTitlebar />}
+      <div className="flex min-h-0 flex-1 flex-col">
       {/* 全局提示气泡：接管所有原生 title，统一成自绘样式 */}
       <TooltipProvider />
       {toast && (
-        <div role="status" className={`fixed right-4 top-4 z-[100] max-w-sm rounded-xl border px-4 py-3 text-sm shadow-lg backdrop-blur ${TOAST_STYLES[toast.level]}`}>
+        <div role="status" className={`animate-toast fixed right-4 ${desktop ? 'top-12' : 'top-4'} z-[100] max-w-sm rounded-xl border px-4 py-3 text-sm shadow-lg backdrop-blur ${TOAST_STYLES[toast.level]}`}>
           <div className="flex items-start gap-3">
             <span className="min-w-0 flex-1 break-words">{toast.text}</span>
             <button
@@ -180,8 +226,9 @@ function App() {
           </div>
         </div>
       )}
-      <Suspense fallback={<RouteFallback />}>
-        <Routes>
+      <RouteErrorBoundary resetKey={location.pathname}>
+        <Suspense fallback={desktop ? null : <RouteFallback />}>
+          <Routes>
         <Route path="/" element={<MainChatPage />} />
         <Route path="/notes" element={<NotesPage />} />
         <Route path="/tags" element={<TagsPage />} />
@@ -215,9 +262,11 @@ function App() {
         <Route path="/trash" element={<TrashPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/share/:shareCode" element={<SharedNotePage />} />
-        </Routes>
-      </Suspense>
-    </>
+          </Routes>
+        </Suspense>
+      </RouteErrorBoundary>
+      </div>
+    </div>
   )
 }
 

@@ -15,6 +15,7 @@ import { aiModelService } from '../services/aiProviderService'
 import { useConfirm } from '../components/confirm'
 import i18n from '../i18n'
 import { formatDate } from '../utils/locale'
+import { recoverableQueryOptions } from '../utils/queryClient'
 import type { IAiModel } from '../types'
 import type { IManagedProject } from '../types/project'
 import type { IWikiSet, IWikiSetPage, IWikiGenerationJob } from '../types/wiki'
@@ -67,24 +68,24 @@ export default function WikiPage() {
     queryKey: ['projects'],
     queryFn: projectService.getAll,
     // 首次进入（后端刚启动）或短暂断连：多重试，别把「加载失败」显示成「没有项目」
-    retry: 4,
-    // 后端冷启动可能超过几秒：拉长重试窗口，并在回到页面/网络恢复时自动续试。
-    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 5000),
-    refetchOnMount: 'always',
-    refetchOnWindowFocus: true,
-    refetchOnReconnect: true,
+    ...recoverableQueryOptions,
   })
 
   const { data: sets = [], isPending: setsPending, isError: setsError, refetch: refetchSets } = useQuery({
     queryKey: ['wiki', 'sets'],
     queryFn: () => wikiService.getSets(),
-    retry: 2,
-    retryDelay: 800,
+    ...recoverableQueryOptions,
   })
 
-  const { data: allDocs = [] } = useQuery({
+  const {
+    data: allDocs = [],
+    isPending: docsPending,
+    isError: docsError,
+    refetch: refetchDocs,
+  } = useQuery({
     queryKey: ['wiki', 'all'],
     queryFn: () => wikiService.getAll(),
+    ...recoverableQueryOptions,
   })
 
   const { data: models = [] } = useQuery({
@@ -459,7 +460,7 @@ export default function WikiPage() {
                 {modelPickerOpen && createPortal(
                   <>
                     <div className="fixed inset-0 z-[99998]" onClick={() => setModelPickerOpen(false)} />
-                    <div style={modelPanelStyle} className="z-[99999] rounded-2xl border border-gray-200/90 bg-white/95 p-1.5 shadow-xl dark:border-white/10 dark:bg-gray-900/95">
+                    <div style={modelPanelStyle} className="animate-popover z-[99999] rounded-2xl border border-gray-200/90 bg-white/95 p-1.5 shadow-xl dark:border-white/10 dark:bg-gray-900/95">
                       <button
                         onClick={() => { setChosenModelId(undefined); setModelPickerOpen(false) }}
                         className={`flex w-full items-center rounded-lg px-3 py-2 text-left text-[13px] transition-colors ${
@@ -600,10 +601,10 @@ export default function WikiPage() {
                 )}
               </div>
             ) : (
-              visibleSets.map((set) => {
+              visibleSets.map((set, setIndex) => {
                 const expanded = set.setId === selectedSet?.setId
                 return (
-                  <div key={set.setId} className="group">
+                  <div key={set.setId} className="group animate-list-item" style={{ animationDelay: `${Math.min(setIndex * 30, 120)}ms` }}>
                     <div
                       className={`flex items-center gap-1 px-2 py-2 transition-colors ${
                         expanded
@@ -648,7 +649,7 @@ export default function WikiPage() {
 
           {/* 提示条 */}
           {toast && (
-            <div className={`flex shrink-0 items-center gap-2 px-6 py-2 text-[12px] ${
+            <div className={`flex shrink-0 animate-fade-in items-center gap-2 px-6 py-2 text-[12px] ${
               toast.ok
                 ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300'
                 : 'bg-red-50 text-red-600 dark:bg-red-950/30 dark:text-red-300'
@@ -710,9 +711,24 @@ export default function WikiPage() {
           )}
 
           {/* 内容区：有选中文档就渲染，与是否按项目过滤无关 */}
-          {selectedDoc ? (
+          {docsError && allDocs.length === 0 ? (
+            <div className="flex flex-1 animate-fade-in items-center justify-center px-8">
+              <div className="text-center">
+                <AlertCircle size={32} className="mx-auto mb-3 text-red-400" />
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-200">{t('wiki.docsLoadFailed')}</p>
+                <Button variant="secondary" className="mt-4" onClick={() => { void refetchDocs() }}>
+                  {t('common:retry')}
+                </Button>
+              </div>
+            </div>
+          ) : docsPending && allDocs.length === 0 ? (
+            <div className="flex flex-1 items-center justify-center" role="status">
+              <Loader2 size={24} className="animate-spin text-emerald-500" />
+              <span className="sr-only">{t('common:loading')}</span>
+            </div>
+          ) : selectedDoc ? (
             <div className="min-h-0 flex-1 overflow-y-auto">
-              <article className="mx-auto max-w-4xl px-8 py-6">
+              <article key={selectedDoc.id} className="animate-section mx-auto max-w-4xl px-8 py-6">
                 <header className="mb-5 border-b border-gray-100 pb-4 dark:border-gray-800">
                   <div className="flex items-center gap-2">
                     <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">{selectedDoc.title}</h2>

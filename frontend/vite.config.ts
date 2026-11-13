@@ -39,13 +39,14 @@ export default defineConfig({
         changeOrigin: true,
         ws: true,
       },
-      // SignalR：后端主动推 UI 动作（打开面板等），需要转发 WebSocket 升级
-      '/hubs': {
+      // SignalR：后端主动推 UI 动作（打开面板等），需要转发 WebSocket 升级。
+      // 结尾斜杠避免把构建产物 /api-*.js 或 /hubs-*.js 错发给后端。
+      '/hubs/': {
         target: 'http://localhost:5000',
         changeOrigin: true,
         ws: true,
       },
-      '/api': {
+      '/api/': {
         target: 'http://localhost:5000',
         changeOrigin: true,
       },
@@ -78,12 +79,12 @@ export default defineConfig({
         ws: true,
       },
       // SignalR：后端主动推 UI 动作（打开面板等），需要转发 WebSocket 升级
-      '/hubs': {
+      '/hubs/': {
         target: 'http://localhost:5000',
         changeOrigin: true,
         ws: true,
       },
-      '/api': {
+      '/api/': {
         target: 'http://localhost:5000',
         changeOrigin: true,
       },

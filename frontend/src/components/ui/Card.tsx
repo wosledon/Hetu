@@ -29,7 +29,7 @@ const Card = forwardRef<HTMLDivElement, CardProps>(function Card(
         !plain && 'bg-white dark:bg-gray-900 glass glass-soft',
         padded && PADDING[padded],
         interactive &&
-          'transition-all duration-200 hover:-translate-y-0.5 hover:border-white/40 hover:shadow-md dark:hover:border-white/10',
+          'transition-[transform,border-color,box-shadow] duration-200 ease-[var(--ease-enter)] hover:-translate-y-0.5 hover:border-white/40 hover:shadow-md dark:hover:border-white/10',
         className,
       )}
       {...rest}
