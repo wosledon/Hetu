@@ -63,6 +63,7 @@ export default {
   },
   approval: {
     needConfirm: 'Approval required: {{name}}',
+    pending: 'Waiting for your decision',
     allow: 'Approve',
     deny: 'Reject',
   },

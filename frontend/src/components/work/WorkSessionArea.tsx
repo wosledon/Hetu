@@ -1250,9 +1250,10 @@ export default function WorkSessionArea({
     }
   }
     const submitApproval = (id: string, approve: boolean) => {
-      if (!session) return
+      const sessionId = draftCreatedRef.current?.id ?? session?.id
+      if (!sessionId) return
       setStreamItems((prev) => prev.filter((x) => !(x.kind === 'approval' && x.id === id)))
-      workSessionService.approve(session.id, id, approve).catch(() => {})
+      workSessionService.approve(sessionId, id, approve).catch(() => {})
     }
 
     /** 回滚到检查点：与历史消息里的检查点行共用同一逻辑（confirm 为回调式，确认后才执行） */
@@ -1707,7 +1708,7 @@ export default function WorkSessionArea({
           placeholder={t('session.inputPlaceholder')}
           streaming={isStreaming}
           onStop={() => {
-            const id = session?.id
+            const id = draftCreatedRef.current?.id ?? session?.id
             if (!id) return
             // 先断本地挂载（本页起的那一流 / 重连挂上的那条），再通知服务端取消循环本身——
             // 刷新后发起流的那一方已不在这个页面里，光 abort 是停不掉后端的

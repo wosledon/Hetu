@@ -63,6 +63,7 @@ export default {
   },
   approval: {
     needConfirm: '需要确认：{{name}}',
+    pending: '等待你的确认',
     allow: '允许',
     deny: '拒绝',
   },

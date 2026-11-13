@@ -29,27 +29,32 @@ export default function AgentApprovalCard({ request, onApprove, onDeny }: AgentA
   }
 
   return (
-    <div className="overflow-hidden rounded-xl border border-amber-200/75 bg-amber-50/45 shadow-[0_1px_2px_rgba(15,23,42,0.03)] dark:border-amber-400/15 dark:bg-amber-500/[0.05]">
-      <div className="flex items-start gap-2.5 p-3">
-        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-600 ring-1 ring-amber-200/70 dark:bg-amber-900/40 dark:text-amber-400 dark:ring-amber-800/50">
-          <ShieldCheck size={14} />
+    <div className="overflow-hidden rounded-xl border border-gray-200/90 bg-white shadow-[0_4px_16px_-10px_rgba(15,23,42,0.2)] dark:border-white/10 dark:bg-gray-900/80">
+      <div className="h-0.5 bg-gradient-to-r from-amber-400 via-amber-300/70 to-transparent" />
+      <div className="flex items-center gap-3 px-3.5 pb-3 pt-3.5">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-600 ring-1 ring-inset ring-amber-200/70 dark:bg-amber-500/10 dark:text-amber-400 dark:ring-amber-400/20">
+          <ShieldCheck size={15} />
         </div>
-        <div className="min-w-0 flex-1 pt-0.5">
-          <p className="text-[12px] font-semibold text-gray-800 dark:text-gray-100">
-            {t('approval.needConfirm', { name: renderToolName(request.name) })}
-          </p>
-        </div>
+        <p className="min-w-0 flex-1 text-[13px] font-semibold leading-5 text-gray-800 dark:text-gray-100">
+          {t('approval.needConfirm', { name: renderToolName(request.name) })}
+        </p>
       </div>
-      <pre className="mx-3 mb-3 max-h-32 overflow-auto whitespace-pre-wrap rounded-lg border border-amber-200/60 bg-white/70 px-2.5 py-2 font-mono text-[11px] leading-relaxed text-gray-600 dark:border-amber-900/30 dark:bg-gray-900/50 dark:text-gray-300">
+      <pre className="mx-3.5 mb-3.5 max-h-32 overflow-auto whitespace-pre-wrap rounded-lg border border-gray-200/70 bg-gray-50/80 px-3 py-2.5 font-mono text-[11px] leading-relaxed text-gray-600 dark:border-white/[0.07] dark:bg-black/20 dark:text-gray-300">
         {args}
       </pre>
-      <div className="flex items-center justify-end gap-2 border-t border-amber-200/60 bg-white/45 px-3 py-2.5 dark:border-amber-400/10 dark:bg-black/10">
-        <Button variant="ghost" tone="gray" size="sm" className="rounded-lg px-3 py-1.5 text-[12px] text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700/60" onClick={onDeny}>
-          {t('approval.deny')}
-        </Button>
-        <Button variant="primary" tone="emerald" size="sm" className="rounded-lg bg-emerald-500 px-3.5 py-1.5 text-[12px] font-medium text-white shadow-sm hover:bg-emerald-600" onClick={onApprove}>
-          {t('approval.allow')}
-        </Button>
+      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-gray-200/70 bg-gray-50/60 px-3.5 py-2.5 dark:border-white/[0.07] dark:bg-white/[0.025]">
+        <span className="inline-flex items-center gap-1.5 text-[11px] text-gray-500 dark:text-gray-400">
+          <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+          {t('approval.pending')}
+        </span>
+        <div className="flex items-center gap-1.5">
+          <Button variant="ghost" tone="gray" size="sm" className="rounded-lg px-3 py-1.5 text-[12px] text-gray-600 hover:bg-gray-200/70 dark:text-gray-300 dark:hover:bg-white/10" onClick={onDeny}>
+            {t('approval.deny')}
+          </Button>
+          <Button variant="primary" tone="emerald" size="sm" className="rounded-lg bg-emerald-600 px-3.5 py-1.5 text-[12px] font-medium text-white shadow-sm hover:bg-emerald-500" onClick={onApprove}>
+            {t('approval.allow')}
+          </Button>
+        </div>
       </div>
     </div>
   )
