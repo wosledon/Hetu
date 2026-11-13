@@ -58,6 +58,7 @@ interface WhiteboardToolbarProps {
   onExportSvg: () => void
   onPresent: () => void
   saveState: WhiteboardSaveState
+  onSave: () => void
   hasSelection: boolean
   layoutDirection: AutoLayoutDirection
   onLayoutDirectionChange: (direction: AutoLayoutDirection) => void
@@ -72,7 +73,7 @@ export default function WhiteboardToolbar({
   tool, onToolChange, style, onStyleChange, snap, onSnapChange,
   zoom, onZoomIn, onZoomOut, onZoomReset, onZoomFit,
   canUndo, canRedo, onUndo, onRedo, onDelete, onDuplicate,
-  onExportPng, onExportSvg, onPresent, saveState, hasSelection,
+  onExportPng, onExportSvg, onPresent, saveState, onSave, hasSelection,
   layoutDirection, onLayoutDirectionChange, onAutoLayout, canAutoLayout,
   routeMode, onRouteModeChange,
 }: WhiteboardToolbarProps) {
@@ -103,6 +104,7 @@ export default function WhiteboardToolbar({
           <IconButton
             key={value}
             label={t(labelKey)}
+            aria-pressed={tool === value}
             variant={tool === value ? 'soft' : 'ghost'}
             tone="blue"
             size="sm"
@@ -150,6 +152,7 @@ export default function WhiteboardToolbar({
         </IconButton>
         <IconButton
           label={t('snap')}
+          aria-pressed={snap}
           size="sm"
           variant={snap ? 'soft' : 'ghost'}
           tone="blue"
@@ -287,9 +290,15 @@ export default function WhiteboardToolbar({
       </div>
 
       <div className="ml-auto flex items-center gap-1.5">
-        <span className="text-xs text-gray-400">
+        <button
+          type="button"
+          className="rounded px-1.5 py-0.5 text-xs text-gray-400 transition-colors enabled:text-amber-600 enabled:hover:bg-amber-50 dark:enabled:text-amber-400 dark:enabled:hover:bg-amber-950/30"
+          disabled={saveState !== 'dirty'}
+          title={saveState === 'dirty' ? t('retrySave') : undefined}
+          onClick={onSave}
+        >
           {saveState === 'saving' ? t('saving') : saveState === 'dirty' ? t('unsaved') : t('saved')}
-        </span>
+        </button>
         <Button variant="secondary" size="sm" className="gap-1.5" onClick={onExportPng}>
           <Image size={14} /> {t('exportPng')}
         </Button>

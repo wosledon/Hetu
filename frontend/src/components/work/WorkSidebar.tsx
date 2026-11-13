@@ -414,6 +414,7 @@ function SessionList({
   indent,
   selectedSessionId,
   runningSessionIds,
+  runningOnly,
   onSelectProject,
   onSelectSession,
   onStartDraftSession,
@@ -425,6 +426,7 @@ function SessionList({
   selectedSessionId?: string
   /** 在跑的会话 id（由侧栏统一拉取，项目行也要用） */
   runningSessionIds: Set<string>
+  runningOnly: boolean
   onSelectProject: (p: IWorkProject) => void
   onSelectSession: (s: IWorkSession) => void
   /** 新建会话：只放草稿占位（第一条消息才落库） */
@@ -445,6 +447,7 @@ function SessionList({
     queryKey: ['workSessions', project.id, sessionQuery],
     queryFn: () => workProjectService.getSessions(project.id, sessionQuery || undefined),
   })
+  const visibleSessions = runningOnly ? sessions.filter((session) => runningSessionIds.has(session.id)) : sessions
 
   const createSession = useMutation({
     mutationFn: workSessionService.create,
@@ -498,8 +501,9 @@ function SessionList({
           {actionError}
         </div>
       )}
-      {sessions.map((session) => {
+      {visibleSessions.map((session) => {
         const active = selectedSessionId === session.id
+        const running = runningSessionIds.has(session.id)
         return (
           <TreeRow
             key={session.id}
@@ -507,8 +511,7 @@ function SessionList({
             selected={active}
             onClick={() => { onSelectProject(project); onSelectSession(session) }}
             icon={(activeIcon) => (
-              /* 进行中：行首图标直接换成旋转标识（比在图标旁加点明显） */
-              runningSessionIds.has(session.id)
+              running
                 ? <RunningIndicator />
                 : <MessageSquare size={12} className={`shrink-0 ${activeIcon ? 'text-blue-500' : 'text-gray-400'}`} />
             )}
@@ -525,8 +528,17 @@ function SessionList({
                 className="min-w-0 flex-1 rounded border border-blue-300 bg-white px-1 py-0.5 text-[12px] outline-none dark:bg-gray-800"
               />
             ) : (session.title || t('sidebar.newSession'))}
-            labelClassName={active ? 'text-blue-700 dark:text-blue-200' : 'text-gray-600 dark:text-gray-300'}
-            className={active ? 'bg-blue-100/70 shadow-[inset_2px_0_0_#3b82f6] dark:bg-blue-500/15' : ''}
+            labelClassName={running
+              ? 'font-medium text-emerald-700 dark:text-emerald-300'
+              : active ? 'text-blue-700 dark:text-blue-200' : 'text-gray-600 dark:text-gray-300'}
+            className={running
+              ? `bg-emerald-50/80 shadow-[inset_2px_0_0_#10b981] dark:bg-emerald-500/10 ${active ? 'dark:bg-emerald-500/20' : ''}`
+              : active ? 'bg-blue-100/70 shadow-[inset_2px_0_0_#3b82f6] dark:bg-blue-500/15' : ''}
+            badge={running && (
+              <span className="shrink-0 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300">
+                {t('sidebar.sessionRunning')}
+              </span>
+            )}
             onContextMenu={(e) => {
               e.preventDefault()
               e.stopPropagation()
@@ -556,12 +568,12 @@ function SessionList({
           },
         ]}
       />
-      {sessions.length === 0 && sessionQuery && (
+      {visibleSessions.length === 0 && (runningOnly || sessionQuery) && (
         <div className="py-0.5 text-[11px] text-gray-400" style={pad}>
-          {t('sidebar.noMatchingSessions')}
+          {runningOnly ? t('sidebar.noRunningSessions') : t('sidebar.noMatchingSessions')}
         </div>
       )}
-      {sessions.length === 0 && !sessionQuery ? (
+      {!runningOnly && (sessions.length === 0 && !sessionQuery ? (
         <div className="flex flex-col items-center gap-2 py-6 text-center" style={indent ? { paddingLeft: '22px' } : undefined}>
           <MessageSquare size={18} className="text-gray-300 dark:text-gray-600" />
           <span className="text-[11px] text-gray-400">{t('sidebar.noSessions')}</span>
@@ -579,7 +591,7 @@ function SessionList({
             onClick={() => (onStartDraftSession ? onStartDraftSession(project) : createSession.mutate({ projectId: project.id, title: '' }))}
           />
         )
-      )}
+      ))}
     </div>
   )
 }
@@ -593,6 +605,7 @@ function ProjectNode({
   selectedSessionId,
   runningSessionIds,
   runningProjectIds,
+  runningOnly,
   onToggle,
   onSelectProject,
   onSelectSession,
@@ -609,6 +622,7 @@ function ProjectNode({
   selectedSessionId?: string
   runningSessionIds: Set<string>
   runningProjectIds: Set<string>
+  runningOnly: boolean
   onToggle: () => void
   onSelectProject: (p: IWorkProject) => void
   onSelectSession: (s: IWorkSession) => void
@@ -627,6 +641,7 @@ function ProjectNode({
   const color = resolveColor(project)
   // 子级会话被选中时父级不再高亮：选中态只落在真正选中的那一行
   const projectSelected = selectedProjectId === project.id && !selectedSessionId
+  const running = runningProjectIds.has(project.id)
 
   return (
     <div>
@@ -635,22 +650,34 @@ function ProjectNode({
         expanded={expanded}
         onToggle={onToggle}
         selected={projectSelected}
-        className={projectSelected ? 'bg-blue-100/70 shadow-[inset_2px_0_0_#3b82f6] dark:bg-blue-500/15' : ''}
+        className={running
+          ? 'bg-emerald-50/80 shadow-[inset_2px_0_0_#10b981] dark:bg-emerald-500/10'
+          : projectSelected ? 'bg-blue-100/70 shadow-[inset_2px_0_0_#3b82f6] dark:bg-blue-500/15' : ''}
         icon={(
           <div className={`flex h-5 w-5 shrink-0 items-center justify-center rounded text-white ${COLOR_CLASSES[color]}`}>
             {/* 项目下有会话在跑：彩色方块里的文件夹换成旋转标识（保留项目配色） */}
-            {runningProjectIds.has(project.id)
+            {running
               ? <RunningIndicator size={11} className="text-white" />
               : expanded && !flat ? <FolderOpen size={11} /> : <Folder size={11} />}
           </div>
         )}
         label={project.name}
+        labelClassName={running ? 'font-medium text-emerald-700 dark:text-emerald-300' : undefined}
         subtitle={project.description?.trim() || undefined}
         onClick={() => { onSelectProject(project); if (!flat) onToggle() }}
-        badge={project.connectionType === 'Ssh' && (
-          <span className="shrink-0 rounded-full bg-violet-100 px-1.5 py-0.5 text-[9px] font-medium text-violet-600 dark:bg-violet-900/40 dark:text-violet-300" title={`SSH：${project.sshUser ?? ''}${project.sshUser ? '@' : ''}${project.sshHost}:${project.sshPort}`}>
-            SSH
-          </span>
+        badge={(
+          <>
+            {running && (
+              <span className="shrink-0 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300">
+                {t('sidebar.sessionRunning')}
+              </span>
+            )}
+            {project.connectionType === 'Ssh' && (
+              <span className="shrink-0 rounded-full bg-violet-100 px-1.5 py-0.5 text-[9px] font-medium text-violet-600 dark:bg-violet-900/40 dark:text-violet-300" title={`SSH：${project.sshUser ?? ''}${project.sshUser ? '@' : ''}${project.sshHost}:${project.sshPort}`}>
+                SSH
+              </span>
+            )}
+          </>
         )}
         onContextMenu={(e) => {
           e.preventDefault()
@@ -716,6 +743,7 @@ function ProjectNode({
           indent
           selectedSessionId={selectedSessionId}
           runningSessionIds={runningSessionIds}
+          runningOnly={runningOnly}
           onSelectProject={onSelectProject}
           onSelectSession={onSelectSession}
           onStartDraftSession={onStartDraftSession}
@@ -740,6 +768,7 @@ const WorkSidebar = forwardRef<WorkSidebarHandle, WorkSidebarProps>(function Wor
   const confirm = useConfirm()
   const [expandedProjects, setExpandedProjects] = useState<Map<string, boolean>>(new Map())
   const [isAdding, setIsAdding] = useState(false)
+  const [runningOnly, setRunningOnly] = useState(false)
   const [projectActionError, setProjectActionError] = useState('')
 
   useImperativeHandle(ref, () => ({ startCreateProject: () => setIsAdding(true) }), [])
@@ -772,7 +801,10 @@ const WorkSidebar = forwardRef<WorkSidebarHandle, WorkSidebarProps>(function Wor
   )
 
   const keyword = search.trim().toLowerCase()
-  const filtered = projects.filter((p) => !keyword || p.name.toLowerCase().includes(keyword))
+  const runningFilterActive = runningOnly && runningProjectIds.size > 0
+  const filtered = projects.filter((p) =>
+    (!keyword || p.name.toLowerCase().includes(keyword)) &&
+    (!runningFilterActive || runningProjectIds.has(p.id)))
 
   const projectGroupBy = useUIStore((state) => state.projectGroupBy)
   const projectSortBy = useUIStore((state) => state.projectSortBy)
@@ -866,6 +898,29 @@ const WorkSidebar = forwardRef<WorkSidebarHandle, WorkSidebarProps>(function Wor
     />
   )
 
+  const runningFilter = (runningOnly || runningSessionIds.size > 0) && (
+    <div className="shrink-0 border-b border-gray-100 px-2 py-2 dark:border-white/[0.06]">
+      <button
+        type="button"
+        aria-pressed={runningFilterActive}
+        aria-label={t('sidebar.runningOnly')}
+        disabled={!runningOnly && runningProjectIds.size === 0}
+        onClick={() => setRunningOnly((value) => !value)}
+        className={`flex w-full items-center gap-2 rounded-lg border px-2.5 py-2 text-left text-[12px] font-medium transition-colors disabled:cursor-wait ${
+          runningFilterActive
+            ? 'border-emerald-300 bg-emerald-100/80 text-emerald-800 shadow-sm dark:border-emerald-500/30 dark:bg-emerald-500/20 dark:text-emerald-200'
+            : 'border-emerald-200/80 bg-emerald-50/80 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300 dark:hover:bg-emerald-500/15'
+        }`}
+      >
+        <RunningIndicator size={13} />
+        <span className="min-w-0 flex-1 truncate">{t('sidebar.runningOnly')}</span>
+        <span className="shrink-0 rounded-full bg-white/80 px-1.5 py-0.5 text-[10px] tabular-nums dark:bg-white/10">
+          {runningSessionIds.size}
+        </span>
+      </button>
+    </div>
+  )
+
   const projectList = (
     <>
       {sections.map(([key, items]) => (
@@ -881,12 +936,13 @@ const WorkSidebar = forwardRef<WorkSidebarHandle, WorkSidebarProps>(function Wor
               key={project.id}
               project={project}
               flat={flat}
-              expanded={search ? true : isExpanded(project.id)}
+              expanded={runningFilterActive || !!search || isExpanded(project.id)}
               sessionQuery={search}
               selectedProjectId={selectedProjectId}
               selectedSessionId={selectedSessionId}
               runningSessionIds={runningSessionIds}
               runningProjectIds={runningProjectIds}
+              runningOnly={runningFilterActive}
               onToggle={() => setProjectExpanded(project.id, !isExpanded(project.id))}
               onSelectProject={onSelectProject}
               onSelectSession={onSelectSession}
@@ -921,6 +977,7 @@ const WorkSidebar = forwardRef<WorkSidebarHandle, WorkSidebarProps>(function Wor
       <div className="flex shrink-0">
         <Card padded={false} className="flex w-44 shrink-0 flex-col border-r">
           {createDialog}
+          {runningFilter}
           <div className="flex-1 overflow-y-auto p-2">{projectList}</div>
         </Card>
         <Card padded={false} className="flex w-56 shrink-0 flex-col border-r">
@@ -940,6 +997,7 @@ const WorkSidebar = forwardRef<WorkSidebarHandle, WorkSidebarProps>(function Wor
                 indent={false}
                 selectedSessionId={selectedSessionId}
                 runningSessionIds={runningSessionIds}
+                runningOnly={runningFilterActive}
                 onSelectProject={onSelectProject}
                 onSelectSession={onSelectSession}
                 onStartDraftSession={onStartDraftSession}
@@ -960,6 +1018,7 @@ const WorkSidebar = forwardRef<WorkSidebarHandle, WorkSidebarProps>(function Wor
     return (
       <div className="flex min-h-0 w-full flex-1 flex-col">
         {createDialog}
+        {runningFilter}
         <div className="flex-1 overflow-y-auto p-2">{projectList}</div>
       </div>
     )
@@ -968,6 +1027,7 @@ const WorkSidebar = forwardRef<WorkSidebarHandle, WorkSidebarProps>(function Wor
   return (
     <Card padded={false} className="flex w-60 shrink-0 flex-col border-r">
       {createDialog}
+      {runningFilter}
       <div className="flex-1 overflow-y-auto p-2">
         {projectList}
       </div>

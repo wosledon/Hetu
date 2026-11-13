@@ -89,6 +89,8 @@ export default {
     sessions: '会话',
     newSession: '新会话',
     sessionRunning: '进行中',
+    runningOnly: '仅看进行中',
+    noRunningSessions: '当前项目没有进行中的会话',
     renameSession: '重命名会话',
     deleteSession: '删除会话',
     deleteSessionConfirm: '确定删除会话「{{title}}」吗？会话消息将一并删除。',

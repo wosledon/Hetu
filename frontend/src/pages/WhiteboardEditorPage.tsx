@@ -52,6 +52,19 @@ export default function WhiteboardEditorPage() {
   const futureRef = useRef<IWhiteboardScene[]>([])
   const loadedIdRef = useRef<string | null>(null)
   const savedSceneRef = useRef('')
+  const savedSceneObjectRef = useRef<IWhiteboardScene | null>(null)
+  const saveChainRef = useRef<Promise<void>>(Promise.resolve())
+  const pendingSavesRef = useRef(0)
+  const saveTimerRef = useRef<number | null>(null)
+  const sceneVersionRef = useRef(0)
+  const versionedSceneRef = useRef<IWhiteboardScene | null>(null)
+  const activeBoardIdRef = useRef(id)
+  const mountedRef = useRef(true)
+  const saveNowRef = useRef<() => void>(() => {})
+
+  useEffect(() => {
+    activeBoardIdRef.current = id
+  }, [id])
 
   const board = boardQuery.data ?? null
   const boardName = board?.name ?? ''
@@ -67,7 +80,9 @@ export default function WhiteboardEditorPage() {
     savedSceneRef.current = boardQuery.data.scene
     const parsed = parseScene(boardQuery.data.scene)
     // 路由是派生数据：加载时按当前布线方式重算，旧数据/旧算法不会留下过期折线
-    setScene({ elements: refreshConnectors(parsed.elements, routeMode), viewport: parsed.viewport })
+    const nextScene = { elements: refreshConnectors(parsed.elements, routeMode), viewport: parsed.viewport }
+    savedSceneObjectRef.current = serializeScene(nextScene) === savedSceneRef.current ? nextScene : null
+    setScene(nextScene)
     pastRef.current = []
     futureRef.current = []
     setHistorySizes({ past: 0, future: 0 })
@@ -107,28 +122,82 @@ export default function WhiteboardEditorPage() {
   const canUndo = historySizes.past > 0
   const canRedo = historySizes.future > 0
 
-  /* ── 自动保存：停笔 800ms 后写回 ── */
+  /* ── 自动保存：停笔后写回；请求串行，避免慢响应覆盖新场景 ── */
+
+  const queueSave = useCallback((targetId: string, targetScene: IWhiteboardScene) => {
+    if (saveTimerRef.current !== null) {
+      window.clearTimeout(saveTimerRef.current)
+      saveTimerRef.current = null
+    }
+    const serialized = serializeScene(targetScene)
+    if (serialized === savedSceneRef.current && pendingSavesRef.current === 0) {
+      savedSceneObjectRef.current = targetScene
+      if (mountedRef.current) setSaveState('saved')
+      return
+    }
+    const version = versionedSceneRef.current === targetScene
+      ? sceneVersionRef.current
+      : ++sceneVersionRef.current
+    versionedSceneRef.current = targetScene
+    if (mountedRef.current) setSaveState('saving')
+    const save = () => {
+      pendingSavesRef.current += 1
+      return whiteboardService.update(targetId, {
+        scene: serialized,
+        thumbnail: renderThumbnailSvg(targetScene.elements) ?? undefined,
+      }).then(() => {
+        if (activeBoardIdRef.current !== targetId) return
+        savedSceneRef.current = serialized
+        savedSceneObjectRef.current = targetScene
+        if (sceneVersionRef.current === version && mountedRef.current) setSaveState('saved')
+        void queryClient.invalidateQueries({ queryKey: ['whiteboards'] })
+      }).catch(() => {
+        if (activeBoardIdRef.current === targetId && sceneVersionRef.current === version && mountedRef.current)
+          setSaveState('dirty')
+      }).finally(() => {
+        pendingSavesRef.current -= 1
+      })
+    }
+    saveChainRef.current = saveChainRef.current.then(save)
+  }, [queryClient])
+
+  const saveNow = useCallback(() => {
+    if (!sceneReady || !id || loadedIdRef.current !== id || board?.id !== id) return
+    queueSave(id, scene)
+  }, [board?.id, id, queueSave, scene, sceneReady])
+  useEffect(() => {
+    saveNowRef.current = saveNow
+  }, [saveNow])
 
   useEffect(() => {
-    if (!sceneReady || !id) return
-    const serialized = serializeScene(scene)
-    if (serialized === savedSceneRef.current) {
+    mountedRef.current = true
+    return () => {
+      saveNowRef.current()
+      mountedRef.current = false
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!sceneReady || !id || loadedIdRef.current !== id || board?.id !== id) return
+    if (scene === savedSceneObjectRef.current) {
       setSaveState('saved')
       return
     }
+    if (versionedSceneRef.current !== scene) {
+      sceneVersionRef.current += 1
+      versionedSceneRef.current = scene
+    }
     setSaveState('dirty')
     const timer = window.setTimeout(() => {
-      setSaveState('saving')
-      whiteboardService.update(id, { scene: serialized, thumbnail: renderThumbnailSvg(scene.elements) ?? undefined })
-        .then(() => {
-          savedSceneRef.current = serialized
-          setSaveState('saved')
-          void queryClient.invalidateQueries({ queryKey: ['whiteboards'] })
-        })
-        .catch(() => setSaveState('dirty'))
+      saveTimerRef.current = null
+      queueSave(id, scene)
     }, 800)
-    return () => window.clearTimeout(timer)
-  }, [scene, sceneReady, id, queryClient])
+    saveTimerRef.current = timer
+    return () => {
+      window.clearTimeout(timer)
+      if (saveTimerRef.current === timer) saveTimerRef.current = null
+    }
+  }, [board?.id, scene, sceneReady, id, queueSave])
 
   /* ── 视图操作 ── */
 
@@ -225,6 +294,11 @@ export default function WhiteboardEditorPage() {
       const meta = event.ctrlKey || event.metaKey
       const key = event.key.toLowerCase()
 
+      if (meta && key === 's') {
+        event.preventDefault()
+        saveNowRef.current()
+        return
+      }
       if (meta && key === 'z') {
         event.preventDefault()
         if (event.shiftKey) redo()
@@ -284,7 +358,10 @@ export default function WhiteboardEditorPage() {
   const boardIndex = boards.findIndex((item) => item.id === id)
   const goBoard = (offset: number) => {
     const next = boards[boardIndex + offset]
-    if (next) navigate(`/whiteboard/${next.id}`)
+    if (next) {
+      saveNow()
+      navigate(`/whiteboard/${next.id}`)
+    }
   }
 
   if (boardQuery.isError) {
@@ -324,7 +401,7 @@ export default function WhiteboardEditorPage() {
       mainContent={
         <PageContainer variant="fill" className="flex-col overflow-hidden">
           <div className="flex items-center gap-2 border-b border-gray-200/80 bg-white/35 px-4 py-2.5 dark:border-white/[0.07] dark:bg-slate-950/20">
-            <Button variant="ghost" size="sm" className="gap-1.5" onClick={() => navigate('/whiteboard')}>
+            <Button variant="ghost" size="sm" className="gap-1.5" onClick={() => { saveNow(); navigate('/whiteboard') }}>
               <ArrowLeft size={15} /> {t('page.backToList')}
             </Button>
             <span className="truncate text-sm font-medium text-gray-700 dark:text-gray-200">{boardName}</span>
@@ -356,6 +433,7 @@ export default function WhiteboardEditorPage() {
             onExportSvg={handleExportSvg}
             onPresent={() => setPresenting(true)}
             saveState={saveState}
+            onSave={saveNow}
             hasSelection={selection.length > 0}
             layoutDirection={layoutDirection}
             onLayoutDirectionChange={setLayoutDirection}

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type Ref } from 'react'
+import { memo, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState, type Ref } from 'react'
 import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from 'react'
 import type {
   IWhiteboardBounds, IWhiteboardConnector, IWhiteboardElement, IWhiteboardPen, IWhiteboardScene,
@@ -7,7 +7,7 @@ import type {
 import type { ConnectorRouteMode } from '../../types/whiteboard'
 import {
   GRID_SIZE, MIN_SIZE, connectorOffset, createConnector, createPen, createShape, createText,
-  elementText, findAttachTarget, fitTextElement, hitTest, isShapeElement, rectFromPoints, refreshConnectors,
+  elementText, findAttachTarget, fitTextElement, hitTest, isShapeElement, newId, rectFromPoints, refreshConnectors,
   resolveConnectorEnds, snapValue, translateElement, wrapText,
 } from '../../utils/whiteboard'
 
@@ -52,6 +52,7 @@ interface DragSession {
   /** 连接线端点拖拽：正在拖哪一端 */
   endpoint?: 'from' | 'to'
   startViewport?: IWhiteboardViewport
+  changed?: boolean
 }
 
 function diamondPoints(bounds: IWhiteboardBounds): string {
@@ -165,9 +166,9 @@ function penPathLength(pen: IWhiteboardPen): number {
 
 /** 元素上的说明文字：自动换行 + 居中（文本元素不换行，由外框表达宽度） */
 function ElementLabel({ element, text }: { element: IWhiteboardShape | IWhiteboardText; text: string }) {
-  if (!text) return null
   const maxWidth = element.type === 'text' ? Number.POSITIVE_INFINITY : Math.max(10, element.width - 16)
-  const lines = wrapText(text, element.fontSize, maxWidth)
+  const lines = useMemo(() => wrapText(text, element.fontSize, maxWidth), [text, element.fontSize, maxWidth])
+  if (!text) return null
   const lineHeight = element.fontSize * 1.4
   const startY = element.y + element.height / 2 - (lineHeight * lines.length) / 2 + element.fontSize * 0.85
   return (
@@ -186,7 +187,7 @@ function ElementLabel({ element, text }: { element: IWhiteboardShape | IWhiteboa
   )
 }
 
-function ElementView({ element, zoom }: { element: IWhiteboardElement; zoom: number }) {
+const ElementView = memo(function ElementView({ element, zoom }: { element: IWhiteboardElement; zoom: number }) {
   // 线宽按缩放补偿：缩放视图时线不会忽粗忽细（自动布局后适应视图尤其明显）
   const common = {
     stroke: element.stroke,
@@ -255,7 +256,7 @@ function ElementView({ element, zoom }: { element: IWhiteboardElement; zoom: num
       )
     }
   }
-}
+})
 
 /** 画板画布：SVG 引擎，承载全部绘制 / 选择 / 变换交互 */
 export default function WhiteboardCanvas({
@@ -279,17 +280,25 @@ export default function WhiteboardCanvas({
   const draftRef = useRef<IWhiteboardElement | null>(null)
   // 当前布线方式：切换折线/直线时按它重算所有连接线路由
   const routeModeRef = useRef<ConnectorRouteMode>(routeMode)
+  const editingSnapshotRef = useRef<IWhiteboardScene | null>(null)
+  const editingIsNewRef = useRef(false)
+  const pointerFrameRef = useRef<number | null>(null)
+  const pendingPointerRef = useRef<ReactPointerEvent<SVGSVGElement> | null>(null)
 
   useEffect(() => {
     routeModeRef.current = routeMode
   }, [routeMode])
+
+  useEffect(() => () => {
+    if (pointerFrameRef.current !== null) cancelAnimationFrame(pointerFrameRef.current)
+  }, [])
 
   const setDraft = (element: IWhiteboardElement | null) => {
     draftRef.current = element
     setDraftState(element)
   }
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     appliedRef.current = scene
   }, [scene])
 
@@ -300,9 +309,11 @@ export default function WhiteboardCanvas({
     [scene.elements, selectedIds],
   )
 
+  const selectionVersion = selectedIds.map((id) => scene.elements.some((element) => element.id === id) ? id : '').join('|')
   useEffect(() => {
-    onSelectionChange?.(selectedElements)
-  }, [selectedElements, onSelectionChange])
+    // 父工具栏只消费选中 ID；位置变化不重复上报，避免拖拽时整页二次渲染。
+    onSelectionChange?.(appliedRef.current.elements.filter((element) => selectedIds.includes(element.id)))
+  }, [selectedIds, selectionVersion, onSelectionChange])
 
   const toWorld = useCallback((clientX: number, clientY: number) => {
     const rect = containerRef.current?.querySelector('svg')?.getBoundingClientRect()
@@ -328,9 +339,9 @@ export default function WhiteboardCanvas({
     onSceneChange(appliedRef.current, historySnapshot)
   }, [onSceneChange])
 
-  const applyViewport = useCallback((next: IWhiteboardViewport, historySnapshot?: IWhiteboardScene) => {
+  const applyViewport = useCallback((next: IWhiteboardViewport) => {
     appliedRef.current = { ...appliedRef.current, viewport: next }
-    onSceneChange(appliedRef.current, historySnapshot)
+    onSceneChange(appliedRef.current)
   }, [onSceneChange])
 
   /* ── 文本 / 连接线标签编辑浮层 ── */
@@ -340,23 +351,44 @@ export default function WhiteboardCanvas({
   const editingText = editingElement ? elementText(editingElement) : ''
 
   const closeEditing = useCallback((text: string) => {
-    const element = editingElement
+    const element = editingId ? appliedRef.current.elements.find((item) => item.id === editingId) ?? null : null
+    const snapshot = editingSnapshotRef.current
+    const isNew = editingIsNewRef.current
+    editingSnapshotRef.current = null
+    editingIsNewRef.current = false
     setEditingId(null)
     if (!element) return
-    // 空文本：文本元素直接删除（含刚建好就收起的情况），形状元素还原为无文字
     if (element.type === 'text' && !text.trim()) {
-      applyElements(appliedRef.current.elements.filter((item) => item.id !== element.id), appliedRef.current)
+      if (isNew && snapshot) {
+        appliedRef.current = snapshot
+        onSceneChange(snapshot)
+      } else {
+        applyElements(appliedRef.current.elements.filter((item) => item.id !== element.id), snapshot ?? appliedRef.current)
+      }
       return
     }
-    if (elementText(element) === text) return
+    const originalElement = snapshot?.elements.find((item) => item.id === element.id)
+    if (!isNew && originalElement && elementText(originalElement) === text) return
+    if (!isNew && !snapshot && elementText(element) === text) return
+    const historySnapshot = snapshot ?? appliedRef.current
     if (element.type === 'connector') {
-      applyElements(appliedRef.current.elements.map((item) => (item.id === element.id ? { ...element, label: text } : item)), appliedRef.current)
+      applyElements(appliedRef.current.elements.map((item) => (item.id === element.id ? { ...element, label: text } : item)), historySnapshot)
     } else if (element.type === 'text') {
-      applyElements(appliedRef.current.elements.map((item) => (item.id === element.id ? fitTextElement({ ...element, text }) : item)), appliedRef.current)
+      applyElements(appliedRef.current.elements.map((item) => (item.id === element.id ? fitTextElement({ ...element, text }) : item)), historySnapshot)
     } else if (isShapeElement(element)) {
-      applyElements(appliedRef.current.elements.map((item) => (item.id === element.id ? { ...element, text } : item)), appliedRef.current)
+      applyElements(appliedRef.current.elements.map((item) => (item.id === element.id ? { ...element, text } : item)), historySnapshot)
     }
-  }, [applyElements, editingElement])
+  }, [applyElements, editingId, onSceneChange])
+
+  const cancelEditing = useCallback(() => {
+    const snapshot = editingSnapshotRef.current
+    editingSnapshotRef.current = null
+    editingIsNewRef.current = false
+    setEditingId(null)
+    if (!snapshot) return
+    appliedRef.current = snapshot
+    onSceneChange(snapshot)
+  }, [onSceneChange])
 
   const updateEditingText = (text: string) => {
     const element = editingElement
@@ -407,7 +439,9 @@ export default function WhiteboardCanvas({
       // 阻止指针按下的默认行为：否则浏览器会把焦点挪回 body，autoFocus 被覆盖后打字不进文本域
       event.preventDefault()
       const created = fitTextElement(createText(snapValue(world.x, snap), snapValue(world.y, snap), style))
-      applyElements([...snapshot.elements, created], snapshot)
+      editingSnapshotRef.current = snapshot
+      editingIsNewRef.current = true
+      applyElements([...snapshot.elements, created])
       setSelectedIds([created.id])
       setEditingId(created.id)
       return
@@ -475,15 +509,16 @@ export default function WhiteboardCanvas({
 
     const hit = topmostAt(world.x, world.y)
     if (hit) {
+      if (event.shiftKey && selectedIds.includes(hit.id)) {
+        setSelectedIds(selectedIds.filter((id) => id !== hit.id))
+        return
+      }
       const nextIds = event.shiftKey
-        ? selectedIds.includes(hit.id)
-          ? selectedIds.filter((id) => id !== hit.id)
-          : [...selectedIds, hit.id]
+        ? [...selectedIds, hit.id]
         : selectedIds.includes(hit.id) ? selectedIds : [hit.id]
       setSelectedIds(nextIds)
-      const movingIds = nextIds.includes(hit.id) ? nextIds : [hit.id]
       const origins = new Map(
-        snapshot.elements.filter((element) => movingIds.includes(element.id)).map((element) => [element.id, element]),
+        snapshot.elements.filter((element) => nextIds.includes(element.id)).map((element) => [element.id, element]),
       )
       sessionRef.current = {
         pointerId: event.pointerId, kind: 'move',
@@ -502,10 +537,13 @@ export default function WhiteboardCanvas({
     setMarquee({ x: world.x, y: world.y, width: 0, height: 0 })
   }
 
-  const handlePointerMove = (event: ReactPointerEvent<SVGSVGElement>) => {
+  const processPointerMove = (event: ReactPointerEvent<SVGSVGElement>) => {
     if (readOnly) return
     const session = sessionRef.current
     if (!session || session.pointerId !== event.pointerId) return
+    const distance = Math.hypot(event.clientX - session.startClientX, event.clientY - session.startClientY)
+    if (distance > 0.5) session.changed = true
+    if (!session.changed && session.kind !== 'create' && session.kind !== 'connector') return
     const world = toWorld(event.clientX, event.clientY)
     const delta = (value: number) => (snap ? Math.round(value / GRID_SIZE) * GRID_SIZE : value)
 
@@ -611,8 +649,26 @@ export default function WhiteboardCanvas({
     }
   }
 
+  const handlePointerMove = (event: ReactPointerEvent<SVGSVGElement>) => {
+    if (readOnly) return
+    pendingPointerRef.current = event
+    if (pointerFrameRef.current !== null) return
+    pointerFrameRef.current = requestAnimationFrame(() => {
+      pointerFrameRef.current = null
+      const pending = pendingPointerRef.current
+      pendingPointerRef.current = null
+      if (pending) processPointerMove(pending)
+    })
+  }
+
   const handlePointerUp = (event: ReactPointerEvent<SVGSVGElement>) => {
     if (readOnly) return
+    if (pointerFrameRef.current !== null) {
+      cancelAnimationFrame(pointerFrameRef.current)
+      pointerFrameRef.current = null
+    }
+    pendingPointerRef.current = null
+    processPointerMove(event)
     const session = sessionRef.current
     if (!session || session.pointerId !== event.pointerId) return
     sessionRef.current = null
@@ -621,12 +677,11 @@ export default function WhiteboardCanvas({
 
     switch (session.kind) {
       case 'pan':
-        applyViewport(appliedRef.current.viewport, session.snapshot)
         break
       case 'move':
       case 'resize':
       case 'endpoint':
-        applyElements(appliedRef.current.elements, session.snapshot)
+        if (session.changed) applyElements(appliedRef.current.elements, session.snapshot)
         break
       case 'create': {
         if (!currentDraft) break
@@ -662,8 +717,9 @@ export default function WhiteboardCanvas({
         break
       }
       case 'marquee': {
-        if (marquee && (marquee.width > 2 || marquee.height > 2)) {
-          setSelectedIds(session.snapshot.elements.filter((element) => intersects(element, marquee)).map((element) => element.id))
+        const bounds = rectFromPoints(session.startWorldX, session.startWorldY, world.x, world.y, snap)
+        if (bounds.width > 2 || bounds.height > 2) {
+          setSelectedIds(session.snapshot.elements.filter((element) => intersects(element, bounds)).map((element) => element.id))
         }
         setMarquee(null)
         break
@@ -674,17 +730,39 @@ export default function WhiteboardCanvas({
     setAttachHighlightIds([])
   }
 
+  const handlePointerCancel = (event: ReactPointerEvent<SVGSVGElement>) => {
+    if (readOnly) return
+    const session = sessionRef.current
+    if (!session || session.pointerId !== event.pointerId) return
+    if (pointerFrameRef.current !== null) {
+      cancelAnimationFrame(pointerFrameRef.current)
+      pointerFrameRef.current = null
+    }
+    pendingPointerRef.current = null
+    sessionRef.current = null
+    appliedRef.current = session.snapshot
+    onSceneChange(session.snapshot)
+    setSelectedIds((ids) => ids.filter((id) => session.snapshot.elements.some((element) => element.id === id)))
+    setDraft(null)
+    setMarquee(null)
+    setAttachHighlightIds([])
+  }
+
   const handleDoubleClick = (event: ReactMouseEvent<SVGSVGElement>) => {
     if (readOnly || tool !== 'select') return
     const world = toWorld(event.clientX, event.clientY)
     const hit = topmostAt(world.x, world.y)
     if (hit) {
+      editingSnapshotRef.current = appliedRef.current
+      editingIsNewRef.current = false
       setSelectedIds([hit.id])
       setEditingId(hit.id)
       return
     }
     const created = fitTextElement(createText(snapValue(world.x, snap), snapValue(world.y, snap), style))
-    applyElements([...appliedRef.current.elements, created], appliedRef.current)
+    editingSnapshotRef.current = appliedRef.current
+    editingIsNewRef.current = true
+    applyElements([...appliedRef.current.elements, created])
     setSelectedIds([created.id])
     setEditingId(created.id)
   }
@@ -749,9 +827,20 @@ export default function WhiteboardCanvas({
         setSelectedIds([])
       },
       duplicateSelection() {
-        const clones = appliedRef.current.elements
-          .filter((element) => ids.has(element.id))
-          .map((element) => ({ ...element, id: `${element.id}-copy-${Date.now().toString(36)}` }))
+        const selected = appliedRef.current.elements.filter((element) => ids.has(element.id))
+        const idMap = new Map(selected.map((element) => [element.id, newId()]))
+        const clones = selected.map((element) => {
+          const id = idMap.get(element.id) ?? newId()
+          if (element.type === 'connector') {
+            return translateElement({
+              ...element,
+              id,
+              fromId: element.fromId ? idMap.get(element.fromId) ?? null : null,
+              toId: element.toId ? idMap.get(element.toId) ?? null : null,
+            }, GRID_SIZE, GRID_SIZE)
+          }
+          return translateElement({ ...element, id }, GRID_SIZE, GRID_SIZE)
+        })
         if (clones.length === 0) return
         applyElements([...appliedRef.current.elements, ...clones], appliedRef.current)
         setSelectedIds(clones.map((element) => element.id))
@@ -888,8 +977,9 @@ export default function WhiteboardCanvas({
         onBlur={() => closeEditing(editingText)}
         onKeyDown={(event) => {
           if (event.key === 'Escape') {
+            event.preventDefault()
             event.stopPropagation()
-            setEditingId(null)
+            cancelEditing()
           }
         }}
         className="absolute z-10 resize-none rounded border border-blue-400 bg-white/95 p-1 text-gray-800 outline-none dark:bg-gray-800/95 dark:text-gray-100"
@@ -905,31 +995,33 @@ export default function WhiteboardCanvas({
     )
     : null
 
+  const labelMidX = editingElement?.type === 'connector' ? (editingElement.from.x + editingElement.to.x) / 2 : 0
+  const labelMidY = editingElement?.type === 'connector' ? (editingElement.from.y + editingElement.to.y) / 2 : 0
   const labelOverlay = editingElement?.type === 'connector'
-    ? (() => {
-      const midX = (editingElement.from.x + editingElement.to.x) / 2
-      const midY = (editingElement.from.y + editingElement.to.y) / 2
-      return (
-        <input
-          ref={labelInputRef}
-          defaultValue={editingElement.label}
-          onBlur={(event) => closeEditing(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter' || event.key === 'Escape') {
-              event.stopPropagation()
-              closeEditing(event.currentTarget.value)
-            }
-          }}
-          className="absolute z-10 rounded border border-blue-400 bg-white/95 px-1 text-gray-800 outline-none dark:bg-gray-800/95 dark:text-gray-100"
-          style={{
-            left: midX * viewport.zoom + viewport.x - 60,
-            top: midY * viewport.zoom + viewport.y - 16,
-            width: 120,
-            fontSize: editingElement.fontSize * viewport.zoom,
-          }}
-        />
-      )
-    })()
+    ? (
+      <input
+        ref={labelInputRef}
+        defaultValue={editingElement.label}
+        onBlur={(event) => closeEditing(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') {
+            event.stopPropagation()
+            closeEditing(event.currentTarget.value)
+          } else if (event.key === 'Escape') {
+            event.preventDefault()
+            event.stopPropagation()
+            cancelEditing()
+          }
+        }}
+        className="absolute z-10 rounded border border-blue-400 bg-white/95 px-1 text-gray-800 outline-none dark:bg-gray-800/95 dark:text-gray-100"
+        style={{
+          left: labelMidX * viewport.zoom + viewport.x - 60,
+          top: labelMidY * viewport.zoom + viewport.y - 16,
+          width: 120,
+          fontSize: editingElement.fontSize * viewport.zoom,
+        }}
+      />
+    )
     : null
 
   return (
@@ -940,7 +1032,7 @@ export default function WhiteboardCanvas({
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
-        onPointerCancel={handlePointerUp}
+        onPointerCancel={handlePointerCancel}
         onDoubleClick={handleDoubleClick}
         onContextMenu={(event) => event.preventDefault()}
       >
@@ -949,8 +1041,8 @@ export default function WhiteboardCanvas({
             <path d={`M ${GRID_SIZE} 0 L 0 0 0 ${GRID_SIZE}`} fill="none" stroke="currentColor" strokeWidth={1} />
           </pattern>
         </defs>
-        <rect x={-100000} y={-100000} width={200000} height={200000} fill="url(#wb-grid)" />
         <g transform={`translate(${viewport.x},${viewport.y}) scale(${viewport.zoom})`}>
+          <rect x={-100000} y={-100000} width={200000} height={200000} fill="url(#wb-grid)" />
           {scene.elements.map((element) => (
             <ElementView key={element.id} element={element} zoom={viewport.zoom} />
           ))}

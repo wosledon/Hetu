@@ -44,6 +44,7 @@ export default {
   saved: '已保存',
   saving: '保存中…',
   unsaved: '未保存',
+  retrySave: '立即保存 / 失败时重试（Ctrl+S）',
   exportPng: '导出 PNG',
   exportSvg: '导出 SVG',
   exportFailed: '导出失败',

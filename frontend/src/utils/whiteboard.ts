@@ -406,8 +406,9 @@ export function borderPointToward(element: IWhiteboardElement, target: { x: numb
 export function resolveConnectorEnds(
   connector: IWhiteboardConnector,
   elements: IWhiteboardElement[],
+  elementById?: ReadonlyMap<string, IWhiteboardElement>,
 ): IWhiteboardConnector {
-  const byId = new Map(elements.map((element) => [element.id, element]))
+  const byId = elementById ?? new Map(elements.map((element) => [element.id, element]))
   const from = connector.fromId ? byId.get(connector.fromId) ?? null : null
   const to = connector.toId ? byId.get(connector.toId) ?? null : null
   const next = { ...connector }
@@ -451,9 +452,11 @@ export function refreshConnectors(
   elements: IWhiteboardElement[],
   routeMode: ConnectorRouteMode = 'orthogonal',
 ): IWhiteboardElement[] {
+  const elementById = new Map(elements.map((element) => [element.id, element]))
   const resolved = elements.map((element) => (
-    element.type === 'connector' ? resolveConnectorEnds(element, elements) : element
+    element.type === 'connector' ? resolveConnectorEnds(element, elements, elementById) : element
   ))
+  const resolvedById = new Map(resolved.map((element) => [element.id, element]))
   // 同两端元素的多条连接线分组错开布线，避免完全重叠看不清
   const groupSizes = new Map<string, number>()
   for (const element of resolved) {
@@ -469,7 +472,7 @@ export function refreshConnectors(
       : element.id
     const index = seen.get(key) ?? 0
     seen.set(key, index + 1)
-    return { ...element, route: connectorRoute(element, resolved, routeMode, index, groupSizes.get(key) ?? 1) }
+    return { ...element, route: connectorRoute(element, resolved, routeMode, index, groupSizes.get(key) ?? 1, resolvedById) }
   })
 }
 
@@ -499,13 +502,14 @@ export function connectorRoute(
   routeMode: ConnectorRouteMode = 'orthogonal',
   siblingIndex = 0,
   siblingCount = 1,
+  elementById?: ReadonlyMap<string, IWhiteboardElement>,
 ): number[] {
   const { from, to } = connector
   const straight = [from.x, from.y, to.x, to.y]
   if (routeMode === 'straight') return straight
   if (Math.hypot(to.x - from.x, to.y - from.y) < 48) return straight
 
-  const byId = new Map(elements.map((element) => [element.id, element]))
+  const byId = elementById ?? new Map(elements.map((element) => [element.id, element]))
   const fromElement = connector.fromId ? byId.get(connector.fromId) ?? null : null
   const toElement = connector.toId ? byId.get(connector.toId) ?? null : null
   const fromDir = exitDirection(fromElement, from)

@@ -12,6 +12,9 @@ import { ACCENT_PRESETS, BACKGROUND_PRESETS, FONT_FAMILY_PRESETS } from './utils
 import { sanitizeNavPaths } from './utils/navItems'
 import { TooltipProvider } from './components/ui'
 import DesktopTitlebar from './components/DesktopTitlebar'
+// 高频入口随主包加载，避免 WebView 缓存动态 import 失败后只能整页刷新。
+import SettingsPage from './pages/SettingsPage'
+import WikiPage from './pages/WikiPage'
 import { isTauri } from './utils/tauri'
 
 function lazyRoute(load: () => Promise<{ default: ComponentType }>) {
@@ -59,7 +62,6 @@ const NotesPage = lazyRoute(() => import('./pages/NotesPage'))
 const MainChatPage = lazyRoute(() => import('./pages/MainChatPage'))
 const TagsPage = lazyRoute(() => import('./pages/TagsPage'))
 const TrashPage = lazyRoute(() => import('./pages/TrashPage'))
-const SettingsPage = lazyRoute(() => import('./pages/SettingsPage'))
 const GraphPage = lazyRoute(() => import('./pages/GraphPage'))
 const WhiteboardPage = lazyRoute(() => import('./pages/WhiteboardPage'))
 const WhiteboardEditorPage = lazyRoute(() => import('./pages/WhiteboardEditorPage'))
@@ -75,7 +77,6 @@ const ModelsPage = lazyRoute(() => import('./pages/ModelsPage'))
 const FoundryLocalPage = lazyRoute(() => import('./pages/FoundryLocalPage'))
 const WorkPage = lazyRoute(() => import('./pages/WorkPage'))
 const ProjectsPage = lazyRoute(() => import('./pages/ProjectsPage'))
-const WikiPage = lazyRoute(() => import('./pages/WikiPage'))
 const WorkflowsPage = lazyRoute(() => import('./pages/WorkflowsPage'))
 const ProxyPage = lazyRoute(() => import('./pages/ProxyPage'))
 const UsagePage = lazyRoute(() => import('./pages/UsagePage'))
@@ -226,8 +227,8 @@ function App() {
           </div>
         </div>
       )}
-      <RouteErrorBoundary resetKey={location.pathname}>
-        <Suspense fallback={desktop ? null : <RouteFallback />}>
+      <RouteErrorBoundary resetKey={`${location.pathname}${location.search}`}>
+        <Suspense fallback={<RouteFallback />}>
           <Routes>
         <Route path="/" element={<MainChatPage />} />
         <Route path="/notes" element={<NotesPage />} />

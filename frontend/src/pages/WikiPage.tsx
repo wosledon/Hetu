@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentType } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -7,7 +7,6 @@ import {
   AlertCircle, BookText, Check, Cpu, Database, Download, FolderInput, Loader2, RefreshCw, Server, Trash2, X,
 } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
-import ThemedMarkdown from '../components/ThemedMarkdown'
 import { projectService } from '../services/projectService'
 import Select from '../components/Select'
 import { wikiService } from '../services/wikiService'
@@ -20,6 +19,19 @@ import type { IAiModel } from '../types'
 import type { IManagedProject } from '../types/project'
 import type { IWikiSet, IWikiSetPage, IWikiGenerationJob } from '../types/wiki'
 import { Button, IconButton, PageContainer, TreeRow } from '../components/ui'
+
+function WikiMarkdownFallback({ source, className }: { source: string; className?: string }) {
+  return <pre className={`whitespace-pre-wrap break-words font-sans ${className ?? ''}`}>{source}</pre>
+}
+
+// Wiki 控件随主包加载；较重的 Markdown 渲染链只在展示正文时按需加载，失败时保留原文。
+const ThemedMarkdown = lazy<ComponentType<{ source: string; className?: string }>>(async () => {
+  try {
+    return await import('../components/ThemedMarkdown')
+  } catch {
+    return { default: WikiMarkdownFallback }
+  }
+})
 
 const POLL_INTERVAL = 2000
 const IDLE_POLL_INTERVAL = 15000
@@ -751,7 +763,14 @@ export default function WikiPage() {
                     {selectedDoc.brief && ` · ${selectedDoc.brief}`}
                   </p>
                 </header>
-                <ThemedMarkdown source={selectedDoc.content} className="text-[13px]" />
+                <Suspense fallback={(
+                  <div className="flex items-center justify-center gap-2 py-12 text-gray-400" role="status">
+                    <Loader2 size={18} className="animate-spin" />
+                    <span className="text-xs">{t('common:loading')}</span>
+                  </div>
+                )}>
+                  <ThemedMarkdown source={selectedDoc.content} className="text-[13px]" />
+                </Suspense>
               </article>
             </div>
           ) : (

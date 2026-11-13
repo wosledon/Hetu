@@ -1,4 +1,4 @@
-import { type ReactNode, startTransition, useCallback, useState, useRef, useLayoutEffect, useMemo } from 'react'
+import { type ReactNode, useCallback, useState, useRef, useLayoutEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { ChevronDown, Settings, Waypoints, Gauge, Inbox, PanelLeftClose, PanelLeftOpen, Ellipsis } from 'lucide-react'
@@ -93,7 +93,7 @@ function NavBadge({ badgeKey }: { badgeKey: string }) {
 export default function AppLayout({ children, mainContent, showSidebar = true }: AppLayoutProps) {
   const { t } = useTranslation()
   const navigate = useNavigate()
-  const navigateTransition = useCallback((path: string) => startTransition(() => navigate(path)), [navigate])
+  const navigateTransition = useCallback((path: string) => navigate(path), [navigate])
   const location = useLocation()
   const desktop = isTauri()
   const appName = useUIStore((state) => state.appName)

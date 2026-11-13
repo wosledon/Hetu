@@ -44,6 +44,7 @@ export default {
   saved: 'Saved',
   saving: 'Saving…',
   unsaved: 'Unsaved',
+  retrySave: 'Save now / retry (Ctrl+S)',
   exportPng: 'Export PNG',
   exportSvg: 'Export SVG',
   exportFailed: 'Export failed',

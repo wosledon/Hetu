@@ -89,6 +89,8 @@ export default {
     sessions: 'Sessions',
     newSession: 'New session',
     sessionRunning: 'Running',
+    runningOnly: 'Running only',
+    noRunningSessions: 'No running sessions in this project',
     renameSession: 'Rename session',
     deleteSession: 'Delete session',
     deleteSessionConfirm: 'Delete session "{{title}}"? Its messages will be removed too.',
