@@ -61,13 +61,13 @@ export function subagentEntriesToTimeline(entries: readonly SubagentEntry[] | un
   return out
 }
 
-/** 折叠后的展示项：两段输出之间的过程条目合并为一组，其他条目原样保留 */
+/** 折叠后的展示项：每轮思考及其后续工具合并为一组，其他条目原样保留 */
 export type FoldedAgentItem =
   | { kind: 'tool'; items: ToolCallEntry[] }
   | { kind: 'other'; item: AgentTimelineItem }
 
 /**
- * 把时间线折叠为展示项：连续的 工具/思考 合并成一组（组内保序），
+ * 把时间线折叠为展示项：新的思考块开启新组，后续工具归入该组（组内保序），
  * 文本 / 审批 / 文件 / 检查点 / 子 Agent 原样穿插保留，并作为组的边界。
  */
 export function foldAgentTimeline(items: AgentTimelineItem[]): FoldedAgentItem[] {
@@ -82,6 +82,7 @@ export function foldAgentTimeline(items: AgentTimelineItem[]): FoldedAgentItem[]
 
   for (const item of items) {
     if (item.kind === 'tool' || item.kind === 'thought') {
+      if (item.kind === 'thought') flush()
       group.push(
         item.kind === 'thought'
           ? { kind: 'thought', text: item.text, name: '', args: '' }

@@ -111,7 +111,7 @@ export default memo(function ChatMessageItem({
     ? message.content.slice(timelineText.length)
     : ''
   const isLegacy = segments.length > 0 && !interleaved
-  // 两段输出之间的所有过程（工具调用、思考）折叠为一组，文本输出作为组分界
+  // 每轮思考及其后续工具调用折叠为一组，文本输出作为组分界
   const foldedSegments = foldConsecutiveToolCalls(
     segments,
     (s) => s.kind === 'tool' || s.kind === 'thought',
@@ -185,14 +185,15 @@ export default memo(function ChatMessageItem({
                             />
                           )
                       }
-                      return <ToolCallGroup key={i} items={entry.items} renderItem={(item) => (item.kind === 'thought'
-                        ? <AgentThoughtBlock text={item.text ?? ''} />
+                      return <ToolCallGroup key={i} items={entry.items} renderItem={(item, compact) => (item.kind === 'thought'
+                        ? <AgentThoughtBlock text={item.text ?? ''} compact={compact} />
                         : (
                           <ChatToolCallRow
                             name={item.name}
                             args={item.args}
                             result={item.result}
                             isError={item.isError}
+                            compact={compact}
                           />
                         ))} />
                     }

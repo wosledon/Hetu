@@ -31,7 +31,7 @@ export interface AgentTimelineProps {
  * Agent 执行过程的统一时间线渲染器。
  *
  * 对话页、编码会话、任务看板详情三端共用：把 思考 → 工具调用 → 正文
- * 按发生顺序穿插展示，连续的過程条目折叠成组。三端的能力差异通过可选
+ * 按发生顺序穿插展示，每轮思考及其后续工具折叠成组。三端的能力差异通过可选
  * 回调表达——编码会话传 onOpenPath / onRunCommand / onRestoreCheckpoint，
  * 对话页与任务看板只读展示。
  */
@@ -56,9 +56,9 @@ export default function AgentTimeline({
           if (entry.items.length === 1) {
             const only = entry.items[0]
             return (
-              <div key={`t${i}`} className="mb-2">
+              <div key={`t${i}`} className={only.kind === 'thought' ? 'mb-0' : 'mb-2'}>
                 {only.kind === 'thought'
-                  ? <AgentThoughtBlock text={only.text ?? ''} streaming={streaming} />
+                  ? <AgentThoughtBlock text={only.text ?? ''} streaming={streaming && i === folded.length - 1} />
                   : (
                       <ChatToolCallRow
                         name={only.name}
@@ -74,11 +74,11 @@ export default function AgentTimeline({
             )
           }
           return (
-            <div key={`t${i}`} className="mb-2">
+            <div key={`t${i}`} className={entry.items[0]?.kind === 'thought' ? 'mb-0' : 'mb-2'}>
               <ToolCallGroup
                 items={entry.items}
-                renderItem={(item) => (item.kind === 'thought'
-                  ? <AgentThoughtBlock text={item.text ?? ''} />
+                renderItem={(item, compact) => (item.kind === 'thought'
+                  ? <AgentThoughtBlock text={item.text ?? ''} compact={compact} />
                   : (
                       <ChatToolCallRow
                         name={item.name}
@@ -88,6 +88,7 @@ export default function AgentTimeline({
                         running={item.running}
                         onOpenPath={onOpenPath}
                         onRunCommand={onRunCommand}
+                        compact={compact}
                       />
                     ))}
               />
@@ -106,15 +107,15 @@ export default function AgentTimeline({
                     if (action === 'insert') onInsertCode?.(code)
                   }}
                 />
-                {streaming && (
+                {streaming && i === folded.length - 1 && (
                   <span className="ml-0.5 inline-block h-3.5 w-[2px] translate-y-0.5 animate-pulse bg-blue-500" aria-hidden />
                 )}
               </div>
             )
           case 'thought':
             return (
-              <div key={`o${i}`} className="mb-2">
-                <AgentThoughtBlock text={item.text} streaming={streaming} />
+              <div key={`o${i}`} className="mb-0">
+                <AgentThoughtBlock text={item.text} streaming={streaming && i === folded.length - 1} />
               </div>
             )
           case 'approval':

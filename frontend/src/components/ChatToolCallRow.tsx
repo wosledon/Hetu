@@ -18,6 +18,8 @@ export interface ChatToolCallRowProps {
   onOpenPath?: (path: string) => void
   /** 可运行命令可点击时回调（编码会话：在终端运行） */
   onRunCommand?: (command: string) => void
+  /** 紧凑时间线：去掉卡片容器，缩小行高与图标 */
+  compact?: boolean
 }
 
 /** 从工具参数里提取最有信息量的摘要（路径 / 命令 / 查询） */
@@ -56,7 +58,7 @@ function isFileTarget(name: string): boolean {
  * Copilot 风格的瀑布流行：图标 + 名称 + 目标/命令 + 状态，点击展开详情。
  * 工具调用与文本型条目（思考 / 节点输出）共用同一套外观，保证时间线样式一致。
  */
-export default function ChatToolCallRow({ name, args, result, isError, running, text, label, onOpenPath, onRunCommand }: ChatToolCallRowProps) {
+export default function ChatToolCallRow({ name, args, result, isError, running, text, label, onOpenPath, onRunCommand, compact = false }: ChatToolCallRowProps) {
   const { t } = useTranslation('chat')
   const [open, setOpen] = useState(false)
   const isText = text !== undefined
@@ -68,6 +70,7 @@ export default function ChatToolCallRow({ name, args, result, isError, running, 
     : summarizeArgs(name, args)
   const done = result !== undefined && !running
   const canRun = !isText && !!onRunCommand && isCommand
+  const showArgs = !compact && !isFileTarget(name) && !isCommand
   const iconTone = isError
     ? 'bg-red-100 text-red-600 dark:bg-red-500/10 dark:text-red-300'
     : isText
@@ -75,9 +78,16 @@ export default function ChatToolCallRow({ name, args, result, isError, running, 
       : isCommand
         ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-300'
         : 'bg-blue-100 text-blue-600 dark:bg-blue-500/10 dark:text-blue-300'
+  const compactIconTone = isError
+    ? 'text-red-500 dark:text-red-400'
+    : isText
+      ? 'text-violet-500 dark:text-violet-400'
+      : isCommand
+        ? 'text-emerald-600 dark:text-emerald-400'
+        : 'text-gray-400 dark:text-gray-500'
 
   return (
-    <div className={`overflow-hidden rounded-xl border shadow-[0_1px_2px_rgba(15,23,42,0.03)] ${
+    <div className={compact ? 'min-w-0' : `overflow-hidden rounded-xl border shadow-[0_1px_2px_rgba(15,23,42,0.03)] ${
       isError
         ? 'border-red-200/80 bg-red-50/40 dark:border-red-400/15 dark:bg-red-500/[0.04]'
         : isText
@@ -87,21 +97,27 @@ export default function ChatToolCallRow({ name, args, result, isError, running, 
       {/* 整行可点展开；内联图标用小尺寸按钮（不用 IconButton：它最小 28px，会把行撑到 44px） */}
       <div
         onClick={() => setOpen(!open)}
-        className="group flex min-h-11 cursor-pointer items-center gap-2 px-2.5 py-2 text-left transition-colors hover:bg-white/55 dark:hover:bg-white/[0.025]"
+        className={compact
+          ? 'group flex min-h-8 cursor-pointer items-center gap-1.5 rounded-md px-1 py-1 text-left transition-colors hover:bg-gray-50/80 dark:hover:bg-white/[0.025]'
+          : 'group flex min-h-11 cursor-pointer items-center gap-2 px-2.5 py-2 text-left transition-colors hover:bg-white/55 dark:hover:bg-white/[0.025]'}
       >
         <button
           type="button"
           aria-label={open ? t('tool.collapseDetails') : t('tool.expandDetails')}
           title={open ? t('tool.collapseDetails') : t('tool.expandDetails')}
           onClick={(e) => { e.stopPropagation(); setOpen(!open) }}
-          className="shrink-0 rounded-md p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06] dark:hover:text-gray-200"
+          className={`shrink-0 rounded-md text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06] dark:hover:text-gray-200 ${compact ? 'p-0.5' : 'p-1'}`}
         >
           {open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
         </button>
-        <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-lg ${iconTone}`}>
+        <span className={compact
+          ? `flex h-4 w-4 shrink-0 items-center justify-center ${compactIconTone}`
+          : `flex h-6 w-6 shrink-0 items-center justify-center rounded-lg ${iconTone}`}>
           <Icon size={13} />
         </span>
-        <span className="shrink-0 text-xs font-semibold text-gray-700 dark:text-gray-200">{rowLabel}</span>
+        <span className={compact
+          ? 'shrink-0 text-[11px] font-medium text-gray-500 dark:text-gray-400'
+          : 'shrink-0 text-xs font-semibold text-gray-700 dark:text-gray-200'}>{rowLabel}</span>
         {summary && (
           onOpenPath && isFileTarget(name) ? (
             <button
@@ -145,24 +161,33 @@ export default function ChatToolCallRow({ name, args, result, isError, running, 
         )}
       </div>
       {open && (
-        <div className="border-t border-gray-200/70 bg-white/70 px-3.5 py-3 dark:border-white/[0.06] dark:bg-gray-950/30">
+        <div className={compact
+          ? 'ml-5 border-l border-gray-200/80 py-1 pl-3 dark:border-white/[0.08]'
+          : 'border-t border-gray-200/70 bg-white/70 px-3.5 py-3 dark:border-white/[0.06] dark:bg-gray-950/30'}>
           {isText ? (
-            <pre className="max-h-72 overflow-auto whitespace-pre-wrap break-words font-sans text-xs leading-6 text-gray-600 dark:text-gray-300">
+            <pre className={`max-h-72 overflow-auto whitespace-pre-wrap break-words font-sans text-xs text-gray-600 dark:text-gray-300 ${compact ? 'leading-5' : 'leading-6'}`}>
               {text}
             </pre>
           ) : (
             <>
-              <pre className="overflow-x-auto whitespace-pre-wrap break-all rounded-lg bg-gray-50/80 p-2.5 font-mono text-[11px] leading-5 text-gray-600 dark:bg-black/15 dark:text-gray-300">
-                {(() => { try { return JSON.stringify(JSON.parse(args), null, 2) } catch { return args } })()}
-              </pre>
+              {showArgs && (
+                <pre className="overflow-x-auto whitespace-pre-wrap break-all rounded-lg bg-gray-50/80 p-2.5 font-mono text-[11px] leading-5 text-gray-600 dark:bg-black/15 dark:text-gray-300">
+                  {(() => { try { return JSON.stringify(JSON.parse(args), null, 2) } catch { return args } })()}
+                </pre>
+              )}
               {result !== undefined && (
-                <pre className={`mt-2 max-h-56 overflow-auto whitespace-pre-wrap rounded-lg p-2.5 font-mono text-[11px] leading-5 ${
+                <pre className={`${showArgs ? 'mt-2' : ''} max-h-56 overflow-auto whitespace-pre-wrap rounded-lg p-2.5 font-mono text-[11px] leading-5 ${
                   isError
                     ? 'bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-300'
                     : 'bg-gray-50/80 text-gray-600 dark:bg-black/15 dark:text-gray-300'
                 }`}>
                   {renderToolResult(name, result, isError)}
                 </pre>
+              )}
+              {!showArgs && result === undefined && (
+                <div className="px-1 py-1 text-[11px] text-gray-500 dark:text-gray-400">
+                  {running ? t('tool.running') : summary}
+                </div>
               )}
             </>
           )}

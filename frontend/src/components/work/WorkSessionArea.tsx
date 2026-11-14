@@ -794,12 +794,12 @@ export default function WorkSessionArea({
     () => visibleMessages.filter((m) => m.role === 'user').map((m) => ({ id: m.id, content: m.content })),
     [visibleMessages],
   )
-  // 历史消息同样折叠：两段输出之间的思考/工具调用合并为一组（与流式渲染、任务详情页一致）
+  // 历史消息同样折叠：每轮思考及其后续工具调用合并为一组（与流式渲染、任务详情页一致）
   const foldedHistory = foldConsecutiveToolCalls(visibleMessages, isFoldableProcessMessage, toProcessEntry)
-  const renderProcessEntry = (item: ToolCallEntry) =>
+  const renderProcessEntry = (item: ToolCallEntry, compact = item.kind === 'thought') =>
     item.kind === 'thought'
-      ? <AgentThoughtBlock text={item.text ?? ''} />
-      : <ChatToolCallRow name={item.name} args={item.args} result={item.result} onOpenPath={onOpenFilePath} onRunCommand={onRunCommand} />
+      ? <AgentThoughtBlock text={item.text ?? ''} compact={compact} />
+      : <ChatToolCallRow name={item.name} args={item.args} result={item.result} onOpenPath={onOpenFilePath} onRunCommand={onRunCommand} compact={compact} />
   // 刚发出且后端尚未在历史中持久化的消息 → 派生展示（持久化后自动让位）
   // 判据必须同时满足「内容与待发消息一致 + 时间不早于发送时刻」：只用内容相等会把上一轮
   // 相同内容的消息算成已落库，重发相同内容时乐观气泡被误撤，而新消息尚未刷新出来，两头都看不到
@@ -1495,7 +1495,7 @@ export default function WorkSessionArea({
             {/* 本轮流式输出：思考、审批/追问、工具、正文按发生顺序穿插展示（与对话页/任务看板共用 AgentTimeline）
                 流结束后保留到消息列表刷新，避免正文在落库回读前闪断 */}
             {(isStreaming || streamItems.length > 0) && (
-              <div className="space-y-2">
+              <div>
                 <AgentTimeline
                   items={fromWorkStreamItems(streamItems)}
                   streaming={isStreaming}
