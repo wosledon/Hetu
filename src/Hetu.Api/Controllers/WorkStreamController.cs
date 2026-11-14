@@ -105,24 +105,22 @@ public class WorkStreamController : ControllerBase
         if (!added.Success) return ApiResponse<SteerResultDto>.Fail(added.Error ?? _localizer.T("work.workMessageCreateFailed"));
 
         var injected = _steering.Enqueue(key, request.Content);
+        if (injected) _toolExecution.ResolvePendingInteractions(sessionId.ToString());
         return ApiResponse<SteerResultDto>.Ok(new SteerResultDto { Injected = injected });
     }
 
     [HttpPost("{sessionId:guid}/stream")]
     public async Task Stream(Guid sessionId, [FromBody] SendWorkMessageRequest request, CancellationToken ct = default)
     {
-        // 该会话已有运行：说明客户端刷新/重连后又入了一次站（或重复提交）。
-        // 直接挂载到已有运行上——重放缓冲区 + 接收实时事件，不重复起一轮。
-        var active = _runs.Get(sessionId);
-        if (active != null)
+        var (run, created) = _runs.GetOrStart(sessionId);
+        if (!created)
         {
             Response.StartSseStream();
             var attach = new SseStreamWriter(Response, ct);
-            await active.Buffer.AttachAsync(data => attach.WriteRawAsync(data), ct);
+            await run.Buffer.AttachAsync(data => attach.WriteRawAsync(data), ct);
             return;
         }
 
-        var run = _runs.GetOrStart(sessionId);
         try
         {
             await StreamCoreAsync(sessionId, request, run);
@@ -464,7 +462,7 @@ public class WorkStreamController : ControllerBase
         var usageTotal = new WorkMessageUsage();
         var executedToolNames = new List<string>();
         var sink = new SseAgentSink(writer, this, sessionId);
-        var hooks = new WorkStreamHooks(this, sessionId, project, root, runner, writer, fileChanges, executedToolNames, chatMessages, options);
+        var hooks = new WorkStreamHooks(this, sessionId, project, root, runner, writer, fileChanges, executedToolNames, chatMessages, options, modelId);
 
         // 权限模式实时生效：会话进行中切换审批档位 / 交互模式时，后续工具调用按新档位裁决，
         // 不再沿用回合开始时的快照（否则用户切到「无需确认」后仍会逐个弹审批）
@@ -487,6 +485,10 @@ public class WorkStreamController : ControllerBase
             McpServerIds = new List<Guid>(),
             MaxIterations = profile.MaxAgentIterations,
             MaxToolCallsPerTurn = profile.MaxToolCallsPerTurn,
+            ReasoningEffort = options.ReasoningEffort,
+            ReasoningBudgetTokens = options.ReasoningBudgetTokens,
+            MaxTokens = options.MaxTokens,
+            Temperature = options.Temperature,
             ToolApprovals = overrides,
             SessionId = sessionId.ToString(),
             Sink = sink,
@@ -523,7 +525,13 @@ public class WorkStreamController : ControllerBase
         var finalContent = loopResult.Content.Trim();
         // 中断的一轮也要留痕：有部分正文就存部分 + 标记，什么都没有也存一条「已停止生成」，
         // 否则历史里用户消息孤零零没有回复（与对话会话同一处理）
-        if (loopResult.Cancelled)
+        if (loopResult.Cancelled && hooks.HasPersistedText)
+        {
+            await _sessionService.AddMessageAsync(
+                sessionId, "assistant", _localizer.T("chat.stoppedGenerating"), "text",
+                modelId: modelId, cancellationToken: CancellationToken.None);
+        }
+        else if (loopResult.Cancelled)
             finalContent += _localizer.T("chat.stoppedGenerating");
         else if (loopError != null && string.IsNullOrEmpty(finalContent))
             finalContent = _localizer.T("chat.requestFailed", loopError);
@@ -534,7 +542,7 @@ public class WorkStreamController : ControllerBase
             finalContent = _localizer.T("chat.noOutputWithTools", names);
         }
 
-        if (!string.IsNullOrEmpty(finalContent))
+        if (!string.IsNullOrEmpty(finalContent) && !hooks.HasPersistedText)
         {
             // prompt tokens 记「本轮首次请求」的上下文规模（上下文占用面板据此反推「系统提示与工具」的固定开销）；
             // 输出/缓存/总计仍是整轮累加值，成本口径不变，差额只补到会话累计
@@ -700,6 +708,7 @@ public class WorkStreamController : ControllerBase
         private readonly SseStreamWriter _writer;
         private readonly List<object> _fileChanges;
         private readonly List<string> _executedToolNames;
+        private readonly Guid? _modelId;
         private List<PlannedChange> _planned = new();
         private readonly Dictionary<string, string?> _oldContents = new(StringComparer.Ordinal);
         private int _iteration;
@@ -715,7 +724,8 @@ public class WorkStreamController : ControllerBase
             List<object> fileChanges,
             List<string> executedToolNames,
             List<LlmChatMessage> messages,
-            ChatOptions options)
+            ChatOptions options,
+            Guid? modelId)
         {
             _owner = owner;
             _sessionId = sessionId;
@@ -725,6 +735,7 @@ public class WorkStreamController : ControllerBase
             _writer = writer;
             _fileChanges = fileChanges;
             _executedToolNames = executedToolNames;
+            _modelId = modelId;
             _messages = messages;
             _options = options;
         }
@@ -746,6 +757,9 @@ public class WorkStreamController : ControllerBase
         /// 上下文占用面板据此反推固定开销；逐轮累加会把该开销按迭代次数放大。</summary>
         public LlmUsage? FirstIterationUsage { get; private set; }
 
+        public bool HasPersistedText { get; private set; }
+        private bool _turnCounted;
+
         public async Task OnIterationAsync(int iteration, string content, string thinking, LlmUsage? usage)
         {
             _iteration = iteration;
@@ -762,6 +776,28 @@ public class WorkStreamController : ControllerBase
                     _sessionId, "assistant", thinking, "thought",
                     cancellationToken: CancellationToken.None);
             }
+
+            // 正文按迭代落库，保持与实时 文本 → 工具 → 文本 的顺序一致
+            if (!string.IsNullOrWhiteSpace(content))
+            {
+                var messageUsage = usage is { TotalTokens: > 0 }
+                    ? new WorkMessageUsage
+                    {
+                        PromptTokens = usage.PromptTokens,
+                        CompletionTokens = usage.CompletionTokens,
+                        CachedTokens = usage.CachedTokens,
+                        TotalTokens = usage.TotalTokens,
+                        LatencyMs = LastIterationMs,
+                    }
+                    : null;
+                await _owner._sessionService.AddMessageAsync(
+                    _sessionId, "assistant", content, "text", modelId: _modelId,
+                    usage: messageUsage,
+                    cancellationToken: CancellationToken.None,
+                    countAsTurn: !_turnCounted);
+                if (messageUsage != null) _turnCounted = true;
+                HasPersistedText = true;
+            }
         }
 
         public async Task BeforeToolCallsAsync(IReadOnlyList<LlmToolCall> toolCalls)
@@ -775,6 +811,21 @@ public class WorkStreamController : ControllerBase
 
             // 改动执行前打检查点，支持整轮回滚
             await _owner.CreateCheckpointAsync(_project.Id, _sessionId, _iteration, _planned, CancellationToken.None, _writer);
+        }
+
+        public async Task AfterToolResultAsync(AgentToolExecution result)
+        {
+            // 单条结果立即落库：后续 plan/question 等待或进程异常都不会拖住此前的过程记录
+            await _owner._sessionService.AddMessageAsync(
+                _sessionId, "assistant", Truncate(result.Result ?? string.Empty), "tool",
+                metadata: JsonSerializer.Serialize(new
+                {
+                    toolCallId = result.Call.Id,
+                    name = result.Call.Name,
+                    arguments = result.Call.Arguments,
+                    isError = result.IsError,
+                }),
+                cancellationToken: CancellationToken.None);
         }
 
         public async Task AfterToolResultsAsync(IReadOnlyList<AgentToolExecution> results)
@@ -815,18 +866,6 @@ public class WorkStreamController : ControllerBase
                 }
             }
 
-            // 工具调用落库：参数进 metadata，结果截断进正文，供历史回放
-            foreach (var result in results)
-            {
-                await _owner._sessionService.AddMessageAsync(
-                    _sessionId, "assistant", Truncate(result.Result ?? string.Empty), "tool",
-                    metadata: JsonSerializer.Serialize(new
-                    {
-                        name = result.Call.Name,
-                        arguments = result.Call.Arguments,
-                    }),
-                    cancellationToken: CancellationToken.None);
-            }
         }
     }
 
@@ -950,26 +989,19 @@ public class WorkStreamController : ControllerBase
         string? contextSummary = null,
         Guid? summaryThroughMessageId = null)
     {
-        var texts = history.Where(m => m.Type == "text").ToList();
-
-        // 已压缩部分：摘要覆盖的消息不再进入上下文，只保留摘要本身
-        var summarizedCount = 0;
+        var source = history.AsEnumerable();
         if (summaryThroughMessageId is { } throughId && throughId != Guid.Empty)
         {
-            var index = texts.FindIndex(m => m.Id == throughId);
-            if (index >= 0) summarizedCount = index + 1;
+            var index = history.FindIndex(m => m.Id == throughId);
+            if (index >= 0) source = source.Skip(index + 1);
         }
-        if (summarizedCount > 0) texts = texts.Skip(summarizedCount).ToList();
 
-        List<LlmChatMessage> messages;
-        if (texts.Count <= MaxHistoryMessages)
+        var messages = source.SelectMany(ExpandWorkMessage).ToList();
+        if (messages.Count > MaxHistoryMessages)
         {
-            messages = texts.Select(m => new LlmChatMessage { Role = m.Role, Content = m.Content }).ToList();
-        }
-        else
-        {
-            var omitted = texts.Count - MaxHistoryMessages;
-            var kept = texts.Skip(omitted).ToList();
+            var omitted = messages.Count - MaxHistoryMessages;
+            while (omitted < messages.Count && messages[omitted].Role == "tool") omitted++;
+            var kept = messages.Skip(omitted).ToList();
             messages = new List<LlmChatMessage>
             {
                 new()
@@ -978,7 +1010,7 @@ public class WorkStreamController : ControllerBase
                     Content = $"（本会话更早的 {omitted} 条消息因上下文长度限制已被省略，请基于后续对话继续。已修改的文件可重新读取确认。）"
                 }
             };
-            messages.AddRange(kept.Select(m => new LlmChatMessage { Role = m.Role, Content = m.Content }));
+            messages.AddRange(kept);
         }
 
         // 摘要置于最前，替代被替换掉的历史
@@ -1005,6 +1037,7 @@ public class WorkStreamController : ControllerBase
             if (start > 0)
             {
                 messages = messages.Skip(start).ToList();
+                while (messages.Count > 0 && messages[0].Role == "tool") messages.RemoveAt(0);
                 _logger.LogInformation(
                     "[Context] 上下文上限 {Window} tokens：裁剪会话历史，保留 {Kept}/{Total} 条（约 {Chars} 字符）",
                     contextWindow, messages.Count, messages.Count + start, total);
@@ -1012,6 +1045,41 @@ public class WorkStreamController : ControllerBase
         }
 
         return messages;
+    }
+
+    private static IEnumerable<LlmChatMessage> ExpandWorkMessage(WorkMessageDto message)
+    {
+        if (message.Type == "text")
+        {
+            yield return new LlmChatMessage { Role = message.Role, Content = message.Content };
+            yield break;
+        }
+        if (message.Type != "tool") yield break;
+
+        var toolCallId = $"legacy_{message.Id}";
+        var name = "";
+        var arguments = "{}";
+        try
+        {
+            using var doc = JsonDocument.Parse(message.Metadata ?? "{}");
+            var root = doc.RootElement;
+            if (root.TryGetProperty("toolCallId", out var idElement) && idElement.ValueKind == JsonValueKind.String)
+                toolCallId = idElement.GetString() ?? toolCallId;
+            if (root.TryGetProperty("name", out var nameElement) && nameElement.ValueKind == JsonValueKind.String)
+                name = nameElement.GetString() ?? "";
+            if (root.TryGetProperty("arguments", out var argsElement) && argsElement.ValueKind == JsonValueKind.String)
+                arguments = argsElement.GetString() ?? "{}";
+        }
+        catch (JsonException) { }
+
+        if (string.IsNullOrWhiteSpace(name)) yield break;
+        yield return new LlmChatMessage
+        {
+            Role = "assistant",
+            Content = "",
+            ToolCalls = [new LlmToolCall { Id = toolCallId, Name = name, Arguments = arguments }],
+        };
+        yield return new LlmChatMessage { Role = "tool", ToolCallId = toolCallId, Content = message.Content };
     }
 
     private sealed record PlannedChange(string ToolCallId, string Path);

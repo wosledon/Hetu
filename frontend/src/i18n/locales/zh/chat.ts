@@ -77,6 +77,7 @@ export default {
     workPlan: '工作计划',
     allCompleted: ' · 已全部完成',
     answering: '提问作答中',
+    submitFailed: '提交失败，请重试；后端仍在等待你的回答。',
     expandDrawer: '展开抽屉',
     collapseDrawer: '收起抽屉',
   },

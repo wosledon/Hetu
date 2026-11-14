@@ -1,0 +1,506 @@
+using System.Runtime.CompilerServices;
+using System.Text.Json;
+using Hetu.Core.Interfaces;
+using Hetu.Core.Services;
+using Hetu.Core.Services.Tools;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using NSubstitute;
+
+namespace Hetu.Core.Tests;
+
+public class AgentExecutionSafetyTests
+{
+    private static readonly JsonElement ToolSchema = JsonDocument.Parse("""{"type":"object"}""").RootElement;
+
+    [Fact]
+    public async Task RunAsync_工具调用解析后取消_不执行工具()
+    {
+        using var cts = new CancellationTokenSource();
+        var executor = CreateExecutor("test_tool");
+        var localizer = CreateLocalizer();
+        var registry = new ToolRegistry([executor], localizer);
+        var provider = Substitute.For<ILLMProvider>();
+        provider.ChatStreamAsync(Arg.Any<IReadOnlyList<LlmChatMessage>>(), Arg.Any<ChatOptions>(), Arg.Any<CancellationToken>())
+            .Returns(call => ToolCallThenCancel(cts, call.Arg<CancellationToken>()));
+        using var services = CreateToolServices(registry);
+        var service = CreateAgentLoop(provider, registry, services, localizer);
+
+        var result = await service.RunAsync(new AgentLoopRequest
+        {
+            ToolNames = ["test_tool"],
+            MaxIterations = 1,
+            CompressHistory = false,
+        }, cts.Token);
+
+        Assert.True(result.Cancelled);
+        Assert.Empty(result.ToolCalls);
+    }
+
+    [Fact]
+    public async Task ExecuteToolCallsAsync_执行器取消_传播取消且不继续后续工具()
+    {
+        using var cts = new CancellationTokenSource();
+        var executor = CreateExecutor("test_tool");
+        var executions = 0;
+        executor.ExecuteAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns<Task<ToolExecutionResult>>(_ =>
+            {
+                executions++;
+                cts.Cancel();
+                throw new OperationCanceledException(cts.Token);
+            });
+        var localizer = CreateLocalizer();
+        var registry = new ToolRegistry([executor], localizer);
+        using var services = CreateToolServices(registry);
+        var service = CreateToolExecution(services, localizer);
+        var calls = new List<LlmToolCall>
+        {
+            new() { Id = "call-1", Name = "test_tool" },
+            new() { Id = "call-2", Name = "test_tool" },
+        };
+
+        await Assert.ThrowsAsync<OperationCanceledException>(() => service.ExecuteToolCallsAsync(
+            "session",
+            calls,
+            [],
+            [],
+            _ => Task.CompletedTask,
+            _ => Task.CompletedTask,
+            cts.Token));
+
+        Assert.Equal(1, executions);
+    }
+
+    [Theory]
+    [InlineData("plan")]
+    [InlineData("ask_question")]
+    public async Task ExecuteToolCallsAsync_交互事件发布时_等待状态已可提交(string toolName)
+    {
+        using var cts = new CancellationTokenSource();
+        var executor = CreateExecutor(toolName);
+        var localizer = CreateLocalizer();
+        var registry = new ToolRegistry([executor], localizer);
+        using var services = CreateToolServices(registry);
+        var service = CreateToolExecution(services, localizer);
+        var accepted = false;
+
+        async Task WriteJsonAsync(object payload)
+        {
+            var type = payload.GetType().GetProperty("type")?.GetValue(payload)?.ToString();
+            if (type == "plan")
+                accepted = service.TrySetPlanDecision("session", "call-1", true, "");
+            else if (type == "question")
+                accepted = service.TrySetAnswer("session", "call-1", "answer");
+            if ((type is "plan" or "question") && !accepted) cts.Cancel();
+            await Task.CompletedTask;
+        }
+
+        var results = await service.ExecuteToolCallsAsync(
+            "session",
+            [new LlmToolCall { Id = "call-1", Name = toolName }],
+            [],
+            [],
+            _ => Task.CompletedTask,
+            WriteJsonAsync,
+            cts.Token);
+
+        Assert.True(accepted);
+        Assert.Single(results);
+    }
+
+    [Fact]
+    public async Task RunAsync_多个工具调用事件_全部累加执行()
+    {
+        var executor = CreateExecutor("test_tool");
+        var executions = 0;
+        executor.ExecuteAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                executions++;
+                return ToolExecutionResult.Success("ok");
+            });
+        var localizer = CreateLocalizer();
+        var registry = new ToolRegistry([executor], localizer);
+        using var services = CreateToolServices(registry);
+        var provider = Substitute.For<ILLMProvider>();
+        var invocation = 0;
+        ChatOptions? receivedOptions = null;
+        provider.ChatStreamAsync(Arg.Any<IReadOnlyList<LlmChatMessage>>(), Arg.Any<ChatOptions>(), Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                receivedOptions = call.Arg<ChatOptions>();
+                return invocation++ == 0
+                    ? Frames(
+                        ToolCallsFrame("call-1", "{}"),
+                        ToolCallsFrame("call-2", "{}"),
+                        FinishFrame("stop"))
+                    : Frames(ContentFrame("done"), FinishFrame("stop"));
+            });
+        var service = CreateAgentLoop(provider, registry, services, localizer);
+
+        var result = await service.RunAsync(new AgentLoopRequest
+        {
+            ToolNames = ["test_tool"],
+            MaxIterations = 2,
+            ReasoningEffort = "high",
+            ReasoningBudgetTokens = 1024,
+            MaxTokens = 2048,
+            Temperature = 0.2,
+            CompressHistory = false,
+        }, CancellationToken.None);
+
+        Assert.Equal(2, executions);
+        Assert.Equal(2, result.ToolCalls.Count);
+        Assert.Equal("done", result.Content);
+        Assert.Equal("high", receivedOptions?.ReasoningEffort);
+        Assert.Equal(1024, receivedOptions?.ReasoningBudgetTokens);
+        Assert.Equal(2048, receivedOptions?.MaxTokens);
+        Assert.Equal(0.2, receivedOptions?.Temperature);
+    }
+
+    [Theory]
+    [InlineData("length", "{}")]
+    [InlineData("stop", "{")]
+    public async Task RunAsync_截断或畸形调用_不执行工具(string finishReason, string arguments)
+    {
+        var executor = CreateExecutor("test_tool");
+        var executions = 0;
+        executor.ExecuteAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                executions++;
+                return ToolExecutionResult.Success("unexpected");
+            });
+        var localizer = CreateLocalizer();
+        var registry = new ToolRegistry([executor], localizer);
+        using var services = CreateToolServices(registry);
+        var provider = Substitute.For<ILLMProvider>();
+        provider.ChatStreamAsync(Arg.Any<IReadOnlyList<LlmChatMessage>>(), Arg.Any<ChatOptions>(), Arg.Any<CancellationToken>())
+            .Returns(_ => Frames(ToolCallsFrame("call-1", arguments), FinishFrame(finishReason)));
+        var service = CreateAgentLoop(provider, registry, services, localizer);
+
+        var result = await service.RunAsync(new AgentLoopRequest
+        {
+            ToolNames = ["test_tool"],
+            MaxIterations = 1,
+            CompressHistory = false,
+        }, CancellationToken.None);
+
+        Assert.False(string.IsNullOrWhiteSpace(result.Error));
+        Assert.Equal(0, executions);
+    }
+
+    [Fact]
+    public async Task RunAsync_工具调用超过单轮上限_全部拒绝执行()
+    {
+        var executor = CreateExecutor("test_tool");
+        var executions = 0;
+        executor.ExecuteAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                executions++;
+                return ToolExecutionResult.Success("unexpected");
+            });
+        var localizer = CreateLocalizer();
+        var registry = new ToolRegistry([executor], localizer);
+        using var services = CreateToolServices(registry);
+        var provider = Substitute.For<ILLMProvider>();
+        provider.ChatStreamAsync(Arg.Any<IReadOnlyList<LlmChatMessage>>(), Arg.Any<ChatOptions>(), Arg.Any<CancellationToken>())
+            .Returns(_ => Frames(
+                JsonSerializer.Serialize(new
+                {
+                    type = "tool_calls",
+                    toolCalls = new[]
+                    {
+                        new { id = "call-1", name = "test_tool", arguments = "{}" },
+                        new { id = "call-2", name = "test_tool", arguments = "{}" },
+                    },
+                }),
+                FinishFrame("stop")));
+        var service = CreateAgentLoop(provider, registry, services, localizer);
+
+        var result = await service.RunAsync(new AgentLoopRequest
+        {
+            ToolNames = ["test_tool"],
+            MaxIterations = 1,
+            MaxToolCallsPerTurn = 1,
+            CompressHistory = false,
+        }, CancellationToken.None);
+
+        Assert.False(string.IsNullOrWhiteSpace(result.Error));
+        Assert.Equal(0, executions);
+    }
+
+    [Fact]
+    public async Task RunAsync_达到迭代上限_禁用工具生成收尾()
+    {
+        var executor = CreateExecutor("test_tool");
+        executor.ExecuteAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(ToolExecutionResult.Success("ok"));
+        var localizer = CreateLocalizer();
+        var registry = new ToolRegistry([executor], localizer);
+        using var services = CreateToolServices(registry);
+        var provider = Substitute.For<ILLMProvider>();
+        var invocation = 0;
+        ChatOptions? finalOptions = null;
+        provider.ChatStreamAsync(Arg.Any<IReadOnlyList<LlmChatMessage>>(), Arg.Any<ChatOptions>(), Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                if (invocation++ == 0) return Frames(ToolCallsFrame("call-1", "{}"), FinishFrame("stop"));
+                finalOptions = call.Arg<ChatOptions>();
+                return Frames(ContentFrame("summary"), FinishFrame("stop"));
+            });
+        var service = CreateAgentLoop(provider, registry, services, localizer);
+
+        var result = await service.RunAsync(new AgentLoopRequest
+        {
+            ToolNames = ["test_tool"],
+            MaxIterations = 1,
+            CompressHistory = false,
+        }, CancellationToken.None);
+
+        Assert.True(result.IterationLimitReached);
+        Assert.Equal("summary", result.Content);
+        Assert.Equal("none", finalOptions?.ToolChoice);
+        Assert.Null(finalOptions?.Tools);
+    }
+
+    [Fact]
+    public async Task RunAsync_当前轮工具输出过多_压缩旧输出且保留调用关联()
+    {
+        var executor = CreateExecutor("test_tool");
+        executor.ExecuteAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(_ => ToolExecutionResult.Success(new string('x', 5000)));
+        var localizer = CreateLocalizer();
+        var registry = new ToolRegistry([executor], localizer);
+        using var services = CreateToolServices(registry);
+        var provider = Substitute.For<ILLMProvider>();
+        var invocation = 0;
+        List<LlmChatMessage>? finalMessages = null;
+        provider.ChatStreamAsync(Arg.Any<IReadOnlyList<LlmChatMessage>>(), Arg.Any<ChatOptions>(), Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                var current = invocation++;
+                if (current < 3) return Frames(ToolCallsFrame($"call-{current + 1}", "{}"), FinishFrame("stop"));
+                finalMessages = call.Arg<IReadOnlyList<LlmChatMessage>>().Select(m => new LlmChatMessage
+                {
+                    Role = m.Role,
+                    Content = m.Content,
+                    ToolCallId = m.ToolCallId,
+                }).ToList();
+                return Frames(ContentFrame("done"), FinishFrame("stop"));
+            });
+        var service = CreateAgentLoop(provider, registry, services, localizer);
+
+        await service.RunAsync(new AgentLoopRequest
+        {
+            ToolNames = ["test_tool"],
+            MaxIterations = 4,
+            ActiveTurnBudgetChars = 1000,
+            CompressHistory = false,
+        }, CancellationToken.None);
+
+        var toolMessages = finalMessages?.Where(m => m.Role == "tool").ToList();
+        Assert.Equal(3, toolMessages?.Count);
+        Assert.Equal("call-1", toolMessages?[0].ToolCallId);
+        Assert.StartsWith("[tool-output-compacted", toolMessages?[0].Content);
+        Assert.True(toolMessages?[0].Content.Length < 2000);
+    }
+
+    [Fact]
+    public async Task ExecuteToolCallsAsync_后台Plan处理器_立即返回且不等待()
+    {
+        var executor = CreateExecutor("plan");
+        var localizer = CreateLocalizer();
+        var registry = new ToolRegistry([executor], localizer);
+        using var services = CreateToolServices(registry);
+        var service = CreateToolExecution(services, localizer);
+
+        var results = await service.ExecuteToolCallsAsync(
+            "background",
+            [new LlmToolCall { Id = "call-1", Name = "plan" }],
+            [],
+            [],
+            _ => Task.CompletedTask,
+            _ => Task.CompletedTask,
+            CancellationToken.None,
+            planHandler: _ => Task.FromResult(new PlanDecision(true, "")));
+
+        Assert.Single(results);
+        Assert.False(results[0].isError);
+    }
+
+    [Fact]
+    public async Task ExecuteToolCallsAsync_待办ID不存在_返回错误且不修改其他步骤()
+    {
+        var executor = CreateExecutor("todo");
+        var localizer = CreateLocalizer();
+        var registry = new ToolRegistry([executor], localizer);
+        using var services = CreateToolServices(registry);
+        var service = CreateToolExecution(services, localizer);
+        var todos = new List<SessionTodo>
+        {
+            new() { Id = "step-1", Title = "first", Description = "details", Status = "not-started" },
+        };
+
+        var results = await service.ExecuteToolCallsAsync(
+            "session",
+            [new LlmToolCall { Id = "call-1", Name = "todo", Arguments = "{\"action\":\"complete\",\"id\":\"missing\"}" }],
+            [],
+            todos,
+            _ => Task.CompletedTask,
+            _ => Task.CompletedTask,
+            CancellationToken.None);
+
+        Assert.True(results[0].isError);
+        Assert.Equal("not-started", todos[0].Status);
+        Assert.Equal("details", todos[0].Description);
+    }
+
+    [Fact]
+    public async Task ExecuteToolCallsAsync_单条结果产生_立即回调后再执行下一条()
+    {
+        var executor = CreateExecutor("test_tool");
+        var persisted = 0;
+        var observedDuringExecution = new List<int>();
+        executor.ExecuteAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                observedDuringExecution.Add(persisted);
+                return ToolExecutionResult.Success("ok");
+            });
+        var localizer = CreateLocalizer();
+        var registry = new ToolRegistry([executor], localizer);
+        using var services = CreateToolServices(registry);
+        var service = CreateToolExecution(services, localizer);
+
+        await service.ExecuteToolCallsAsync(
+            "session",
+            [
+                new LlmToolCall { Id = "call-1", Name = "test_tool" },
+                new LlmToolCall { Id = "call-2", Name = "test_tool" },
+            ],
+            [],
+            [],
+            _ => Task.CompletedTask,
+            _ => Task.CompletedTask,
+            CancellationToken.None,
+            onToolResult: _ =>
+            {
+                persisted++;
+                return Task.CompletedTask;
+            });
+
+        Assert.Equal([0, 1], observedDuringExecution);
+    }
+
+    [Fact]
+    public async Task ExecuteToolCallsAsync_等待计划期间_可查询并恢复交互()
+    {
+        var executor = CreateExecutor("plan");
+        var localizer = CreateLocalizer();
+        var registry = new ToolRegistry([executor], localizer);
+        using var services = CreateToolServices(registry);
+        var service = CreateToolExecution(services, localizer);
+        var published = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        async Task WriteJsonAsync(object payload)
+        {
+            if (payload.GetType().GetProperty("type")?.GetValue(payload)?.ToString() == "plan")
+                published.TrySetResult(true);
+            await Task.CompletedTask;
+        }
+
+        var execution = service.ExecuteToolCallsAsync(
+            "session",
+            [new LlmToolCall { Id = "call-1", Name = "plan", Arguments = "{\"title\":\"demo\"}" }],
+            [],
+            [],
+            _ => Task.CompletedTask,
+            WriteJsonAsync,
+            CancellationToken.None);
+        await published.Task;
+
+        var pending = Assert.Single(service.GetPendingInteractions("session"));
+        Assert.Equal("call-1", pending.ToolCallId);
+        Assert.Equal("plan", pending.Type);
+        Assert.Equal("{\"title\":\"demo\"}", pending.Data);
+        Assert.Equal(1, service.ResolvePendingInteractions("session"));
+        await execution;
+        Assert.Empty(service.GetPendingInteractions("session"));
+    }
+
+    private static AgentLoopService CreateAgentLoop(
+        ILLMProvider provider,
+        ToolRegistry registry,
+        ServiceProvider services,
+        ILocalizer localizer)
+    {
+        var factory = Substitute.For<ILLMProviderFactory>();
+        factory.CreateChatProviderAsync(Arg.Any<CancellationToken>()).Returns(provider);
+        return new AgentLoopService(
+            factory,
+            registry,
+            CreateToolExecution(services, localizer),
+            new CompressionPipelineService(
+                Substitute.For<IAppSettingService>(),
+                Substitute.For<ILogger<CompressionPipelineService>>(),
+                factory),
+            Substitute.For<IUnitOfWork>(),
+            Substitute.For<ILogger<AgentLoopService>>(),
+            localizer);
+    }
+
+    private static IToolExecutor CreateExecutor(string name)
+    {
+        var executor = Substitute.For<IToolExecutor>();
+        executor.Name.Returns(name);
+        executor.Description.Returns("test tool");
+        executor.ParametersSchema.Returns(ToolSchema);
+        executor.DefaultApproval.Returns(ToolApprovalMode.Auto);
+        return executor;
+    }
+
+    private static ILocalizer CreateLocalizer()
+    {
+        var localizer = Substitute.For<ILocalizer>();
+        localizer.T(Arg.Any<string>(), Arg.Any<object[]>()).Returns(call => call.Arg<string>());
+        return localizer;
+    }
+
+    private static ServiceProvider CreateToolServices(ToolRegistry registry) => new ServiceCollection()
+        .AddScoped(_ => new WorkToolContext())
+        .AddScoped(_ => registry)
+        .BuildServiceProvider();
+
+    private static ToolExecutionService CreateToolExecution(IServiceProvider services, ILocalizer localizer) => new(
+        Substitute.For<ILogger<ToolExecutionService>>(),
+        services.GetRequiredService<IServiceScopeFactory>(),
+        localizer);
+
+    private static string ToolCallsFrame(string id, string arguments) => JsonSerializer.Serialize(new
+    {
+        type = "tool_calls",
+        toolCalls = new[] { new { id, name = "test_tool", arguments } },
+    });
+
+    private static string FinishFrame(string reason) => JsonSerializer.Serialize(new { type = "finish", reason });
+
+    private static string ContentFrame(string text) => JsonSerializer.Serialize(new { type = "content", text });
+
+    private static async IAsyncEnumerable<string> Frames(params string[] frames)
+    {
+        await Task.CompletedTask;
+        foreach (var frame in frames) yield return frame;
+    }
+
+    private static async IAsyncEnumerable<string> ToolCallThenCancel(
+        CancellationTokenSource cts,
+        [EnumeratorCancellation] CancellationToken ct)
+    {
+        yield return """{"type":"tool_calls","toolCalls":[{"id":"call-1","name":"test_tool","arguments":"{}"}]}""";
+        cts.CancelAfter(TimeSpan.FromMilliseconds(20));
+        await Task.Delay(Timeout.InfiniteTimeSpan, ct);
+    }
+}

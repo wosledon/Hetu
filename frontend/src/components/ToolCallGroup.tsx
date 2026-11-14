@@ -1,9 +1,10 @@
 import { useState, type ReactNode } from 'react'
-import { Brain, Check, ChevronDown, ChevronRight, Loader2, Wrench, X } from 'lucide-react'
+import { Brain, ChevronDown, ChevronRight, Loader2, Wrench, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import ChatToolCallRow from './ChatToolCallRow'
 import { renderToolName, type ToolCallEntry } from '../utils/toolRendering'
+import { TOOL_ICONS } from '../utils/toolIcons'
 
 interface ToolCallGroupProps {
   items: ToolCallEntry[]
@@ -28,6 +29,7 @@ export default function ToolCallGroup({ items, renderItem }: ToolCallGroupProps)
   const running = items.some((i) => i.running)
   const failed = items.some((i) => i.isError)
   const thoughtSummary = compact ? (items[0].text ?? '').replace(/\s+/g, ' ').trim() : ''
+  const GroupIcon = failed ? X : compact ? Brain : (TOOL_ICONS[items[0]?.name ?? ''] ?? Wrench)
 
   // 摘要：同类工具调用显示「名称 × N」，混合过程显示「首条 等 N 项」
   const tools = items.filter((i) => !i.kind || i.kind === 'tool')
@@ -55,11 +57,11 @@ export default function ToolCallGroup({ items, renderItem }: ToolCallGroupProps)
           ? <ChevronDown size={12} className="shrink-0 text-gray-400" />
           : <ChevronRight size={12} className="shrink-0 text-gray-400" />}
         <span className={compact
-          ? 'flex h-4 w-4 shrink-0 items-center justify-center text-violet-500 dark:text-violet-400'
+          ? `flex h-4 w-4 shrink-0 items-center justify-center ${failed ? 'text-red-500 dark:text-red-400' : 'text-violet-500 dark:text-violet-400'}`
           : `flex h-6 w-6 shrink-0 items-center justify-center rounded-lg ${
               failed ? 'bg-red-100 text-red-600 dark:bg-red-500/10 dark:text-red-300' : 'bg-blue-100 text-blue-600 dark:bg-blue-500/10 dark:text-blue-300'
             }`}>
-          {compact ? <Brain size={13} /> : <Wrench size={13} />}
+          <GroupIcon size={13} />
         </span>
         <span className={compact
           ? 'shrink-0 text-[11px] font-medium text-gray-500 dark:text-gray-400'
@@ -71,15 +73,9 @@ export default function ToolCallGroup({ items, renderItem }: ToolCallGroupProps)
             ? <span className="min-w-0 flex-1 truncate text-[11px] text-gray-400 dark:text-gray-500" title={thoughtSummary}>{thoughtSummary}</span>
             : <span className="flex-1" />
           : <span className="shrink-0 rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-gray-500 dark:bg-white/[0.06] dark:text-gray-400">{items.length}</span>}
-        {(!compact || running || failed) && (
-          <span className={`ml-auto flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${
-            running
-              ? 'bg-blue-100 text-blue-600 dark:bg-blue-500/10 dark:text-blue-300'
-              : failed
-                ? 'bg-red-100 text-red-600 dark:bg-red-500/10 dark:text-red-300'
-                : 'bg-emerald-100 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-300'
-          }`}>
-            {running ? <Loader2 size={11} className="animate-spin" /> : failed ? <X size={11} /> : <Check size={11} />}
+        {running && (
+          <span className="ml-auto flex h-5 w-5 shrink-0 items-center justify-center text-blue-500 dark:text-blue-400" title={t('tool.running')}>
+            <Loader2 size={12} className="animate-spin" />
           </span>
         )}
       </button>

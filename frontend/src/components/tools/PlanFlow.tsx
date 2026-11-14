@@ -7,6 +7,7 @@ interface PlanFlowProps {
   plan: InteractionPlan
   onFeedback: (feedback: string) => void
   onDecide: (approved: boolean) => void
+  submitting?: boolean
   /** 抽屉内嵌：标题与状态已在抽屉头部展示，不再重复一层头部 */
   hideHeader?: boolean
 }
@@ -15,7 +16,7 @@ interface PlanFlowProps {
  * 计划工具（plan）的确认面板：步骤列表 + 修改意见 + 批准 / 驳回。
  * 输入框抽屉与工作流内联面板共用。
  */
-export default function PlanFlow({ plan, onFeedback, onDecide, hideHeader = false }: PlanFlowProps) {
+export default function PlanFlow({ plan, onFeedback, onDecide, submitting = false, hideHeader = false }: PlanFlowProps) {
   const { t } = useTranslation('agents')
   const decided = plan.decided
   const pending = !decided
@@ -117,11 +118,11 @@ export default function PlanFlow({ plan, onFeedback, onDecide, hideHeader = fals
             />
           </div>
           <div className="flex items-center justify-end gap-2">
-            <Button variant="outline" tone="red" size="sm" className="flex items-center gap-1.5 rounded-xl border border-red-200 px-3.5 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-50 dark:border-red-900/50 dark:text-red-400 dark:hover:bg-red-950/30" onClick={() => onDecide(false)}>
+            <Button variant="outline" tone="red" size="sm" disabled={submitting} className="flex items-center gap-1.5 rounded-xl border border-red-200 px-3.5 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-50 dark:border-red-900/50 dark:text-red-400 dark:hover:bg-red-950/30" onClick={() => onDecide(false)}>
               <X size={13} /> {t('plan.reject')}
             </Button>
-            <Button variant="primary" tone="teal" size="sm" className="flex items-center gap-1.5 rounded-xl bg-teal-500 px-4 py-1.5 text-xs font-medium text-white shadow-sm transition-all hover:bg-teal-600 hover:shadow" onClick={() => onDecide(true)}>
-              <Play size={12} /> {t('plan.approve')}
+            <Button variant="primary" tone="teal" size="sm" disabled={submitting} className="flex items-center gap-1.5 rounded-xl bg-teal-500 px-4 py-1.5 text-xs font-medium text-white shadow-sm transition-all hover:bg-teal-600 hover:shadow" onClick={() => onDecide(true)}>
+                          {submitting ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />} {t('plan.approve')}
             </Button>
           </div>
         </div>

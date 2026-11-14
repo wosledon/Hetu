@@ -13,7 +13,7 @@ public class PlanTool : IToolExecutor
     public string Name => "plan";
     public string Description => "向用户提交一份执行计划以供确认。适用于多步骤、有副作用或影响面较大的任务：先列出计划步骤，用户批准后再执行；被驳回时根据反馈修改计划。";
     public ToolApprovalMode DefaultApproval => ToolApprovalMode.Auto;
-    public string? UsageGuideline => "用户需求涉及 ≥2 个执行步骤、或包含写操作/删除/安装依赖等副作用时，先提交计划等用户批准再动手；需求本身很单一时不要滥用。";
+    public string? UsageGuideline => "仅在任务复杂、影响面较大或执行前确需用户确认时使用；常规多步骤任务直接用 todo 跟踪，不要把同一份计划同时提交给 plan 和 todo。";
 
     private static readonly JsonElement _schema = JsonDocument.Parse("""
     {

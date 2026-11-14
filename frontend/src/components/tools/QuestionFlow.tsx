@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Check, ChevronLeft, ChevronRight, HelpCircle, Send } from 'lucide-react'
+import { Check, ChevronLeft, ChevronRight, HelpCircle, Loader2, Send } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { InteractionQuestion } from '../../stores/interactionStore'
 import { Input } from '../ui'
@@ -11,6 +11,7 @@ interface QuestionFlowProps {
   onAnswer: (questionId: string, value: string) => void
   onIndexChange: (idx: number) => void
   onSubmitAll: () => void
+  submitting?: boolean
   /** 抽屉内嵌：更紧凑的留白与圆角 */
   compact?: boolean
 }
@@ -26,6 +27,7 @@ export default function QuestionFlow({
   onAnswer,
   onIndexChange,
   onSubmitAll,
+  submitting = false,
   compact = false,
 }: QuestionFlowProps) {
   const { t } = useTranslation('agents')
@@ -223,14 +225,14 @@ export default function QuestionFlow({
         ) : (
           <button
             onClick={onSubmitAll}
-            disabled={!allAnswered}
+            disabled={!allAnswered || submitting}
             className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-medium transition-all ${
-              allAnswered
+              allAnswered && !submitting
                 ? 'bg-indigo-500 text-white shadow-sm hover:bg-indigo-600'
                 : 'cursor-not-allowed bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500'
             }`}
           >
-            <Send size={12} /> {t('question.submitAll')}
+            {submitting ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />} {t('question.submitAll')}
           </button>
         )}
       </div>

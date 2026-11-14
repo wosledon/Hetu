@@ -215,6 +215,8 @@ public class KanbanTaskExecutor : IKanbanTaskExecutor
                     ToolNames = tools,
                     ToolApprovals = toolApprovals,
                     QuestionHandler = OnQuestionAsync,
+                    // 无人值守任务没有可确认计划的 UI：计划只作为执行说明，自动接受并继续
+                    PlanHandler = _ => Task.FromResult(new PlanDecision(true, "")),
                     MaxIterations = MaxAgentIterations,
                     SessionId = $"kanban-task-{taskId}-{run.Id}",
                     WorkScope = string.IsNullOrEmpty(rootPath)

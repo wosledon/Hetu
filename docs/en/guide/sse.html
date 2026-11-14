@@ -112,6 +112,7 @@
         <li><code>approval_request</code> and <code>question</code> both carry ids but mean different things (approve a tool vs. ask a person) — never interchange them.</li>
         <li>Missing <code>usage</code> fields fall back to 0; in code sessions <code>latencyMs</code> is computed client-side.</li>
         <li>The <code>plainText</code> fallback is deliberate: even if only bare text arrives (proxies, intermediaries), the body is preserved.</li>
+        <li>Reconnect recovery: each Code SSE attachment owns an independent live channel, with an atomic snapshot-and-subscribe step. Pending plans/questions can also be restored through <code>GET /api/chat-messages/pending-interactions/{sessionId}</code> and are cleared by the matching <code>tool_result</code>.</li>
         <li>Adding an event: backend adds the <code>type</code> and fields, the parser adds a mapping, each reducer decides rendering — unmapped events are never lost.</li>
       </ul>
     <div class="docs-pager"><a href="index.html">← Docs index</a><a href="architecture.html">Architecture →</a></div>

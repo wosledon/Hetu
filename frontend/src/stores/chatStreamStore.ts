@@ -144,13 +144,13 @@ function appendTimeline(list: TimelineItem[], item: TimelineItem): TimelineItem[
 
 /** 工具调用入列；结果到达时回填到对应片段 */
 function withToolCall(list: TimelineItem[], call: { id: string; name: string; arguments: string }): TimelineItem[] {
-  return [...list, { kind: 'tool', name: call.name, arguments: call.arguments, running: true }]
+  return [...list, { kind: 'tool', id: call.id, name: call.name, arguments: call.arguments, running: true }]
 }
 
 function withToolResult(list: TimelineItem[], result: { id: string; name: string; content: string; isError?: boolean }): TimelineItem[] {
   for (let i = list.length - 1; i >= 0; i--) {
     const item = list[i]
-    if (item.kind === 'tool' && item.running && item.name === result.name) {
+    if (item.kind === 'tool' && item.running && item.id === result.id) {
       const next = [...list]
       next[i] = { ...item, result: result.content, isError: result.isError, running: false }
       return next
@@ -274,6 +274,7 @@ export const useChatStreamStore = create<ChatStreamStore>((set, get) => {
             }
             break
           case 'tool_result':
+            useInteractionStore.getState().resolve(topicId, chunk.id as string)
             if (!chunk.hidden) {
               next.toolResults = [...cur.toolResults, { id: chunk.id as string, name: chunk.name as string, content: chunk.content as string, isError: chunk.isError as boolean, collapsed: chunk.collapsed as boolean }]
               next.timeline = withToolResult(cur.timeline, { id: chunk.id as string, name: chunk.name as string, content: chunk.content as string, isError: chunk.isError as boolean })

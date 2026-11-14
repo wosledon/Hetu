@@ -16,7 +16,8 @@ public sealed class SseEventBuffer
     private const int MaxEvents = 5000;
 
     private readonly List<string> _events = new();
-    private readonly Channel<string> _live = Channel.CreateUnbounded<string>();
+    private readonly Dictionary<int, Channel<string>> _subscribers = new();
+    private int _nextSubscriberId;
     private readonly object _lock = new();
     private bool _completed;
 
@@ -37,11 +38,24 @@ public sealed class SseEventBuffer
         lock (_lock)
         {
             if (_completed) return;
-            if (_events.Count >= MaxEvents) _events.RemoveAt(0);
+            if (_events.Count >= MaxEvents)
+            {
+                // 长流优先丢弃普通增量，保留交互事件，避免早期 plan/question 被正文帧挤掉
+                var removeIndex = _events.FindIndex(e => !IsInteractionEvent(e));
+                _events.RemoveAt(removeIndex >= 0 ? removeIndex : 0);
+            }
             _events.Add(data);
+            foreach (var subscriber in _subscribers.Values) subscriber.Writer.TryWrite(data);
         }
-        _live.Writer.TryWrite(data);
     }
+
+    private static bool IsInteractionEvent(string data) =>
+        data.Contains("\"type\":\"plan\"", StringComparison.Ordinal) ||
+        data.Contains("\"type\": \"plan\"", StringComparison.Ordinal) ||
+        data.Contains("\"type\":\"question\"", StringComparison.Ordinal) ||
+        data.Contains("\"type\": \"question\"", StringComparison.Ordinal) ||
+        data.Contains("\"type\":\"todo\"", StringComparison.Ordinal) ||
+        data.Contains("\"type\": \"todo\"", StringComparison.Ordinal);
 
     /// <summary>快照当前已缓冲的事件（重放用，调用方自行决定写去哪）</summary>
     public IReadOnlyList<string> Snapshot()
@@ -50,34 +64,53 @@ public sealed class SseEventBuffer
     }
 
     /// <summary>
-    /// 挂载一个客户端：先重放缓冲区，再持续转发实时事件，直到运行结束或连接断开。
+    /// 挂载一个客户端：原子地取得快照并注册独立通道，再重放和接收实时事件。
     /// </summary>
     public async Task AttachAsync(Func<string, Task> write, CancellationToken ct)
     {
-        foreach (var data in Snapshot())
+        IReadOnlyList<string> snapshot;
+        Channel<string>? live = null;
+        var subscriberId = -1;
+        lock (_lock)
         {
-            if (ct.IsCancellationRequested) return;
-            try { await write(data); }
-            catch (OperationCanceledException) { return; }
-            catch { return; } // 连接已断开：不再重试，运行本身不受影响
+            snapshot = _events.ToList();
+            if (!_completed)
+            {
+                subscriberId = _nextSubscriberId++;
+                live = Channel.CreateUnbounded<string>();
+                _subscribers.Add(subscriberId, live);
+            }
         }
 
         try
         {
-            await foreach (var data in _live.Reader.ReadAllAsync(ct))
+            foreach (var data in snapshot)
             {
+                if (ct.IsCancellationRequested) return;
                 try { await write(data); }
                 catch (OperationCanceledException) { return; }
                 catch { return; }
             }
+
+            if (live == null) return;
+            try
+            {
+                await foreach (var data in live.Reader.ReadAllAsync(ct))
+                {
+                    try { await write(data); }
+                    catch (OperationCanceledException) { return; }
+                    catch { return; }
+                }
+            }
+            catch (OperationCanceledException) { }
+            catch (ChannelClosedException) { }
         }
-        catch (OperationCanceledException)
+        finally
         {
-            // 客户端断开：正常路径
-        }
-        catch (ChannelClosedException)
-        {
-            // 运行已结束且通道关闭
+            if (subscriberId >= 0)
+            {
+                lock (_lock) { _subscribers.Remove(subscriberId); }
+            }
         }
     }
 
@@ -89,6 +122,10 @@ public sealed class SseEventBuffer
             if (_completed) return;
             _completed = true;
         }
-        _live.Writer.TryComplete();
+        lock (_lock)
+        {
+            foreach (var subscriber in _subscribers.Values) subscriber.Writer.TryComplete();
+            _subscribers.Clear();
+        }
     }
 }

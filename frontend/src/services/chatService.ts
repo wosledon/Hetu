@@ -112,6 +112,9 @@ export const chatMessageService = {
   send: (topicId: string, data: SendMessageRequest) => post<IChatMessage>(`/chat-messages/topic/${topicId}`, data),
   update: (id: string, data: UpdateChatMessageRequest) => put<IChatMessage>(`/chat-messages/${id}`, data),
   delete: (id: string) => del<void>(`/chat-messages/${id}`),
+  /** 后端仍在等待的 plan/question，供刷新后直接恢复 */
+  getPendingInteractions: (sessionId: string) =>
+    get<Array<{ toolCallId: string; type: 'question' | 'plan'; data: string }>>(`/chat-messages/pending-interactions/${sessionId}`),
   /** 提交工具调用的提问答案 */
   submitAnswer: (sessionId: string | undefined, toolCallId: string, answer: string) =>
     post<void>('/chat-messages/answer', { sessionId, toolCallId, answer }),

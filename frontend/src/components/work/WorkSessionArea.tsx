@@ -54,6 +54,7 @@ import { POPOVER_PANEL_CLASS, popoverItemClass } from '../../utils/styles'
 import { fromWorkStreamItems, subagentEntriesToTimeline } from '../../utils/agentTimeline'
 import { loadInputHistory, pushInputHistory } from '../../utils/inputHistory'
 import { workStreamRuns } from '../../utils/workStreamRuns'
+import { loadPendingQueue, savePendingQueue } from '../../utils/pendingQueue'
 import { reasoningEffortDefault } from '../../utils/agentReasoning'
 import { loadTopicSettings, saveTopicSettings } from '../../utils/topicSettings'
 import { useMentionItems } from '../../hooks/useMentionItems'
@@ -100,7 +101,7 @@ type UsageView = AgentUsage
 type StreamItem =
   | { kind: 'thought'; seq: number; text: string }
   | { kind: 'text'; seq: number; text: string }
-  | { kind: 'tool'; seq: number; id: string; name: string; arguments: string; result?: string }
+  | { kind: 'tool'; seq: number; id: string; name: string; arguments: string; result?: string; isError?: boolean }
   | { kind: 'file'; seq: number; path: string; action: string }
   | { kind: 'checkpoint'; seq: number; id: string; label: string; fileCount: number }
   | { kind: 'subagent'; seq: number; id: string; description: string; stage: string; tool?: string; steps?: number; message?: string; entries?: SubagentEntry[] }
@@ -110,7 +111,7 @@ type WorkStreamHandlers = {
   onContent: (text: string) => void
   onThought: (text: string) => void
   onToolCall: (tc: { id: string; name: string; arguments: string }) => void
-  onToolResult: (id: string, content: string) => void
+  onToolResult: (id: string, content: string, isError?: boolean) => void
   onFileChange: (fc: FileChangeMeta) => void
   onApprovalRequest: (req: ApprovalRequestView) => void
   /** 交互型工具（question / todo / plan）：统一进共享 interactionStore，由输入框上方抽屉渲染 */
@@ -120,6 +121,7 @@ type WorkStreamHandlers = {
   onUsage: (usage: UsageView) => void
   /** 上下文提示（自动压缩等），显示在输入框上方 */
   onNotice: (text: string) => void
+  onError: (text: string) => void
 }
 
 /**
@@ -130,6 +132,7 @@ function dispatchWorkEvent(data: string, handlers: WorkStreamHandlers): void {
   const { event, error, plainText } = parseAgentFrame(data)
 
   if (error != null) {
+    handlers.onError(error)
     handlers.onContent('\n' + SSE_ERROR_PREFIX + error)
     return
   }
@@ -150,7 +153,7 @@ function dispatchWorkEvent(data: string, handlers: WorkStreamHandlers): void {
       if (!event.hidden) handlers.onToolCall({ id: event.id, name: event.name, arguments: event.arguments })
       break
     case 'tool_result':
-      if (!event.hidden) handlers.onToolResult(event.id, event.content)
+      if (!event.hidden) handlers.onToolResult(event.id, event.content, event.isError)
       break
     case 'file_change':
       handlers.onFileChange({ path: event.path, action: event.action })
@@ -233,8 +236,8 @@ export default function WorkSessionArea({
   /** 本次用户消息的发送时刻（ms）：判断乐观气泡是否已被持久化，按内容+时间双条件，避免重发相同内容时误判 */
   const [pendingUserSentAt, setPendingUserSentAt] = useState(0)
   // 发送队列（回复进行中排队的消息）与引导中的那一条
-  const [queue, setQueue] = useState<PendingMessage[]>([])
-  const queueRef = useRef<PendingMessage[]>([])
+  const [queue, setQueue] = useState<PendingMessage[]>(() => loadPendingQueue('work', session?.id || session?.projectId || ''))
+  const queueRef = useRef<PendingMessage[]>(queue)
   const [steeringId, setSteeringId] = useState<string | null>(null)
   const [pendingMode, setPendingMode] = useState<{ sessionId: string; value: WorkPermissionMode } | null>(null)
   const [modelOverride, setModelOverride] = useState<{ sessionId: string; value: string } | null>(null)
@@ -321,6 +324,11 @@ export default function WorkSessionArea({
   }, [session, messages])
 
   useEffect(() => {
+    if (!session?.id || !runStatus?.active) return
+    void useInteractionStore.getState().recover(session.id).catch(() => undefined)
+  }, [session?.id, runStatus?.active])
+
+  useEffect(() => {
     if (!session?.id || localStreaming || !runStatus?.active) return
     if (workStreamRuns.isRunning(session.id)) return
     const sessionId = session.id
@@ -329,6 +337,14 @@ export default function WorkSessionArea({
       queryClient.invalidateQueries({ queryKey: ['workRunStatus', sessionId] })
       queryClient.invalidateQueries({ queryKey: ['workMessages', sessionId] })
       queryClient.invalidateQueries({ queryKey: ['workSessions'] })
+    }, (data) => {
+      const { event } = parseAgentFrame(data)
+      if (!event) return
+      if (event.type === 'tool_result') {
+        useInteractionStore.getState().resolve(sessionId, event.id)
+      } else if (event.type === 'question' || event.type === 'todo' || event.type === 'plan') {
+        useInteractionStore.getState().applyChunk(sessionId, event as unknown as Record<string, unknown>)
+      }
     })
   }, [session?.id, localStreaming, runStatus?.active, queryClient])
 
@@ -799,7 +815,7 @@ export default function WorkSessionArea({
   const renderProcessEntry = (item: ToolCallEntry, compact = item.kind === 'thought') =>
     item.kind === 'thought'
       ? <AgentThoughtBlock text={item.text ?? ''} compact={compact} />
-      : <ChatToolCallRow name={item.name} args={item.args} result={item.result} onOpenPath={onOpenFilePath} onRunCommand={onRunCommand} compact={compact} />
+      : <ChatToolCallRow name={item.name} args={item.args} result={item.result} isError={item.isError} onOpenPath={onOpenFilePath} onRunCommand={onRunCommand} compact={compact} />
   // 刚发出且后端尚未在历史中持久化的消息 → 派生展示（持久化后自动让位）
   // 判据必须同时满足「内容与待发消息一致 + 时间不早于发送时刻」：只用内容相等会把上一轮
   // 相同内容的消息算成已落库，重发相同内容时乐观气泡被误撤，而新消息尚未刷新出来，两头都看不到
@@ -1123,11 +1139,14 @@ export default function WorkSessionArea({
         }
         return [...prev, { kind: 'tool', seq: seqRef.current++, ...tc } as StreamItem]
       }),
-      onToolResult: (id, result) => setStreamItems((prev) =>
-        // 审批模式切成「无需确认」时后端按批准直接执行：结果一到就撤掉审批条目
-        prev.filter((x) => !(x.kind === 'approval' && x.id === id))
-          .map((x) => (x.kind === 'tool' && x.id === id ? { ...x, result } : x)),
-      ),
+      onToolResult: (id, result, isError) => {
+        useInteractionStore.getState().resolve(activeId, id)
+        setStreamItems((prev) =>
+          // 审批模式切成「无需确认」时后端按批准直接执行：结果一到就撤掉审批条目
+          prev.filter((x) => !(x.kind === 'approval' && x.id === id))
+            .map((x) => (x.kind === 'tool' && x.id === id ? { ...x, result, isError } : x)),
+        )
+      },
       onFileChange: (fc) => setStreamItems((prev) => {
         const idx = prev.findIndex((x) => x.kind === 'file' && x.path === fc.path)
         if (idx >= 0) {
@@ -1141,13 +1160,15 @@ export default function WorkSessionArea({
         ...prev.filter((x) => !(x.kind === 'approval' && x.id === req.id)),
         { kind: 'approval', seq: seqRef.current++, ...req },
       ]),
-      onInteraction: (evt) => useInteractionStore.getState().applyChunk(session.id, evt),
+      onInteraction: (evt) => useInteractionStore.getState().applyChunk(activeId, evt),
       onCheckpoint: (cp) => setStreamItems((prev) => [...prev, { kind: 'checkpoint', seq: seqRef.current++, ...cp } as StreamItem]),
       onSubAgent: coalescer.push,
       onUsage: (usage) => setLiveUsage(usage),
       onNotice: (text) => { setContextNotice(text); refreshContextUsage() },
+      onError: () => { streamFailed = true },
     }
-     try {
+    let streamFailed = false
+    try {
       const response = await workSessionService.stream(
         activeId,
         {
@@ -1177,6 +1198,7 @@ export default function WorkSessionArea({
       await consumeSseStream(response, ({ data }) => dispatchWorkEvent(data, handlers), { signal: controller.signal })
     } catch (error) {
       if (!controller.signal.aborted) {
+        streamFailed = true
         console.error('Work stream error:', error)
         handlers.onContent('\n' + t('session.streamFailed'))
       }
@@ -1207,9 +1229,9 @@ export default function WorkSessionArea({
         }
       }).catch(() => {})
 
-      // 队列里的下一条：本轮结束后自动发出（队列为空时什么都不做）
+      // 只有自然完成才消费队列；停止或失败时保留/清空由用户决定，不能意外启动下一份工作
       const [queued, ...rest] = queueRef.current
-      if (queued) {
+      if (queued && !controller.signal.aborted && !streamFailed) {
         updateQueue(() => rest)
         void runStream(queued.content, permissionMode)
       }
@@ -1221,6 +1243,7 @@ export default function WorkSessionArea({
     const list = next(queueRef.current)
     queueRef.current = list
     setQueue(list)
+    savePendingQueue('work', draftCreatedRef.current?.id ?? session?.id ?? session?.projectId ?? '', list)
   }
 
   /** 把当前输入排进队列（内容已含模板/引用/长文本块） */
@@ -1710,6 +1733,7 @@ export default function WorkSessionArea({
           onStop={() => {
             const id = draftCreatedRef.current?.id ?? session?.id
             if (!id) return
+            updateQueue(() => [])
             // 先断本地挂载（本页起的那一流 / 重连挂上的那条），再通知服务端取消循环本身——
             // 刷新后发起流的那一方已不在这个页面里，光 abort 是停不掉后端的
             workStreamRuns.cancel(id)
@@ -2106,9 +2130,9 @@ const isFoldableProcessMessage = (m: IWorkMessage) => m.type === 'thought' || m.
 function toProcessEntry(message: IWorkMessage): ToolCallEntry {
   if (message.type === 'thought')
     return { id: message.id, kind: 'thought', name: '', args: message.content, text: message.content }
-  let meta: { name: string; arguments: string } = { name: '', arguments: '{}' }
+  let meta: { name: string; arguments: string; isError?: boolean } = { name: '', arguments: '{}' }
   try { meta = { ...meta, ...JSON.parse(message.metadata ?? '{}') } } catch { /* 使用默认值 */ }
-  return { id: message.id, name: meta.name, args: meta.arguments, result: message.content }
+  return { id: message.id, name: meta.name, args: meta.arguments, result: message.content, isError: meta.isError }
 }
 
 /** 普通历史消息：用户气泡 / Agent 文本 / 系统提示 / 文件变更 / 检查点 */

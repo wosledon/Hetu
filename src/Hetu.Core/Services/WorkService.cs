@@ -589,7 +589,7 @@ public class WorkSessionService : IWorkSessionService
             .ToList();
     }
 
-    public async Task<ApiResponse<WorkMessageDto>> AddMessageAsync(Guid sessionId, string role, string content, string type = "text", string? metadata = null, Guid? modelId = null, WorkMessageUsage? usage = null, CancellationToken cancellationToken = default)
+    public async Task<ApiResponse<WorkMessageDto>> AddMessageAsync(Guid sessionId, string role, string content, string type = "text", string? metadata = null, Guid? modelId = null, WorkMessageUsage? usage = null, CancellationToken cancellationToken = default, bool countAsTurn = true)
     {
         var session = await _unitOfWork.WorkSessions.GetByIdAsync(sessionId, cancellationToken);
         if (session == null) return ApiResponse<WorkMessageDto>.Fail(_localizer.T("workSession.notFound"));
@@ -630,7 +630,7 @@ public class WorkSessionService : IWorkSessionService
             session.CompletionTokens += usage.CompletionTokens;
             session.CachedTokens += usage.CachedTokens;
             session.TotalTokens += usage.TotalTokens;
-            if (role == "assistant") session.TurnCount++;
+            if (role == "assistant" && countAsTurn) session.TurnCount++;
         }
 
         await _unitOfWork.WorkMessages.AddAsync(message, cancellationToken);

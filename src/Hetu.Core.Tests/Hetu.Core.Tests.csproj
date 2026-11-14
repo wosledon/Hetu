@@ -20,6 +20,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Hetu.Api\Hetu.Api.csproj" />
     <ProjectReference Include="..\Hetu.Core\Hetu.Core.csproj" />
     <ProjectReference Include="..\Hetu.Infrastructure\Hetu.Infrastructure.csproj" />
     <ProjectReference Include="..\Hetu.Shared\Hetu.Shared.csproj" />

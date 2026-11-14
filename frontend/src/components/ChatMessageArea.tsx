@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { Bot, FileText, Search, GitBranch, X, Globe, Database, ChevronDown, Loader2, Atom, Zap, AlertCircle, Eraser, Gauge } from 'lucide-react'
+import { Bot, FileText, Search, GitBranch, X, Globe, Database, ChevronDown, Loader2, Zap, AlertCircle, Eraser, Gauge } from 'lucide-react'
 import i18n from '../i18n'
 import { chatMessageService, chatTopicService, promptPresetService } from '../services/chatService'
 import { settingService } from '../services/settingService'
@@ -16,6 +16,7 @@ import ConversationRail from './ConversationRail'
 import AgentUsageBadge from './agent/AgentUsageBadge'
 import AgentTimeline from './agent/AgentTimeline'
 import AgentThoughtBlock from './agent/AgentThoughtBlock'
+import RetrievalResultCard from './RetrievalResultCard'
 import AgentWorkingIndicator from './agent/AgentWorkingIndicator'
 import AgentInputBox from './agent/AgentInputBox'
 import AgentPermissionSelect from './agent/AgentPermissionSelect'
@@ -26,6 +27,7 @@ import AgentModelPicker from './agent/AgentModelPicker'
 import AgentPicker from './agent/AgentPicker'
 import { fromChatTimeline } from '../utils/agentTimeline'
 import { loadInputHistory, pushInputHistory } from '../utils/inputHistory'
+import { loadPendingQueue, savePendingQueue } from '../utils/pendingQueue'
 import AgentQueueBar, { type PendingMessage } from './agent/AgentQueueBar'
 import ToolInteractionDrawer from './ToolInteractionDrawer'
 import InlineWorkflowPanel from './workflow/InlineWorkflowPanel'
@@ -57,9 +59,10 @@ interface ChatMessageAreaProps {
  * 在后台消费某个话题的聊天 SSE 流，写入全局 store（按 topicId 隔离）。
  * 与组件挂载解耦：切换话题不会中断流，支持多话题同时流式，可随时中断。
  */
-async function consumeChatStream(topicId: string, startRequest: (signal: AbortSignal) => Promise<Response>): Promise<void> {
+async function consumeChatStream(topicId: string, startRequest: (signal: AbortSignal) => Promise<Response>): Promise<boolean> {
   const store = useChatStreamStore.getState()
   const controller = new AbortController()
+  let failed = false
   chatStreamControl.register(topicId, controller)
   try {
     const response = await startRequest(controller.signal)
@@ -71,6 +74,7 @@ async function consumeChatStream(topicId: string, startRequest: (signal: AbortSi
     )
   } catch (error) {
     if (!controller.signal.aborted) {
+      failed = true
       console.error('Stream error:', error)
       store.setStreamError(topicId, i18n.t('chat:errors.streamFailed'))
     }
@@ -80,6 +84,8 @@ async function consumeChatStream(topicId: string, startRequest: (signal: AbortSi
     // 延迟清除流式状态，等消息列表刷新后再清理，避免闪烁
     setTimeout(() => store.clearAfterPersist(topicId), 500)
   }
+  const streamError = useChatStreamStore.getState().streams[topicId]?.streamError
+  return !controller.signal.aborted && !failed && !streamError
 }
 
 export default function ChatMessageArea({ topic, group, onTopicUpdated, projectId }: ChatMessageAreaProps) {
@@ -90,8 +96,8 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
   /** 粘贴的超长文本（日志/JSON/base64）：以折叠块挂在输入框上方，不占用输入框本身 */
   const [pastedBlock, setPastedBlock] = useState('')
   // 发送队列（回复进行中排队的消息）与引导中的那一条
-  const [queue, setQueue] = useState<PendingMessage[]>([])
-  const queueRef = useRef<PendingMessage[]>([])
+  const [queue, setQueue] = useState<PendingMessage[]>(() => loadPendingQueue('chat', topic?.id || projectId || 'draft'))
+  const queueRef = useRef<PendingMessage[]>(queue)
   const [steeringId, setSteeringId] = useState<string | null>(null)
   const [queueNotice, setQueueNotice] = useState<string | null>(null)
   /** ↑↓ 回溯历史输入（与 Code 会话共用同一份本地历史） */
@@ -120,9 +126,6 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
   // 两段输出之间的所有过程（工具调用、思考）折叠为一组，文本输出作为组分界
   // （折叠逻辑已内聚到 AgentTimeline，这里不再单独预折叠）
 
-  const streamWebSearch = useChatStreamStore((st) => (topicId ? st.streams[topicId]?.usedWebSearch : false) ?? false)
-  const streamKnowledgeBase = useChatStreamStore((st) => (topicId ? st.streams[topicId]?.usedKnowledgeBase : false) ?? false)
-  const streamMemory = useChatStreamStore((st) => (topicId ? st.streams[topicId]?.usedMemory : false) ?? false)
   const streamStartedAt = useChatStreamStore((st) => (topicId ? st.streams[topicId]?.startedAt : 0) ?? 0)
   const [selectedPreset, setSelectedPreset] = useState<IPromptPreset | null>(null)
   const [showSearch, setShowSearch] = useState(false)
@@ -600,10 +603,10 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
         // 会话级上下文上限（选择更小的窗口时后端按预算裁剪历史）
         contextWindow,
       }, signal),
-    ).finally(() => {
+    ).then((completed) => {
       queryClient.invalidateQueries({ queryKey: ['chatMessages', activeId] })
       notifyDraftTopic()
-      flushQueue(activeId)
+      if (completed) flushQueue(activeId)
     })
   }
 
@@ -620,6 +623,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
     const list = next(queueRef.current)
     queueRef.current = list
     setQueue(list)
+    savePendingQueue('chat', topicId || projectId || 'draft', list)
   }
 
   const enqueue = (content: string) => {
@@ -645,10 +649,10 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
         permissionMode,
         contextWindow,
       }, signal),
-    ).finally(() => {
+    ).then((completed) => {
       queryClient.invalidateQueries({ queryKey: ['chatMessages', id] })
       notifyDraftTopic()
-      flushQueue(id)
+      if (completed) flushQueue(id)
     })
   }
 
@@ -671,9 +675,10 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
     }
   }
 
-  const handleStop = useCallback(() => {
+  const handleStop = () => {
+    updateQueue(() => [])
     if (topicId) chatStreamControl.cancel(topicId)
-  }, [topicId])
+  }
 
   const forkMutation = useMutation({
     mutationFn: ({ topicId, branchMessageId }: { topicId: string; branchMessageId?: string }) =>
@@ -932,83 +937,9 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
                 {timeline.length === 0 && streamingThinking && (
                   <div className="mb-3"><AgentThoughtBlock text={streamingThinking} streaming={isStreaming} /></div>
                 )}
-                {/* Search results citations - show when web search was used */}
-                {(streamWebSearch || streamingSearchResults.length > 0) && streamingSearchResults.length > 0 && (
-                  <Card padded={false} className="mt-2 overflow-hidden">
-                    <div className="flex items-center gap-1 border-b border-gray-100 px-2.5 py-1.5 text-[11px] font-medium text-gray-400 dark:border-gray-800">
-                      <Search size={11} />
-                      {t('shared.sources')}
-                    </div>
-                    <div className="space-y-0.5 p-1.5">
-                      {streamingSearchResults.map((r, i) => (
-                        <a
-                          key={i}
-                          href={r.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-start gap-1.5 rounded-md px-2 py-1.5 text-[11px] transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/50"
-                        >
-                          <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded bg-blue-100 text-[9px] font-bold text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">{i + 1}</span>
-                          <span className="min-w-0 flex-1">
-                            <span className="block font-medium text-blue-600 dark:text-blue-400">{r.title}</span>
-                            <span className="block truncate text-gray-400">{r.url}</span>
-                          </span>
-                        </a>
-                      ))}
-                    </div>
-                  </Card>
-                )}
-                {/* Knowledge base results - show when knowledge base was used */}
-                {(streamKnowledgeBase || streamingKnowledgeResults.length > 0) && streamingKnowledgeResults.length > 0 && (
-                  <div className="mt-3 border-t border-gray-200 pt-2 dark:border-gray-700">
-                    <div className="mb-1.5 flex items-center gap-1 text-[11px] font-medium text-gray-400">
-                      <Database size={11} />
-                      {t('shared.knowledgeSources')}
-                    </div>
-                    <div className="space-y-1">
-                      {streamingKnowledgeResults.map((r, i) => (
-                        <div
-                          key={i}
-                          className="flex items-start gap-1.5 rounded-md px-2 py-1.5 text-[11px] transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/50"
-                        >
-                          <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded bg-amber-100 text-[9px] font-bold text-amber-600 dark:bg-amber-900/30 dark:text-amber-400">{i + 1}</span>
-                          <span className="min-w-0 flex-1">
-                            <span className="block font-medium text-amber-600 dark:text-amber-400">{r.title}</span>
-                            {r.contentSnippet && (
-                              <span className="block truncate text-gray-400">{r.contentSnippet.slice(0, 80)}{r.contentSnippet.length > 80 ? '...' : ''}</span>
-                            )}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {/* Memory results - show when memory was used */}
-                {(streamMemory || streamingMemoryResults.length > 0) && streamingMemoryResults.length > 0 && (
-                  <Card padded={false} className="mt-2 overflow-hidden">
-                    <div className="flex items-center gap-1 border-b border-gray-100 px-2.5 py-1.5 text-[11px] font-medium text-gray-400 dark:border-gray-800">
-                      <Atom size={11} />
-                      {t('shared.memorySources')}
-                    </div>
-                    <div className="space-y-0.5 p-1.5">
-                      {streamingMemoryResults.map((r, i) => (
-                        <div
-                          key={i}
-                          className="flex items-start gap-1.5 rounded-md px-2 py-1.5 text-[11px] transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/50"
-                        >
-                          <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded bg-teal-100 text-[9px] font-bold text-teal-600 dark:bg-teal-900/30 dark:text-teal-400">{i + 1}</span>
-                          <span className="min-w-0 flex-1">
-                            {r.category && <span className="mr-1 font-medium text-teal-600 dark:text-teal-400">[{r.category}]</span>}
-                            <span className="text-gray-600 dark:text-gray-300">{r.content}</span>
-                            {r.score != null && (
-                              <span className="ml-1 text-[10px] text-gray-400">({(r.score * 100).toFixed(0)}%)</span>
-                            )}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </Card>
-                )}
+                <RetrievalResultCard kind="web" results={streamingSearchResults} />
+                <RetrievalResultCard kind="knowledge" results={streamingKnowledgeResults.map(r => ({ title: r.title, snippet: r.contentSnippet }))} />
+                <RetrievalResultCard kind="memory" results={streamingMemoryResults} />
               </div>
           </div>
         )}

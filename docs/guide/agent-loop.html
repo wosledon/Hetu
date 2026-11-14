@@ -65,7 +65,7 @@
         <li><strong>进入循环</strong>（默认最多 15 轮）：每轮开头先 <code>DrainSteering()</code> 把「运行中引导」并入上下文，再按配置触发历史压缩，然后调用模型。</li>
         <li><strong>处理模型输出</strong>：正文与思考通过事件流实时推出；工具调用交给调用方的判定器决定执行还是请求审批。</li>
         <li><strong>回填结果</strong>：工具结果写回上下文，同时通过事件出口推给前端；每轮的正文/思考/工具/用量累加进本轮结果。</li>
-        <li><strong>收尾</strong>：达到迭代上限或没有更多工具调用时结束；调用方负责落库消息、写用量、补 <code>done</code> 帧。</li>
+        <li><strong>收尾</strong>：没有更多工具调用时结束；达到迭代上限则额外执行一次 <code>tools=none</code> 的进展总结并标记 <code>iteration_limit</code>。调用方负责落库消息、写用量、补 <code>done</code> 帧。</li>
       </ol>
 
       <h2>关键参数</h2>
@@ -73,7 +73,7 @@
         <thead><tr><th>参数</th><th>默认</th><th>说明</th></tr></thead>
         <tbody>
           <tr><td><code>MaxIterations</code></td><td>15</td><td>最大迭代轮数；传 ≤ 0 时回落默认 15，避免死循环</td></tr>
-          <tr><td><code>MaxToolCallsPerTurn</code></td><td>5</td><td>单轮工具调用上限；超限由系统提示约束而不是硬截断（保留模型的判断空间）</td></tr>
+          <tr><td><code>MaxToolCallsPerTurn</code></td><td>5</td><td>单轮工具调用硬上限；超限整批拒绝执行并返回明确错误</td></tr>
           <tr><td><code>CompressHistory</code></td><td>true</td><td>为 false 时跳过历史压缩（排查压缩引发的行为变化时用）</td></tr>
           <tr><td><code>EnableTools</code></td><td>true</td><td>关闭后不发工具 schema，纯对话模式</td></tr>
           <tr><td><code>CoreToolNames</code></td><td>null</td><td>给定时只暴露这些核心工具，其余按会话配置追加</td></tr>
@@ -84,7 +84,7 @@
       <ul>
         <li>注入点固定在<strong>每轮开头</strong>：不会在工具链执行到一半插话，避免上下文自相矛盾。</li>
         <li>注入文本带固定前缀 <code>【运行中引导，请立即结合它调整当前工作】</code>，模型能识别这是用户中途改的方向。</li>
-        <li>前端在流式过程中点「引导」时，指令先进 <code>AgentSteeringHub</code>，下一次迭代被取走；同时通过 <code>steering</code> 事件回显一条提示。</li>
+        <li>前端在流式过程中点「引导」时，指令先进 <code>AgentSteeringHub</code>，下一次迭代被取走；若正在等待 plan/question，会先解除等待再继续到下一轮。</li>
         <li>队列（queue）与引导的区别：队列是「本轮结束后再发」，引导是「当前这轮立刻调整」。</li>
       </ul>
 
@@ -92,7 +92,7 @@
       <div class="table-wrap"><table>
         <thead><tr><th>行为</th><th>实现</th></tr></thead>
         <tbody>
-          <tr><td>压缩范围</td><td>压缩边界停在「当前用户消息」之前：本次提问及其之后新产生的内容永不压缩，避免用户原话被摘要掉</td></tr>
+          <tr><td>压缩范围</td><td>历史压缩边界停在「当前用户消息」之前，避免用户原话被摘要；本轮新增工具输出另按当前轮预算做确定性截断，保留 ToolCallId 与最近结果</td></tr>
           <tr><td>去重</td><td>已压缩过的历史片段会记入 <code>compressedIndexes</code>，长会话多轮迭代不会对同一段反复压缩</td></tr>
           <tr><td>压缩方式</td><td>调用压缩管道的完整入口（允许 LLM 摘要，取决于管道模式与阈值）</td></tr>
           <tr><td>开销观测</td><td>首轮会单独估算系统提示与工具 schema 的字符开销并写日志，便于区分「提示太重」还是「历史太长」</td></tr>
@@ -112,7 +112,7 @@
         <tbody>
           <tr><td><code>IAgentLoopSink.OnEventAsync</code></td><td>结构化事件直通口：SSE 端原样写帧，非流式端可以忽略</td></tr>
           <tr><td><code>IAgentLoopSink.OnSteeringAsync</code></td><td>引导被接受时的事件回调</td></tr>
-          <tr><td><code>Hooks.AfterToolResultsAsync</code></td><td>工具结果落库 / 后处理挂钩（编码会话用它记录时间线）</td></tr>
+          <tr><td><code>Hooks.AfterToolResultAsync</code> / <code>AfterToolResultsAsync</code></td><td>单条结果立即落库，整批结果再做文件变更等后处理，避免后续交互等待拖住历史记录</td></tr>
           <tr><td>调用方职责</td><td>保存消息、写用量（<code>ILlmUsageRecorder</code>）、追加 <code>done</code> 帧；编码会话只把 <code>subagent</code> 终态帧（含内层时间线 <code>entries</code>）落库以便回放</td></tr>
         </tbody>
       </table></div>
@@ -121,7 +121,8 @@
       <ul>
         <li><strong>模型不可用</strong>：直接抛错，界面收到错误帧——不静默改用别的模型，避免用户以为在用自己的模型。</li>
         <li><strong>单个 MCP 服务器失败</strong>：跳过该服务器，其余工具照常。</li>
-        <li><strong>取消</strong>：<code>OperationCanceledException</code> 不吞，由调用方决定记「已取消」还是重新排队（后台任务里是重新排队）。</li>
+        <li><strong>取消</strong>：<code>OperationCanceledException</code> 不吞，已解析但尚未执行的工具不会继续执行；调用方决定记「已取消」还是重新排队。</li>
+        <li><strong>工具协议异常</strong>：支持跨 delta 的文本 <code>&lt;tool_call&gt;</code> 解析；截断、畸形参数或超过单轮数量上限的调用整批拒绝执行。无法完整识别的文本保留原文，但不执行。</li>
         <li><strong>压缩失败</strong>：压缩管道内部只降级不抛错（无 provider、未变短都返回原文）。</li>
       </ul>
 

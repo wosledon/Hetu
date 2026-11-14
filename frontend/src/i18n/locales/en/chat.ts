@@ -77,6 +77,7 @@ export default {
     workPlan: 'Work plan',
     allCompleted: ' · All completed',
     answering: 'Answering questions',
+    submitFailed: 'Submission failed. Try again; the agent is still waiting for your answer.',
     expandDrawer: 'Expand drawer',
     collapseDrawer: 'Collapse drawer',
   },

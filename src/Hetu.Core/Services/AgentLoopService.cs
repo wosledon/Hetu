@@ -29,6 +29,8 @@ public class AgentLoopResult
     public int FirstIterationCompressedChars { get; set; }
     /// <summary>是否被用户中断</summary>
     public bool Cancelled { get; set; }
+    /// <summary>达到迭代上限后已进行无工具收尾</summary>
+    public bool IterationLimitReached { get; set; }
     /// <summary>循环级错误信息（已通知 sink，可由调用方决定落库内容）</summary>
     public string? Error { get; set; }
 }
@@ -77,6 +79,12 @@ public class AgentLoopRequest
     public List<Guid> McpServerIds { get; set; } = new();
     public int MaxIterations { get; set; } = 15;
     public int MaxToolCallsPerTurn { get; set; } = 5;
+    /// <summary>当前用户轮次新增上下文（助手与工具消息）的字符预算</summary>
+    public int ActiveTurnBudgetChars { get; set; } = 60_000;
+    public string? ReasoningEffort { get; set; }
+    public int? ReasoningBudgetTokens { get; set; }
+    public int? MaxTokens { get; set; }
+    public double? Temperature { get; set; }
     public Dictionary<string, ToolApprovalMode> ToolApprovals { get; set; } = new();
     public string SessionId { get; set; } = "";
     public IAgentLoopSink? Sink { get; set; }
@@ -89,6 +97,8 @@ public class AgentLoopRequest
     /// 为空时走 SSE 会话等待用户回答。
     /// </summary>
     public Func<LlmToolCall, Task<string>>? QuestionHandler { get; set; }
+    /// <summary>后台场景的 plan 决策器；为空时走交互式 SSE 等待</summary>
+    public Func<LlmToolCall, Task<PlanDecision>>? PlanHandler { get; set; }
     /// <summary>逐次工具决策（权限模式 / 项目规则）。实时解析当前档位，会话中切换配置立即生效</summary>
     public Func<LlmToolCall, ToolApprovalMode, Task<WorkToolDecision>>? DecideToolCall { get; set; }
     /// <summary>工作项目作用域：非空时 work_* 工具在该项目目录（或 SSH 远端）内执行</summary>
@@ -143,6 +153,8 @@ public interface IAgentLoopHooks
     Task OnIterationAsync(int iteration, string content, string thinking, LlmUsage? usage) => Task.CompletedTask;
     /// <summary>工具执行前：可读取旧内容、打检查点</summary>
     Task BeforeToolCallsAsync(IReadOnlyList<LlmToolCall> toolCalls) => Task.CompletedTask;
+    /// <summary>单条工具结果产生后：可立即落库，避免后续交互等待阻塞整批持久化</summary>
+    Task AfterToolResultAsync(AgentToolExecution result) => Task.CompletedTask;
     /// <summary>工具执行后：可记录文件变更、落库工具结果</summary>
     Task AfterToolResultsAsync(IReadOnlyList<AgentToolExecution> results) => Task.CompletedTask;
 }
@@ -155,6 +167,10 @@ public interface IAgentLoopHooks
 public class AgentLoopService
 {
     private const int DefaultMaxIterations = 15;
+    private const int DefaultMaxToolCallsPerTurn = 5;
+    private const int DefaultActiveTurnBudgetChars = 60_000;
+    private const int MaxToolResultCharsForModel = 8_000;
+    private const int CompactedToolResultChars = 1_000;
 
     /// <summary>运行中引导的注入前缀：让模型知道这是执行期间的新指示，需立即结合调整</summary>
     private const string SteeringPrefix = "【运行中引导，请立即结合它调整当前工作】\n";
@@ -264,6 +280,10 @@ public class AgentLoopService
         {
             ModelId = "",
             Stream = true,
+            ReasoningEffort = request.ReasoningEffort,
+            ReasoningBudgetTokens = request.ReasoningBudgetTokens,
+            MaxTokens = request.MaxTokens,
+            Temperature = request.Temperature,
             ToolChoice = allToolNames.Count > 0 ? "auto" : "none",
         };
         RefreshDeclaredTools();
@@ -296,6 +316,7 @@ public class AgentLoopService
                 request.MaxToolCallsPerTurn);
         }
 
+        var endedWithToolCalls = false;
         try
         {
             // 4. Agent Loop
@@ -378,7 +399,10 @@ public class AgentLoopService
                     _logger.LogInformation("[Compression] 本轮未启用历史压缩（CompressHistory=false）");
                 }
 
-                var (content, thinking, pendingToolCalls, usage, streamCancelled) = await ProcessStreamAsync(provider, chatMessages, options, sink, ct);
+                CompactActiveTurn(chatMessages, historyCompressBoundary,
+                    request.ActiveTurnBudgetChars > 0 ? request.ActiveTurnBudgetChars : DefaultActiveTurnBudgetChars);
+
+                var (content, thinking, pendingToolCalls, usage, streamCancelled, finishReason) = await ProcessStreamAsync(provider, chatMessages, options, sink, ct);
 
                 _logger.LogInformation("[AgentLoop] iter={Iter} contentLen={ContentLen} thinkingLen={ThinkingLen} toolCalls={ToolCallCount}",
                     iter, content.Length, thinking?.Length ?? 0, pendingToolCalls?.Count ?? 0);
@@ -404,8 +428,41 @@ public class AgentLoopService
                 if (iterContent.Length > 0)
                     result.Timeline.Add(new AgentTimelineSegment { Kind = "text", Content = iterContent });
 
-                if (pendingToolCalls == null || pendingToolCalls.Count == 0 || !request.EnableTools || allToolNames.Count == 0)
+                if (streamCancelled || ct.IsCancellationRequested)
                     break;
+
+                if (finishReason == "invalid_tool_call")
+                {
+                    result.Error = _localizer.T("toolExec.invalidArguments", "tool_call");
+                    await sink.OnErrorAsync(result.Error);
+                    break;
+                }
+                if (finishReason is "length" or "max_tokens")
+                {
+                    result.Error = _localizer.T("toolExec.truncated");
+                    await sink.OnErrorAsync(result.Error);
+                    break;
+                }
+                if (pendingToolCalls is { Count: > 0 } && !ValidateToolCalls(pendingToolCalls))
+                {
+                    result.Error = _localizer.T("toolExec.invalidArguments", pendingToolCalls[0].Name);
+                    await sink.OnErrorAsync(result.Error);
+                    break;
+                }
+                var maxToolCalls = request.MaxToolCallsPerTurn > 0 ? request.MaxToolCallsPerTurn : DefaultMaxToolCallsPerTurn;
+                if (pendingToolCalls is { Count: > 0 } && pendingToolCalls.Count > maxToolCalls)
+                {
+                    result.Error = _localizer.T("toolExec.tooManyCalls", pendingToolCalls.Count, maxToolCalls);
+                    await sink.OnErrorAsync(result.Error);
+                    break;
+                }
+
+                if (pendingToolCalls == null || pendingToolCalls.Count == 0 || !request.EnableTools || allToolNames.Count == 0)
+                {
+                    endedWithToolCalls = false;
+                    break;
+                }
+                endedWithToolCalls = true;
 
                 chatMessages.Add(new LlmChatMessage
                 {
@@ -428,7 +485,20 @@ public class AgentLoopService
                     ct,
                     decideToolCall: request.DecideToolCall,
                     workScope: request.WorkScope,
-                    questionHandler: request.QuestionHandler);
+                    questionHandler: request.QuestionHandler,
+                    planHandler: request.PlanHandler,
+                    onToolResult: async toolResult =>
+                    {
+                        if (hooks == null) return;
+                        var call = pendingToolCalls.FirstOrDefault(tc => tc.Id == toolResult.toolCallId);
+                        if (call == null) return;
+                        await hooks.AfterToolResultAsync(new AgentToolExecution
+                        {
+                            Call = call,
+                            Result = toolResult.content,
+                            IsError = toolResult.isError || toolResult.content.StartsWith("Error:", StringComparison.OrdinalIgnoreCase),
+                        });
+                    });
 
                 var executions = new List<AgentToolExecution>(toolResults.Count);
                 foreach (var (toolCallId, toolContent, resultIsError) in toolResults)
@@ -459,7 +529,12 @@ public class AgentLoopService
                     }
 
                     await sink.OnToolResultAsync(toolCallId, toolContent, isError);
-                    chatMessages.Add(new LlmChatMessage { Role = "tool", ToolCallId = toolCallId, Content = toolContent });
+                    chatMessages.Add(new LlmChatMessage
+                    {
+                        Role = "tool",
+                        ToolCallId = toolCallId,
+                        Content = CompactToolResult(toolContent, MaxToolResultCharsForModel),
+                    });
                 }
 
                 // load_tools：把本轮加载的工具并入下一轮声明（schema 下一轮随请求下发）
@@ -477,6 +552,44 @@ public class AgentLoopService
                 }
 
                 await (hooks?.AfterToolResultsAsync(executions) ?? Task.CompletedTask);
+            }
+
+            if (endedWithToolCalls && !result.Cancelled && result.Error == null)
+            {
+                result.IterationLimitReached = true;
+                var notice = _localizer.T("agent.iterationLimitNotice");
+                await sink.OnEventAsync(new { type = "notice", kind = "iteration_limit", text = notice });
+                chatMessages.Add(new LlmChatMessage
+                {
+                    Role = "user",
+                    Content = _localizer.T("agent.iterationLimitPrompt"),
+                });
+                options.Tools = null;
+                options.ToolChoice = "none";
+                var (content, thinking, _, usage, streamCancelled, finishReason) = await ProcessStreamAsync(provider, chatMessages, options, sink, ct);
+                AccumulateUsage(result.Usage, usage);
+                if (usage != null) await sink.OnUsageAsync(result.Usage);
+
+                var iterContent = content.ToString();
+                var iterThinking = thinking?.ToString() ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(iterContent) && !streamCancelled)
+                {
+                    iterContent = notice;
+                    await sink.OnContentAsync(iterContent);
+                }
+                result.Content += iterContent;
+                if (iterThinking.Length > 0) result.Thinking += iterThinking;
+                if (iterThinking.Length > 0)
+                    result.Timeline.Add(new AgentTimelineSegment { Kind = "thought", Content = iterThinking });
+                if (iterContent.Length > 0)
+                    result.Timeline.Add(new AgentTimelineSegment { Kind = "text", Content = iterContent });
+                if (streamCancelled) result.Cancelled = true;
+                if (finishReason is "length" or "max_tokens")
+                {
+                    result.Error = _localizer.T("toolExec.truncated");
+                    await sink.OnErrorAsync(result.Error);
+                }
+                await (hooks?.OnIterationAsync(result.Iterations, iterContent, iterThinking, usage) ?? Task.CompletedTask);
             }
         }
         catch (OperationCanceledException)
@@ -499,6 +612,34 @@ public class AgentLoopService
         return result;
     }
 
+    private void CompactActiveTurn(List<LlmChatMessage> messages, int boundary, int budgetChars)
+    {
+        var total = messages.Skip(boundary + 1).Sum(m => (long)(m.Content?.Length ?? 0));
+        if (total <= budgetChars) return;
+
+        var toolIndexes = messages.Select((message, index) => (message, index))
+            .Where(x => x.index > boundary && x.message.Role == "tool")
+            .Select(x => x.index)
+            .ToList();
+        foreach (var index in toolIndexes.Take(Math.Max(0, toolIndexes.Count - 2)))
+        {
+            var message = messages[index];
+            if (message.Content.StartsWith("[tool-output-compacted]", StringComparison.Ordinal)) continue;
+            var before = message.Content.Length;
+            message.Content = CompactToolResult(message.Content, CompactedToolResultChars);
+            total -= before - message.Content.Length;
+            if (total <= budgetChars) break;
+        }
+    }
+
+    private static string CompactToolResult(string content, int targetChars)
+    {
+        if (content.Length <= targetChars) return content;
+        var headLength = Math.Max(1, targetChars * 2 / 3);
+        var tailLength = Math.Max(1, targetChars - headLength);
+        return $"[tool-output-compacted original_chars={content.Length}]\n{content[..headLength]}\n...\n{content[^tailLength..]}";
+    }
+
     /// <summary>累计用量（Provider 未上报时保持原值）</summary>
     private static void AccumulateUsage(LlmUsage total, LlmUsage? delta)
     {
@@ -509,8 +650,31 @@ public class AgentLoopService
         total.CachedTokens += delta.CachedTokens;
     }
 
+    private static bool ValidateToolCalls(List<LlmToolCall> calls)
+    {
+        foreach (var call in calls)
+        {
+            if (string.IsNullOrWhiteSpace(call.Name)) return false;
+            if (string.IsNullOrWhiteSpace(call.Arguments))
+            {
+                call.Arguments = "{}";
+                continue;
+            }
+            try
+            {
+                using var doc = JsonDocument.Parse(call.Arguments);
+                if (doc.RootElement.ValueKind != JsonValueKind.Object) return false;
+            }
+            catch (JsonException)
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
     /// <summary>消费 LLM 流，累积 content/thinking/toolcalls/usage，转发到 sink。</summary>
-    private async Task<(StringBuilder content, StringBuilder? thinking, List<LlmToolCall>? toolCalls, LlmUsage? usage, bool cancelled)> ProcessStreamAsync(
+    private async Task<(StringBuilder content, StringBuilder? thinking, List<LlmToolCall>? toolCalls, LlmUsage? usage, bool cancelled, string? finishReason)> ProcessStreamAsync(
         ILLMProvider provider,
         List<LlmChatMessage> chatMessages,
         ChatOptions options,
@@ -522,6 +686,7 @@ public class AgentLoopService
         List<LlmToolCall>? pendingToolCalls = null;
         LlmUsage? usage = null;
         var cancelled = false;
+        string? finishReason = null;
 
         var parser = new LlmStreamParser();
 
@@ -542,10 +707,18 @@ public class AgentLoopService
                             await sink.OnThinkingAsync(chunk.Text);
                             break;
                         case LlmStreamEventType.ToolCalls:
-                            pendingToolCalls = chunk.ToolCalls;
+                            if (chunk.ToolCalls is { Count: > 0 })
+                            {
+                                pendingToolCalls ??= [];
+                                pendingToolCalls.AddRange(chunk.ToolCalls);
+                            }
                             break;
                         case LlmStreamEventType.Usage:
                             usage = chunk.Usage;
+                            break;
+                        case LlmStreamEventType.Finish:
+                            if (finishReason is not ("invalid_tool_call" or "length" or "max_tokens"))
+                                finishReason = chunk.Reason;
                             break;
                     }
                 }
@@ -580,7 +753,7 @@ public class AgentLoopService
                 pendingToolCalls.Count, string.Join(",", pendingToolCalls.Select(t => t.Name)));
         }
 
-        return (contentSb, thinkingSb, pendingToolCalls, usage, cancelled);
+        return (contentSb, thinkingSb, pendingToolCalls, usage, cancelled, finishReason);
     }
 
     /// <summary>

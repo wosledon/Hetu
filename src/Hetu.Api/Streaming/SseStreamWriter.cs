@@ -235,7 +235,11 @@ public static class ChatStreamProcessor
                         await EmitChunk("thinking", chunk.Text);
                         break;
                     case LlmStreamEventType.ToolCalls:
-                        pendingToolCalls = chunk.ToolCalls;
+                        if (chunk.ToolCalls is { Count: > 0 })
+                        {
+                            pendingToolCalls ??= [];
+                            pendingToolCalls.AddRange(chunk.ToolCalls);
+                        }
                         break;
                     case LlmStreamEventType.Usage:
                         usage = chunk.Usage;

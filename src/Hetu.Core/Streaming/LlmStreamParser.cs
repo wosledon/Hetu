@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json;
 using Hetu.Core.Interfaces;
 using Hetu.Core.Utilities;
@@ -49,9 +50,13 @@ public sealed class LlmStreamParser
 {
     private const string OpenTag = "<thinking>";
     private const string CloseTag = "</thinking>";
+    private const string ToolCallOpenTag = "<tool_call>";
+    private const string ToolCallCloseTag = "</tool_call>";
 
     private bool _inThinking;
+    private bool _inToolCall;
     private string _pendingFragment = "";
+    private readonly StringBuilder _toolCallJson = new();
 
     /// <summary>解析一个 delta，返回 0..n 个归一化事件。</summary>
     public IReadOnlyList<LlmStreamChunk> Parse(string delta)
@@ -66,6 +71,14 @@ public sealed class LlmStreamParser
     /// <summary>流结束时调用，释放仍挂起的半截标签片段。</summary>
     public IReadOnlyList<LlmStreamChunk> Flush()
     {
+        if (_inToolCall)
+        {
+            var incomplete = $"{ToolCallOpenTag}{_toolCallJson}{_pendingFragment}";
+            _inToolCall = false;
+            _toolCallJson.Clear();
+            _pendingFragment = "";
+            return new[] { MakeText(LlmStreamEventType.Content, incomplete) };
+        }
         if (_pendingFragment.Length == 0) return Array.Empty<LlmStreamChunk>();
 
         var fragment = _pendingFragment;
@@ -74,7 +87,7 @@ public sealed class LlmStreamParser
     }
 
     /// <summary>解析 Provider 的结构化 JSON 帧；非结构化返回 false。</summary>
-    private static bool TryParseStructured(string delta, out IReadOnlyList<LlmStreamChunk> chunks)
+    private bool TryParseStructured(string delta, out IReadOnlyList<LlmStreamChunk> chunks)
     {
         chunks = Array.Empty<LlmStreamChunk>();
         try
@@ -93,17 +106,29 @@ public sealed class LlmStreamParser
             {
                 case "tool_calls":
                 {
-                    var calls = root.TryGetProperty("toolCalls", out var tcEl)
-                        ? JsonSerializer.Deserialize<List<LlmToolCall>>(tcEl.GetRawText(), JsonDefaults.CamelCase)
-                        : null;
-                    chunks = new[]
+                    var calls = new List<LlmToolCall>();
+                    var valid = TryGetProperty(root, "toolCalls", out var tcEl) && tcEl.ValueKind == JsonValueKind.Array;
+                    if (valid)
                     {
-                        new LlmStreamChunk
+                        foreach (var element in tcEl.EnumerateArray())
                         {
-                            Type = LlmStreamEventType.ToolCalls,
-                            ToolCalls = calls is { Count: > 0 } ? calls : null,
-                        },
-                    };
+                            if (TryParseTextualToolCall(element, calls)) continue;
+                            valid = false;
+                            break;
+                        }
+                    }
+                    chunks = valid && calls.Count > 0
+                        ? new[] { new LlmStreamChunk { Type = LlmStreamEventType.ToolCalls, ToolCalls = calls } }
+                        : new[] { new LlmStreamChunk { Type = LlmStreamEventType.Finish, Reason = "invalid_tool_call" } };
+                    return true;
+                }
+                case "tool_call":
+                {
+                    var element = TryGetProperty(root, "toolCall", out var single) ? single : root;
+                    var calls = new List<LlmToolCall>();
+                    chunks = TryParseTextualToolCall(element, calls)
+                        ? new[] { new LlmStreamChunk { Type = LlmStreamEventType.ToolCalls, ToolCalls = calls } }
+                        : new[] { new LlmStreamChunk { Type = LlmStreamEventType.Finish, Reason = "invalid_tool_call" } };
                     return true;
                 }
                 case "usage":
@@ -127,10 +152,9 @@ public sealed class LlmStreamParser
                     var text = root.TryGetProperty("text", out var textEl) && textEl.ValueKind == JsonValueKind.String
                         ? textEl.GetString() ?? ""
                         : "";
-                    chunks = new[]
-                    {
-                        MakeText(type == "thinking" ? LlmStreamEventType.Thinking : LlmStreamEventType.Content, text),
-                    };
+                    chunks = type == "thinking"
+                        ? new[] { MakeText(LlmStreamEventType.Thinking, text) }
+                        : ParseTagged(text);
                     return true;
                 }
             }
@@ -141,7 +165,7 @@ public sealed class LlmStreamParser
         }
     }
 
-    /// <summary>纯文本 delta 的 thinking 标签切分。</summary>
+    /// <summary>纯文本 delta 的 thinking / tool_call 标签切分。</summary>
     private IReadOnlyList<LlmStreamChunk> ParseTagged(string delta)
     {
         var result = new List<LlmStreamChunk>();
@@ -150,39 +174,76 @@ public sealed class LlmStreamParser
 
         while (raw.Length > 0)
         {
+            if (_inToolCall)
+            {
+                var closeIdx = raw.IndexOf(ToolCallCloseTag, StringComparison.OrdinalIgnoreCase);
+                if (closeIdx < 0)
+                {
+                    var held = PartialTagSuffixLength(raw, ToolCallCloseTag);
+                    _toolCallJson.Append(raw[..(raw.Length - held)]);
+                    _pendingFragment = raw[(raw.Length - held)..];
+                    return result;
+                }
+
+                _toolCallJson.Append(raw[..closeIdx]);
+                var json = _toolCallJson.ToString();
+                _toolCallJson.Clear();
+                _inToolCall = false;
+                if (TryParseTextualToolCalls(json, out var calls))
+                {
+                    result.Add(new LlmStreamChunk { Type = LlmStreamEventType.ToolCalls, ToolCalls = calls });
+                }
+                else
+                {
+                    result.Add(MakeText(LlmStreamEventType.Content, $"{ToolCallOpenTag}{json}{ToolCallCloseTag}"));
+                }
+                raw = raw[(closeIdx + ToolCallCloseTag.Length)..];
+                continue;
+            }
+
             if (_inThinking)
             {
                 var closeIdx = raw.IndexOf(CloseTag, StringComparison.OrdinalIgnoreCase);
                 if (closeIdx < 0)
                 {
-                    HoldBackAndEmit(result, raw, CloseTag, LlmStreamEventType.Thinking);
+                    HoldBackAndEmit(result, raw, LlmStreamEventType.Thinking, CloseTag);
                     return result;
                 }
                 if (closeIdx > 0) result.Add(MakeText(LlmStreamEventType.Thinking, raw[..closeIdx]));
                 _inThinking = false;
                 raw = raw[(closeIdx + CloseTag.Length)..];
+                continue;
             }
-            else
+
+            var thinkingIdx = raw.IndexOf(OpenTag, StringComparison.OrdinalIgnoreCase);
+            var toolCallIdx = raw.IndexOf(ToolCallOpenTag, StringComparison.OrdinalIgnoreCase);
+            if (thinkingIdx < 0 && toolCallIdx < 0)
             {
-                var openIdx = raw.IndexOf(OpenTag, StringComparison.OrdinalIgnoreCase);
-                if (openIdx < 0)
-                {
-                    HoldBackAndEmit(result, raw, OpenTag, LlmStreamEventType.Content);
-                    return result;
-                }
-                if (openIdx > 0) result.Add(MakeText(LlmStreamEventType.Content, raw[..openIdx]));
-                _inThinking = true;
-                raw = raw[(openIdx + OpenTag.Length)..];
+                HoldBackAndEmit(result, raw, LlmStreamEventType.Content, OpenTag, ToolCallOpenTag);
+                return result;
             }
+
+            if (toolCallIdx >= 0 && (thinkingIdx < 0 || toolCallIdx < thinkingIdx))
+            {
+                if (toolCallIdx > 0) result.Add(MakeText(LlmStreamEventType.Content, raw[..toolCallIdx]));
+                _inToolCall = true;
+                _toolCallJson.Clear();
+                raw = raw[(toolCallIdx + ToolCallOpenTag.Length)..];
+                continue;
+            }
+
+            if (thinkingIdx > 0) result.Add(MakeText(LlmStreamEventType.Content, raw[..thinkingIdx]));
+            _inThinking = true;
+            raw = raw[(thinkingIdx + OpenTag.Length)..];
         }
 
         return result;
     }
 
     /// <summary>发出不可能再成为标签前缀的部分，其余挂起到下一个 delta。</summary>
-    private void HoldBackAndEmit(List<LlmStreamChunk> result, string raw, string tag, LlmStreamEventType type)
+    private void HoldBackAndEmit(List<LlmStreamChunk> result, string raw, LlmStreamEventType type, params string[] tags)
     {
-        var held = PartialTagSuffixLength(raw, tag);
+        var held = tags.Max(tag => PartialTagSuffixLength(raw, tag));
         _pendingFragment = raw[(raw.Length - held)..];
         var emitLength = raw.Length - held;
         if (emitLength > 0) result.Add(MakeText(type, raw[..emitLength]));
@@ -197,6 +258,96 @@ public sealed class LlmStreamParser
                 return k;
         }
         return 0;
+    }
+
+    private static bool TryParseTextualToolCalls(string json, out List<LlmToolCall> calls)
+    {
+        calls = [];
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+            if (root.ValueKind != JsonValueKind.Object) return false;
+            if (TryGetProperty(root, "tool_call", out var nested) && nested.ValueKind == JsonValueKind.Object)
+                root = nested;
+
+            if (TryGetProperty(root, "tool_calls", out var array) && array.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var element in array.EnumerateArray())
+                {
+                    if (!TryParseTextualToolCall(element, calls)) return false;
+                }
+            }
+            else if (!TryParseTextualToolCall(root, calls))
+            {
+                return false;
+            }
+            return calls.Count > 0;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+    }
+
+    private static bool TryParseTextualToolCall(JsonElement element, List<LlmToolCall> calls)
+    {
+        if (element.ValueKind != JsonValueKind.Object) return false;
+        var id = TryGetProperty(element, "id", out var idElement) && idElement.ValueKind == JsonValueKind.String
+            ? idElement.GetString()
+            : null;
+        var source = TryGetProperty(element, "function", out var function) && function.ValueKind == JsonValueKind.Object
+            ? function
+            : element;
+        if (!TryGetProperty(source, "name", out var nameElement)
+            || nameElement.ValueKind != JsonValueKind.String
+            || string.IsNullOrWhiteSpace(nameElement.GetString())) return false;
+
+        var arguments = "{}";
+        if (TryGetProperty(source, "arguments", out var args) || TryGetProperty(source, "parameters", out args))
+        {
+            if (args.ValueKind == JsonValueKind.Object)
+            {
+                arguments = args.GetRawText();
+            }
+            else if (args.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(args.GetString()))
+            {
+                arguments = args.GetString()!;
+                try
+                {
+                    using var argsDoc = JsonDocument.Parse(arguments);
+                    if (argsDoc.RootElement.ValueKind != JsonValueKind.Object) return false;
+                }
+                catch (JsonException)
+                {
+                    return false;
+                }
+            }
+            else if (args.ValueKind != JsonValueKind.Null)
+            {
+                return false;
+            }
+        }
+
+        calls.Add(new LlmToolCall
+        {
+            Id = string.IsNullOrWhiteSpace(id) ? $"text_call_{Guid.NewGuid():N}" : id,
+            Name = nameElement.GetString()!,
+            Arguments = arguments,
+        });
+        return true;
+    }
+
+    private static bool TryGetProperty(JsonElement element, string name, out JsonElement value)
+    {
+        foreach (var property in element.EnumerateObject())
+        {
+            if (!string.Equals(property.Name, name, StringComparison.OrdinalIgnoreCase)) continue;
+            value = property.Value;
+            return true;
+        }
+        value = default;
+        return false;
     }
 
     private static LlmStreamChunk MakeText(LlmStreamEventType type, string text) =>

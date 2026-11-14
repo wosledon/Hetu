@@ -49,9 +49,14 @@ public static class InteractiveTools
 public class SessionPendingState
 {
     public ConcurrentDictionary<string, TaskCompletionSource<string>> Questions = new();
+    public ConcurrentDictionary<string, string> QuestionPayloads = new();
     public ConcurrentDictionary<string, TaskCompletionSource<bool>> Approvals = new();
     public ConcurrentDictionary<string, TaskCompletionSource<PlanDecision>> Plans = new();
+    public ConcurrentDictionary<string, string> PlanPayloads = new();
 }
+
+/// <summary>后端仍在等待的交互事件，供刷新后的前端直接恢复</summary>
+public record PendingInteraction(string ToolCallId, string Type, string Data);
 
 /// <summary>用户对计划工具的决策：批准 / 驳回（可附修改意见）。</summary>
 public record PlanDecision(bool Approved, string Feedback)
@@ -85,12 +90,21 @@ public class ToolExecutionService
         _localizer = localizer;
     }
 
+    public IReadOnlyList<PendingInteraction> GetPendingInteractions(string sessionId)
+    {
+        if (!_sessions.TryGet(sessionId, out var state)) return [];
+        return state.QuestionPayloads.Select(p => new PendingInteraction(p.Key, "question", p.Value))
+            .Concat(state.PlanPayloads.Select(p => new PendingInteraction(p.Key, "plan", p.Value)))
+            .ToList();
+    }
+
     /// <summary>Submit an answer to a pending ask_question in the given session.</summary>
     public bool TrySetAnswer(string sessionId, string toolCallId, string answer)
     {
         if (_sessions.TryGet(sessionId, out var state)
             && state.Questions.TryRemove(toolCallId, out var tcs))
         {
+            state.QuestionPayloads.TryRemove(toolCallId, out _);
             tcs.TrySetResult(answer);
             return true;
         }
@@ -115,10 +129,32 @@ public class ToolExecutionService
         if (_sessions.TryGet(sessionId, out var state)
             && state.Plans.TryRemove(toolCallId, out var tcs))
         {
+            state.PlanPayloads.TryRemove(toolCallId, out _);
             tcs.TrySetResult(new PlanDecision(approved, feedback));
             return true;
         }
         return false;
+    }
+
+    /// <summary>运行中引导到达时解除 plan/question 等待，让循环到下一轮接收新指示；审批仍必须由用户决定</summary>
+    public int ResolvePendingInteractions(string sessionId)
+    {
+        if (!_sessions.TryGet(sessionId, out var state)) return 0;
+        var resolved = 0;
+        var guidance = _localizer.T("toolExec.steered");
+        foreach (var id in state.Questions.Keys.ToList())
+        {
+            if (!state.Questions.TryRemove(id, out var tcs) || !tcs.TrySetResult(guidance)) continue;
+            state.QuestionPayloads.TryRemove(id, out _);
+            resolved++;
+        }
+        foreach (var id in state.Plans.Keys.ToList())
+        {
+            if (!state.Plans.TryRemove(id, out var tcs) || !tcs.TrySetResult(new PlanDecision(false, guidance))) continue;
+            state.PlanPayloads.TryRemove(id, out _);
+            resolved++;
+        }
+        return resolved;
     }
 
     /// <summary>
@@ -163,7 +199,9 @@ public class ToolExecutionService
         CancellationToken cancellationToken,
         Func<LlmToolCall, ToolApprovalMode, Task<WorkToolDecision>>? decideToolCall = null,
         WorkToolScope? workScope = null,
-        Func<LlmToolCall, Task<string>>? questionHandler = null)
+        Func<LlmToolCall, Task<string>>? questionHandler = null,
+        Func<LlmToolCall, Task<PlanDecision>>? planHandler = null,
+        Func<(string toolCallId, string content, bool isError), Task>? onToolResult = null)
     {
         var results = new List<(string toolCallId, string content, bool isError)>();
         var state = _sessions.GetOrCreate(sessionId);
@@ -188,6 +226,7 @@ public class ToolExecutionService
 
         foreach (var toolCall in toolCalls)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             bool isSilentTool = InteractiveTools.IsInteractive(toolCall.Name);
 
             _logger.LogInformation("[ToolExec] writeJsonAsync tool_call id={Id} name={Name} session={SessionId}", toolCall.Id, toolCall.Name, sessionId);
@@ -229,6 +268,7 @@ public class ToolExecutionService
                         hidden = isSilentTool
                     });
                     results.Add((toolCall.Id, denyMessage, true));
+                    if (onToolResult != null) await onToolResult(results[^1]);
                     continue;
                 }
                 approval = explicitOverride ?? decision.Mode;
@@ -243,7 +283,7 @@ public class ToolExecutionService
             }
             else if (executor != null)
             {
-                (resultContent, isError) = await ExecuteSingleToolAsync(state, toolCall, executor, sessionTodos, writeJsonAsync, cancellationToken, questionHandler);
+                (resultContent, isError) = await ExecuteSingleToolAsync(state, toolCall, executor, sessionTodos, writeJsonAsync, cancellationToken, questionHandler, planHandler);
             }
             else
             {
@@ -263,6 +303,7 @@ public class ToolExecutionService
             });
 
             results.Add((toolCall.Id, resultContent, isError));
+            if (onToolResult != null) await onToolResult(results[^1]);
         }
 
         return results;
@@ -276,10 +317,9 @@ public class ToolExecutionService
         Func<object, Task> writeJsonAsync,
         CancellationToken ct)
     {
-        await writeJsonAsync(new { type = "approval_request", id = toolCall.Id, name = toolCall.Name, arguments = toolCall.Arguments });
-
         var approvalTcs = new TaskCompletionSource<bool>();
         state.Approvals[toolCall.Id] = approvalTcs;
+        await writeJsonAsync(new { type = "approval_request", id = toolCall.Id, name = toolCall.Name, arguments = toolCall.Arguments });
 
         bool approved;
         try
@@ -311,7 +351,8 @@ public class ToolExecutionService
         List<SessionTodo> sessionTodos,
         Func<object, Task> writeJsonAsync,
         CancellationToken ct,
-        Func<LlmToolCall, Task<string>>? questionHandler = null)
+        Func<LlmToolCall, Task<string>>? questionHandler = null,
+        Func<LlmToolCall, Task<PlanDecision>>? planHandler = null)
     {
         // 提问处理器的裁决异常（如后台任务阻塞等待用户回答）必须中断执行，
         // 不能被下面的通用 catch 降级为一条工具错误结果
@@ -327,10 +368,14 @@ public class ToolExecutionService
                 return await HandleTodoAsync(toolCall, sessionTodos, writeJsonAsync, ct);
 
             if (toolCall.Name == InteractiveTools.Plan)
-                return await HandlePlanAsync(state, toolCall, writeJsonAsync, ct);
+                return await HandlePlanAsync(state, toolCall, writeJsonAsync, ct, planHandler);
 
             var result = await executor.ExecuteAsync(toolCall.Arguments, ct);
             return (result.Content, result.IsError);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
         }
         catch (Exception ex)
         {
@@ -346,7 +391,6 @@ public class ToolExecutionService
         Func<LlmToolCall, Task<string>>? questionHandler = null)
     {
         _logger.LogInformation("[ToolExec] ask_question pending toolCallId={ToolCallId}", toolCall.Id);
-        await writeJsonAsync(new { type = "question", toolCallId = toolCall.Id, data = toolCall.Arguments });
 
         // 后台执行（无人可通过 SSE 应答）时由调用方裁决，例如直接中断执行转人工
         if (questionHandler != null)
@@ -354,6 +398,8 @@ public class ToolExecutionService
 
         var tcs = new TaskCompletionSource<string>();
         state.Questions[toolCall.Id] = tcs;
+        state.QuestionPayloads[toolCall.Id] = toolCall.Arguments;
+        await writeJsonAsync(new { type = "question", toolCallId = toolCall.Id, data = toolCall.Arguments });
 
         try
         {
@@ -366,6 +412,7 @@ public class ToolExecutionService
         }
         finally
         {
+            state.QuestionPayloads.TryRemove(toolCall.Id, out _);
             state.Questions.TryRemove(toolCall.Id, out _);
         }
     }
@@ -374,13 +421,21 @@ public class ToolExecutionService
         SessionPendingState state,
         LlmToolCall toolCall,
         Func<object, Task> writeJsonAsync,
-        CancellationToken ct)
+        CancellationToken ct,
+        Func<LlmToolCall, Task<PlanDecision>>? planHandler = null)
     {
         _logger.LogInformation("[ToolExec] plan pending toolCallId={ToolCallId}", toolCall.Id);
-        await writeJsonAsync(new { type = "plan", toolCallId = toolCall.Id, data = toolCall.Arguments });
+        if (planHandler != null)
+        {
+            await writeJsonAsync(new { type = "plan", toolCallId = toolCall.Id, data = toolCall.Arguments });
+            var backgroundDecision = await planHandler(toolCall);
+            return (backgroundDecision.ToToolResult(_localizer), false);
+        }
 
         var tcs = new TaskCompletionSource<PlanDecision>();
         state.Plans[toolCall.Id] = tcs;
+        state.PlanPayloads[toolCall.Id] = toolCall.Arguments;
+        await writeJsonAsync(new { type = "plan", toolCallId = toolCall.Id, data = toolCall.Arguments });
 
         try
         {
@@ -393,6 +448,7 @@ public class ToolExecutionService
         }
         finally
         {
+            state.PlanPayloads.TryRemove(toolCall.Id, out _);
             state.Plans.TryRemove(toolCall.Id, out _);
         }
     }
@@ -427,7 +483,7 @@ public class ToolExecutionService
             if (string.IsNullOrEmpty(todoId)) todoId = $"step-{sessionTodos.Count + 1}";
             if (string.IsNullOrEmpty(todoStatus)) todoStatus = "not-started";
             if (!sessionTodos.Any(t => t.Id == todoId))
-                sessionTodos.Add(new SessionTodo { Id = todoId, Title = todoTitle, Status = todoStatus });
+                sessionTodos.Add(new SessionTodo { Id = todoId, Title = todoTitle, Description = todoDescription, Status = todoStatus });
         }
         else if (todoAction == "update" || todoAction == "complete")
         {
@@ -436,14 +492,16 @@ public class ToolExecutionService
                 : null;
             if (existing == null && !string.IsNullOrEmpty(todoTitle))
                 existing = sessionTodos.FirstOrDefault(t => string.Equals(t.Title, todoTitle, StringComparison.OrdinalIgnoreCase));
+            if (existing == null && (!string.IsNullOrEmpty(todoId) || !string.IsNullOrEmpty(todoTitle)))
+                return (_localizer.T("toolExec.todoNotFound", !string.IsNullOrEmpty(todoId) ? todoId : todoTitle), true);
             if (existing == null)
                 existing = sessionTodos.FirstOrDefault(t => t.Status != "completed");
 
             if (existing != null)
             {
-                existing.Status = todoAction == "complete" ? "completed" : todoStatus;
-                if (existing.Status == "completed" && string.IsNullOrEmpty(todoStatus))
-                    todoStatus = "completed";
+                existing.Status = todoAction == "complete" ? "completed" : string.IsNullOrEmpty(todoStatus) ? "in-progress" : todoStatus;
+                if (!string.IsNullOrEmpty(todoDescription)) existing.Description = todoDescription;
+                todoStatus = existing.Status;
                 todoId = existing.Id;
             }
         }
@@ -458,7 +516,7 @@ public class ToolExecutionService
                 title = todoTitle,
                 description = todoDescription,
                 status = todoStatus,
-                todos = sessionTodos.Select(t => new { t.Id, t.Title, t.Status }).ToList()
+                todos = sessionTodos.Select(t => new { t.Id, t.Title, t.Description, t.Status }).ToList()
             }
         });
 
@@ -499,5 +557,6 @@ public class SessionTodo
 {
     public string Id { get; set; } = "";
     public string Title { get; set; } = "";
+    public string Description { get; set; } = "";
     public string Status { get; set; } = "not-started";
 }

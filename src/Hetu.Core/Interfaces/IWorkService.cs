@@ -32,7 +32,7 @@ public interface IWorkSessionService
     Task<List<WorkFileChangeDto>> GetFileChangesAsync(Guid sessionId, CancellationToken cancellationToken = default);
 
     /// <summary>追加消息；传入 <paramref name="usage"/> 时同时记录本条 Token 消耗并累加到会话统计</summary>
-    Task<ApiResponse<WorkMessageDto>> AddMessageAsync(Guid sessionId, string role, string content, string type = "text", string? metadata = null, Guid? modelId = null, WorkMessageUsage? usage = null, CancellationToken cancellationToken = default);
+    Task<ApiResponse<WorkMessageDto>> AddMessageAsync(Guid sessionId, string role, string content, string type = "text", string? metadata = null, Guid? modelId = null, WorkMessageUsage? usage = null, CancellationToken cancellationToken = default, bool countAsTurn = true);
 
     /// <summary>只累加到会话统计，不写消息：用于消息上只记「首次请求上下文规模」时补齐整轮差额</summary>
     Task AccumulateUsageAsync(Guid sessionId, WorkMessageUsage usage, CancellationToken cancellationToken = default);

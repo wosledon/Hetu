@@ -48,11 +48,10 @@ export const workStreamRuns = {
 
   /**
    * 挂载到后端在跑的运行上（GET /stream，不发新一轮）。
-   * 只用来守住运行结束的时刻——过程帧不进本地时间线：那些思考/工具调用同样落了库，
-   * 由消息轮询与历史渲染展示，重放一遍反而会和落库消息重复。
-   * 返回摘除函数：只摘自己挂上的这条，期间起的本地流不受影响。
+   * onFrame 接收重放和实时帧，用于恢复 pending 交互；正文/工具时间线仍由消息轮询补齐，
+   * 不重复渲染。返回摘除函数：只摘自己挂上的这条，期间起的本地流不受影响。
    */
-  attach: (sessionId: string, onDone: () => void): (() => void) => {
+  attach: (sessionId: string, onDone: () => void, onFrame?: (data: string) => void): (() => void) => {
     const controller = new AbortController()
     runs.set(sessionId, { controller, onDone })
     notify()
@@ -69,6 +68,7 @@ export const workStreamRuns = {
         })
         if (!response.ok || !response.body) { finish(); return }
         await pump(response.body, controller.signal, (frame) => {
+          onFrame?.(frame)
           if (frame.includes('"type":"done"') || frame.includes('"type": "done"')) finish()
         })
         // 流自然结束（运行已跑完）也要收尾，否则会一直挂在运行态上

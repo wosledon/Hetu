@@ -56,12 +56,15 @@ public sealed class WorkRunRegistry
     /// <summary>在跑的会话 id 快照：供会话列表批量标记「进行中」，避免逐会话轮询</summary>
     public IReadOnlyList<Guid> ActiveSessionIds => _runs.Keys.ToArray();
 
-    /// <summary>已有运行则返回它（调用方走挂载），否则新建并登记</summary>
-    public WorkRun GetOrStart(Guid sessionId)
+    /// <summary>已有运行则返回 created=false（调用方走挂载），否则新建并登记</summary>
+    public (WorkRun Run, bool Created) GetOrStart(Guid sessionId)
     {
-        if (_runs.TryGetValue(sessionId, out var existing)) return existing;
+        if (_runs.TryGetValue(sessionId, out var existing)) return (existing, false);
         var run = new WorkRun(sessionId);
-        return _runs.GetOrAdd(sessionId, run);
+        var actual = _runs.GetOrAdd(sessionId, run);
+        if (ReferenceEquals(actual, run)) return (run, true);
+        run.Dispose();
+        return (actual, false);
     }
 
     /// <summary>运行结束（无论成功失败）后摘除；已摘掉则忽略</summary>

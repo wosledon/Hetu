@@ -43,6 +43,8 @@ export interface InteractionState {
   questionAnswers: Record<string, string>
   todos: InteractionTodo[]
   plan: InteractionPlan | null
+  submitting: boolean
+  error: string
 }
 
 export const emptyInteraction = (): InteractionState => ({
@@ -51,6 +53,8 @@ export const emptyInteraction = (): InteractionState => ({
   questionAnswers: {},
   todos: [],
   plan: null,
+  submitting: false,
+  error: '',
 })
 
 type RawChunk = Record<string, unknown>
@@ -116,7 +120,7 @@ export function applyInteractionChunk(state: InteractionState, chunk: RawChunk):
       const previous = state.questionAnswers
       const answers = { ...previous }
       for (const q of incoming) if (answers[q.id] === undefined) delete answers[q.id]
-      return { ...state, questions: [...rest, ...incoming], questionAnswers: answers }
+      return { ...state, questions: [...rest, ...incoming], questionAnswers: answers, submitting: false, error: '' }
     }
     case 'todo': {
       const todoData = parseData(chunk.data)
@@ -177,6 +181,8 @@ export function applyInteractionChunk(state: InteractionState, chunk: RawChunk):
           steps,
           feedback: '',
         },
+        submitting: false,
+        error: '',
       }
     }
     default:
@@ -194,11 +200,13 @@ interface InteractionStore {
    * 抽屉的 todo 分区却被 streaming 门禁挡着，用户看到的就是「todo 面板没了」。
    */
   rehydrate: (streamKey: string, messages: Array<{ type: string; metadata?: string | null }>) => void
+  recover: (streamKey: string) => Promise<void>
   answer: (streamKey: string, questionId: string, value: string) => void
   setQuestionIndex: (streamKey: string, idx: number) => void
   submitAnswers: (streamKey: string) => Promise<void>
   decidePlan: (streamKey: string, approved: boolean) => Promise<void>
   setPlanFeedback: (streamKey: string, feedback: string) => void
+  resolve: (streamKey: string, toolCallId: string) => void
   clear: (streamKey: string) => void
 }
 
@@ -239,6 +247,14 @@ export const useInteractionStore = create<InteractionStore>((set, get) => ({
       return next === cur ? st : { streams: { ...st.streams, [streamKey]: next } }
     }),
 
+  recover: async (streamKey) => {
+    if (!streamKey) return
+    const pending = await chatMessageService.getPendingInteractions(streamKey)
+    for (const item of pending) {
+      get().applyChunk(streamKey, { type: item.type, toolCallId: item.toolCallId, data: item.data })
+    }
+  },
+
   answer: (streamKey, questionId, value) =>
     set((st) => ({
       streams: patch(st.streams, streamKey, {
@@ -250,35 +266,59 @@ export const useInteractionStore = create<InteractionStore>((set, get) => ({
 
   submitAnswers: async (streamKey) => {
     const state = get().streams[streamKey]
-    if (!state || !streamKey) return
+    if (!state || !streamKey || state.submitting) return
     const { questions, questionAnswers } = state
     if (questions.length === 0 || !questions.every(q => questionAnswers[q.id])) return
     const toolCallId = questions[0].toolCallId
+    if (!toolCallId) return
     const combined = questions.map(q => ({
       id: q.id,
       question: q.question,
       answer: questionAnswers[q.id],
     }))
-    set((st) => ({ streams: patch(st.streams, streamKey, { questions: [], questionIndex: 0, questionAnswers: {} }) }))
-    if (!toolCallId) return
+    set((st) => ({ streams: patch(st.streams, streamKey, { submitting: true, error: '' }) }))
     try {
       await chatMessageService.submitAnswer(streamKey, toolCallId, JSON.stringify(combined))
-    } catch { /* 网络异常时已回答状态已清理，后端超时兜底 */ }
+      set((st) => ({
+        streams: patch(st.streams, streamKey, {
+          questions: [],
+          questionIndex: 0,
+          questionAnswers: {},
+          submitting: false,
+        }),
+      }))
+    } catch {
+      set((st) => ({
+        streams: patch(st.streams, streamKey, {
+          submitting: false,
+          error: i18n.t('chat:interaction.submitFailed'),
+        }),
+      }))
+    }
   },
 
   decidePlan: async (streamKey, approved) => {
     const state = get().streams[streamKey]
-    if (!state?.plan || !streamKey || !state.plan.toolCallId) return
+    if (!state?.plan || !streamKey || !state.plan.toolCallId || state.submitting) return
     const { toolCallId, feedback, decided } = state.plan
     if (decided) return
-    set((st) => ({
-      streams: patch(st.streams, streamKey, {
-        plan: { ...(st.streams[streamKey]?.plan as InteractionPlan), decided: approved ? 'approved' : 'rejected' },
-      }),
-    }))
+    set((st) => ({ streams: patch(st.streams, streamKey, { submitting: true, error: '' }) }))
     try {
       await chatMessageService.submitPlanDecision(streamKey, toolCallId, approved, feedback || '')
-    } catch { /* 网络异常时后端超时兜底 */ }
+      set((st) => ({
+        streams: patch(st.streams, streamKey, {
+          plan: { ...(st.streams[streamKey]?.plan as InteractionPlan), decided: approved ? 'approved' : 'rejected' },
+          submitting: false,
+        }),
+      }))
+    } catch {
+      set((st) => ({
+        streams: patch(st.streams, streamKey, {
+          submitting: false,
+          error: i18n.t('chat:interaction.submitFailed'),
+        }),
+      }))
+    }
   },
 
   setPlanFeedback: (streamKey, feedback) =>
@@ -286,6 +326,27 @@ export const useInteractionStore = create<InteractionStore>((set, get) => ({
       const plan = st.streams[streamKey]?.plan
       if (!plan) return st
       return { streams: patch(st.streams, streamKey, { plan: { ...plan, feedback } }) }
+    }),
+
+  resolve: (streamKey, toolCallId) =>
+    set((st) => {
+      const current = st.streams[streamKey]
+      if (!current) return st
+      const questions = current.questions.filter(q => q.toolCallId !== toolCallId)
+      const plan = current.plan?.toolCallId === toolCallId ? null : current.plan
+      if (questions.length === current.questions.length && plan === current.plan) return st
+      const questionIds = new Set(questions.map(q => q.id))
+      const questionAnswers = Object.fromEntries(Object.entries(current.questionAnswers).filter(([id]) => questionIds.has(id)))
+      return {
+        streams: patch(st.streams, streamKey, {
+          questions,
+          questionAnswers,
+          questionIndex: Math.min(current.questionIndex, Math.max(0, questions.length - 1)),
+          plan,
+          submitting: false,
+          error: '',
+        }),
+      }
     }),
 
   clear: (streamKey) =>

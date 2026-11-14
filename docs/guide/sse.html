@@ -112,6 +112,7 @@
         <li><code>approval_request</code> 与 <code>question</code> 都有 id，但语义不同（前者批工具，后者问人），不能混用。</li>
         <li><code>usage</code> 缺少字段时前端按 0 兜底；编码会话的 <code>latencyMs</code> 由前端自行计算/补零。</li>
         <li><code>plainText</code> 兜底是刻意设计：即使后端只写裸文本（例如某些代理/中间层），正文也不会丢。</li>
+        <li>重连恢复：每个 Code SSE 挂载方都有独立实时通道，快照与订阅原子完成；pending plan/question 还可通过 <code>GET /api/chat-messages/pending-interactions/{sessionId}</code> 直接恢复，遇到对应 <code>tool_result</code> 后清除。</li>
         <li>新增事件类型的做法：后端加 <code>type</code> 与字段 → 前端解析器加映射 → 各自 reducer 决定渲染，未适配期间事件不会丢。</li>
       </ul>
     <div class="docs-pager"><a href="index.html">← 文档索引</a><a href="architecture.html">架构与实现 →</a></div>

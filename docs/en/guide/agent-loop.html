@@ -65,7 +65,7 @@
         <li><strong>Enter the loop</strong> (15 iterations by default): each iteration first drains steering into context, then compresses history per configuration, then calls the model.</li>
         <li><strong>Handle output</strong>: prose and thinking stream out as events; tool calls go to the caller's decider, which either executes them or requests approval.</li>
         <li><strong>Feed results back</strong>: tool results enter the context and are pushed to the UI; per-iteration prose, thinking, tools and usage accumulate into the run result.</li>
-        <li><strong>Finish</strong>: the run ends at the iteration cap or when no further tool calls arrive; the caller persists messages, records usage and appends the <code>done</code> frame.</li>
+        <li><strong>Finish</strong>: the run ends when no further tool calls arrive. At the iteration cap it performs one additional <code>tools=none</code> progress summary and marks <code>iteration_limit</code>; the caller persists messages, records usage and appends <code>done</code>.</li>
       </ol>
 
       <h2>Key parameters</h2>
@@ -73,7 +73,7 @@
         <thead><tr><th>Parameter</th><th>Default</th><th>Meaning</th></tr></thead>
         <tbody>
           <tr><td><code>MaxIterations</code></td><td>15</td><td>Iteration cap; a value ≤ 0 falls back to 15 to prevent infinite loops</td></tr>
-          <tr><td><code>MaxToolCallsPerTurn</code></td><td>5</td><td>Per-turn tool budget, enforced through the system prompt rather than hard truncation</td></tr>
+          <tr><td><code>MaxToolCallsPerTurn</code></td><td>5</td><td>Hard per-turn tool budget; an excessive batch is rejected with an explicit error and nothing is executed</td></tr>
           <tr><td><code>CompressHistory</code></td><td>true</td><td>Set false to skip history compression when debugging compression side effects</td></tr>
           <tr><td><code>EnableTools</code></td><td>true</td><td>When off, no tool schemas are sent — plain conversation mode</td></tr>
           <tr><td><code>CoreToolNames</code></td><td>null</td><td>When set, only these core tools are exposed; the rest follow session configuration</td></tr>
@@ -84,7 +84,7 @@
       <ul>
         <li>Injected at a fixed point — <strong>the start of each iteration</strong> — so it never interrupts a tool chain halfway and contradicts the context.</li>
         <li>The injected text carries a fixed prefix (<code>【运行中引导，请立即结合它调整当前工作】</code>) so the model can tell it is a mid-run redirection.</li>
-        <li>Clicking "steer" while streaming queues the instruction in <code>AgentSteeringHub</code>; the next iteration picks it up and a <code>steering</code> event is echoed to the UI.</li>
+        <li>Clicking "steer" while streaming queues the instruction in <code>AgentSteeringHub</code>; the next iteration picks it up. A pending plan/question wait is resolved first so the new instruction can take effect immediately.</li>
         <li>Queue vs steer: a queued message is sent after the current turn; a steer changes the running turn immediately.</li>
       </ul>
 
@@ -92,7 +92,7 @@
       <div class="table-wrap"><table>
         <thead><tr><th>Behaviour</th><th>Implementation</th></tr></thead>
         <tbody>
-          <tr><td>Scope</td><td>The boundary stops before the current user message: the message being answered and anything produced after it are never compressed, so the user's own words are not summarized away</td></tr>
+          <tr><td>Scope</td><td>History compression stops before the current user message to preserve their exact request. Tool output produced by the active turn has a separate deterministic budget: old results are compacted while ToolCallId linkage and recent results are preserved</td></tr>
           <tr><td>Deduplication</td><td>Already-compressed slices are remembered in <code>compressedIndexes</code>; long sessions never re-compress the same slice</td></tr>
           <tr><td>Method</td><td>Calls the full compression pipeline entry (LLM summary allowed, subject to pipeline mode and threshold)</td></tr>
           <tr><td>Cost visibility</td><td>The first iteration estimates system prompt and tool schema character cost and logs it, separating "heavy prompt" from "long history"</td></tr>
@@ -112,7 +112,7 @@
         <tbody>
           <tr><td><code>IAgentLoopSink.OnEventAsync</code></td><td>Structured event passthrough: SSE writes frames verbatim, non-streaming callers may ignore it</td></tr>
           <tr><td><code>IAgentLoopSink.OnSteeringAsync</code></td><td>Callback when a steer is accepted</td></tr>
-          <tr><td><code>Hooks.AfterToolResultsAsync</code></td><td>Post-processing hook (code sessions persist the tool timeline here)</td></tr>
+          <tr><td><code>Hooks.AfterToolResultAsync</code> / <code>AfterToolResultsAsync</code></td><td>Persist each result immediately, then run batch post-processing such as file-change tracking; later interaction waits cannot delay earlier history</td></tr>
           <tr><td>Caller duties</td><td>Persist messages, record usage (<code>ILlmUsageRecorder</code>) and append the <code>done</code> frame; code sessions persist only the terminal <code>subagent</code> frame (with the inner timeline <code>entries</code>) for replay</td></tr>
         </tbody>
       </table></div>
@@ -121,7 +121,8 @@
       <ul>
         <li><strong>Model unavailable</strong>: throws, and the UI receives an error frame — no silent model substitution.</li>
         <li><strong>A single MCP server fails</strong>: that server is skipped, other tools keep working.</li>
-        <li><strong>Cancellation</strong>: <code>OperationCanceledException</code> is not swallowed; the caller decides whether it means "cancelled" or "requeue" (background tasks requeue).</li>
+        <li><strong>Cancellation</strong>: <code>OperationCanceledException</code> is not swallowed, and parsed tools that have not started never execute after cancellation; the caller decides whether it means "cancelled" or "requeue".</li>
+        <li><strong>Tool protocol errors</strong>: textual <code>&lt;tool_call&gt;</code> markup is parsed across deltas. Truncated calls, malformed arguments and batches above the per-turn limit are rejected. Unrecognized text is preserved verbatim but never executed.</li>
         <li><strong>Compression failure</strong>: the pipeline degrades internally only (missing provider or a non-shorter result returns the original text).</li>
       </ul>
 

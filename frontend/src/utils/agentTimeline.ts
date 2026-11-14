@@ -191,6 +191,7 @@ export function fromWorkStreamItems(items: readonly {
   arguments?: string
   args?: string
   result?: string
+  isError?: boolean
   path?: string
   action?: string
   label?: string
@@ -219,6 +220,7 @@ export function fromWorkStreamItems(items: readonly {
           name: item.name ?? '',
           args: item.args ?? item.arguments ?? '{}',
           result: item.result,
+          isError: item.isError,
           running: item.result === undefined,
         })
         break

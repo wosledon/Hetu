@@ -248,6 +248,11 @@ export default function ToolInteractionDrawer({ streamKey, streaming = false, pl
         {/* Body */}
         {!collapsed && (
           <div className={`${rail ? 'min-h-0 flex-1' : 'max-h-[min(42vh,360px)]'} overflow-y-auto border-t border-gray-200/70 bg-gray-50/35 dark:border-white/[0.06] dark:bg-slate-950/20`}>
+            {state.error && (
+              <div role="alert" className="border-b border-red-200/70 bg-red-50/70 px-4 py-2 text-xs text-red-600 dark:border-red-400/15 dark:bg-red-500/[0.06] dark:text-red-300">
+                {state.error}
+              </div>
+            )}
             {active === 'question' && questions.length > 0 && (
               <QuestionFlow
                 questions={questions}
@@ -256,6 +261,7 @@ export default function ToolInteractionDrawer({ streamKey, streaming = false, pl
                 onAnswer={(qid, value) => answer(streamKey, qid, value)}
                 onIndexChange={(idx) => setQuestionIndex(streamKey, idx)}
                 onSubmitAll={() => void submitAnswers(streamKey)}
+                submitting={state.submitting}
                 compact
               />
             )}
@@ -264,6 +270,7 @@ export default function ToolInteractionDrawer({ streamKey, streaming = false, pl
                 plan={plan}
                 onFeedback={(feedback) => setPlanFeedback(streamKey, feedback)}
                 onDecide={(approved) => void decidePlan(streamKey, approved)}
+                submitting={state.submitting}
                 hideHeader
               />
             )}

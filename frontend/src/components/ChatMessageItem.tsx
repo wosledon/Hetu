@@ -1,11 +1,12 @@
 import { memo } from 'react'
-import { Search, Database, Atom, Copy, Check, Coins, Pencil, Trash2, X } from 'lucide-react'
+import { Copy, Check, Coins, Pencil, Trash2, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import ThemedMarkdown from './ThemedMarkdown'
 import UserMessageContent from './UserMessageContent'
 import ChatToolCallRow from './ChatToolCallRow'
 import ToolCallGroup from './ToolCallGroup'
 import AgentThoughtBlock from './agent/AgentThoughtBlock'
+import RetrievalResultCard from './RetrievalResultCard'
 import { foldConsecutiveToolCalls } from '../utils/toolRendering'
 import { uiLocale } from '../utils/locale'
 import { formatTokens } from '../utils/agentStream'
@@ -250,89 +251,21 @@ export default memo(function ChatMessageItem({
                 try {
                   const results = (JSON.parse(message.searchResultsJson) as Array<Record<string, unknown>>).map((r) => toCamelKeys<{ title: string; url: string; snippet: string }>(r))
                   if (results.length === 0) return null
-                  return (
-                    <Card plain padded={false} className="mt-3 overflow-hidden rounded-xl border-gray-200/75 bg-white/65 shadow-[0_1px_2px_rgba(15,23,42,0.03)] dark:border-white/[0.07] dark:bg-slate-900/35">
-                      <div className="flex items-center gap-2 border-b border-gray-200/70 bg-gray-50/45 px-3 py-2 text-[11px] font-semibold text-gray-600 dark:border-white/[0.06] dark:bg-white/[0.025] dark:text-gray-300">
-                        <Search size={12} className="text-blue-500" />
-                        {t('shared.sources')}
-                      </div>
-                      <div className="space-y-0.5 p-1.5">
-                        {results.map((r, i) => (
-                          <a
-                            key={i}
-                            href={r.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-start gap-1.5 rounded-md px-2 py-1.5 text-[11px] transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/50"
-                          >
-                            <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded bg-blue-100 text-[9px] font-bold text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">{i + 1}</span>
-                            <span className="min-w-0 flex-1">
-                              <span className="block font-medium text-blue-600 dark:text-blue-400">{r.title}</span>
-                              <span className="block truncate text-gray-400">{r.url}</span>
-                            </span>
-                          </a>
-                        ))}
-                      </div>
-                    </Card>
-                  )
+                  return <RetrievalResultCard kind="web" results={results} />
                 } catch { return null }
               })()}
               {message.role === 'assistant' && message.knowledgeResultsJson && (() => {
                 try {
                   const results = (JSON.parse(message.knowledgeResultsJson) as Array<Record<string, unknown>>).map((r) => toCamelKeys<{ title: string; contentSnippet: string; id: string }>(r))
                   if (results.length === 0) return null
-                  return (
-                    <Card plain padded={false} className="mt-3 overflow-hidden rounded-xl border-gray-200/75 bg-white/65 shadow-[0_1px_2px_rgba(15,23,42,0.03)] dark:border-white/[0.07] dark:bg-slate-900/35">
-                      <div className="flex items-center gap-2 border-b border-gray-200/70 bg-gray-50/45 px-3 py-2 text-[11px] font-semibold text-gray-600 dark:border-white/[0.06] dark:bg-white/[0.025] dark:text-gray-300">
-                        <Database size={12} className="text-amber-500" />
-                        {t('shared.knowledgeSources')}
-                      </div>
-                      <div className="space-y-0.5 p-1.5">
-                        {results.map((r, i) => (
-                          <div
-                            key={i}
-                            className="flex items-start gap-1.5 rounded-md px-2 py-1.5 text-[11px] transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/50"
-                          >
-                            <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded bg-amber-100 text-[9px] font-bold text-amber-600 dark:bg-amber-900/30 dark:text-amber-400">{i + 1}</span>
-                            <span className="min-w-0 flex-1">
-                              <span className="block font-medium text-amber-600 dark:text-amber-400">{r.title}</span>
-                              {r.contentSnippet && (
-                                <span className="block truncate text-gray-400">{r.contentSnippet.slice(0, 80)}{r.contentSnippet.length > 80 ? '...' : ''}</span>
-                              )}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </Card>
-                  )
+                  return <RetrievalResultCard kind="knowledge" results={results.map(r => ({ title: r.title, snippet: r.contentSnippet }))} />
                 } catch { return null }
               })()}
               {message.role === 'assistant' && message.memoryResultsJson && (() => {
                 try {
                   const results = (JSON.parse(message.memoryResultsJson) as Array<Record<string, unknown>>).map((r) => toCamelKeys<{ id: string; content: string; category?: string; score?: number }>(r))
                   if (results.length === 0) return null
-                  return (
-                    <Card plain padded={false} className="mt-3 overflow-hidden rounded-xl border-gray-200/75 bg-white/65 shadow-[0_1px_2px_rgba(15,23,42,0.03)] dark:border-white/[0.07] dark:bg-slate-900/35">
-                      <div className="flex items-center gap-2 border-b border-gray-200/70 bg-gray-50/45 px-3 py-2 text-[11px] font-semibold text-gray-600 dark:border-white/[0.06] dark:bg-white/[0.025] dark:text-gray-300">
-                        <Atom size={12} className="text-violet-500" />
-                        {t('shared.memorySources')}
-                      </div>
-                      <div className="space-y-0.5 p-1.5">
-                        {results.map((r, i) => (
-                          <div
-                            key={i}
-                            className="flex items-start gap-1.5 rounded-md px-2 py-1.5 text-[11px] transition-colors hover:bg-gray-50 dark:hover:bg-gray-700/50"
-                          >
-                            <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded bg-violet-100 text-[9px] font-bold text-violet-600 dark:bg-violet-900/30 dark:text-violet-400">{i + 1}</span>
-                            <span className="min-w-0 flex-1">
-                              <span className="block text-gray-600 dark:text-gray-300">{r.content.slice(0, 100)}{r.content.length > 100 ? '...' : ''}</span>
-                              {r.category && <span className="text-[10px] text-gray-400">{r.category}</span>}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </Card>
-                  )
+                  return <RetrievalResultCard kind="memory" results={results} />
                 } catch { return null }
               })()}
               {message.role === 'assistant' && (message.tokensUsed ?? 0) > 0 && (

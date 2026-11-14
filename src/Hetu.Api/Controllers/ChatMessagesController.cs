@@ -137,6 +137,10 @@ public class ChatMessagesController : ControllerBase
     public Task<ApiResponse> Delete(Guid id, CancellationToken ct)
         => _chatMessageService.DeleteAsync(id, ct);
 
+    [HttpGet("pending-interactions/{sessionId}")]
+    public ApiResponse<IReadOnlyList<PendingInteraction>> PendingInteractions(string sessionId)
+        => ApiResponse<IReadOnlyList<PendingInteraction>>.Ok(_toolExecution.GetPendingInteractions(sessionId));
+
     [HttpPost("answer")]
     public ApiResponse SubmitAnswer([FromBody] AnswerRequest request)
     {
@@ -173,6 +177,7 @@ public class ChatMessagesController : ControllerBase
         if (!created.Success) return ApiResponse<SteerResultDto>.Fail(created.Error ?? _localizer.T("chat.messageCreateFailed"));
 
         var injected = _steering.Enqueue(key, request.Content);
+        if (injected) _toolExecution.ResolvePendingInteractions(topicId.ToString());
         return ApiResponse<SteerResultDto>.Ok(new SteerResultDto { Injected = injected });
     }
 
@@ -280,6 +285,10 @@ public class ChatMessagesController : ControllerBase
             McpServerIds = new List<Guid>(),
             MaxIterations = profile.MaxAgentIterations,
             MaxToolCallsPerTurn = profile.MaxToolCallsPerTurn,
+            ReasoningEffort = options.ReasoningEffort,
+            ReasoningBudgetTokens = options.ReasoningBudgetTokens,
+            MaxTokens = options.MaxTokens,
+            Temperature = options.Temperature,
             ToolApprovals = approvalOverrides,
             SessionId = topicId.ToString(),
             Sink = sink,
