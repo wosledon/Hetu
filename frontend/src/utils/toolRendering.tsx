@@ -56,8 +56,8 @@ export type FoldedToolEntry<T> =
   | { kind: 'other'; item: T }
 
 /**
- * 把有序序列折叠成展示项：新的思考块开启新组，后续工具归入该组（组内保序），
- * 文本输出原样穿插保留，并作为组的边界。
+ * 把有序序列折叠成展示项：思考块开启一组，紧随其后的工具归入该组（组内保序）；
+ * 没有思考打头的工具调用各自独立成行。文本输出原样穿插保留，并作为组的边界。
  */
 export function foldConsecutiveToolCalls<T>(
   items: T[],
@@ -65,18 +65,26 @@ export function foldConsecutiveToolCalls<T>(
   toEntry: (item: T) => ToolCallEntry,
 ): FoldedToolEntry<T>[] {
   const folded: FoldedToolEntry<T>[] = []
+  let thoughtLed = false
   for (const item of items) {
-    if (isProcess(item)) {
-      const entry = toEntry(item)
-      const last = folded[folded.length - 1]
-      if (entry.kind !== 'thought' && last && last.kind === 'tool') {
-        last.items.push(entry)
-        continue
-      }
-      folded.push({ kind: 'tool', items: [entry] })
+    if (!isProcess(item)) {
+      folded.push({ kind: 'other', item })
+      thoughtLed = false
       continue
     }
-    folded.push({ kind: 'other', item })
+    const entry = toEntry(item)
+    if (entry.kind === 'thought') {
+      folded.push({ kind: 'tool', items: [entry] })
+      thoughtLed = true
+      continue
+    }
+    const last = folded[folded.length - 1]
+    if (thoughtLed && last && last.kind === 'tool') {
+      last.items.push(entry)
+      continue
+    }
+    folded.push({ kind: 'tool', items: [entry] })
+    thoughtLed = false
   }
   return folded
 }

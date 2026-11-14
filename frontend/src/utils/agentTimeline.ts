@@ -61,13 +61,14 @@ export function subagentEntriesToTimeline(entries: readonly SubagentEntry[] | un
   return out
 }
 
-/** 折叠后的展示项：每轮思考及其后续工具合并为一组，其他条目原样保留 */
+/** 折叠后的展示项：仅以思考开启的连续过程合并为一组，其他条目原样保留 */
 export type FoldedAgentItem =
   | { kind: 'tool'; items: ToolCallEntry[] }
   | { kind: 'other'; item: AgentTimelineItem }
 
 /**
- * 把时间线折叠为展示项：新的思考块开启新组，后续工具归入该组（组内保序），
+ * 把时间线折叠为展示项：思考块开启一组，紧随其后的工具归入该组（组内保序）；
+ * 没有思考打头的工具调用各自独立成行，不再折叠。
  * 文本 / 审批 / 文件 / 检查点 / 子 Agent 原样穿插保留，并作为组的边界。
  */
 export function foldAgentTimeline(items: AgentTimelineItem[]): FoldedAgentItem[] {
@@ -81,20 +82,25 @@ export function foldAgentTimeline(items: AgentTimelineItem[]): FoldedAgentItem[]
   }
 
   for (const item of items) {
-    if (item.kind === 'tool' || item.kind === 'thought') {
-      if (item.kind === 'thought') flush()
-      group.push(
-        item.kind === 'thought'
-          ? { kind: 'thought', text: item.text, name: '', args: '' }
-          : {
-              id: item.id,
-              name: item.name,
-              args: item.args,
-              result: item.result,
-              isError: item.isError,
-              running: item.running ?? item.result === undefined,
-            },
-      )
+    if (item.kind === 'thought') {
+      flush()
+      group.push({ kind: 'thought', text: item.text, name: '', args: '' })
+      continue
+    }
+    if (item.kind === 'tool') {
+      const entry: ToolCallEntry = {
+        id: item.id,
+        name: item.name,
+        args: item.args,
+        result: item.result,
+        isError: item.isError,
+        running: item.running ?? item.result === undefined,
+      }
+      if (group.length > 0) {
+        group.push(entry)
+        continue
+      }
+      result.push({ kind: 'tool', items: [entry] })
       continue
     }
     flush()

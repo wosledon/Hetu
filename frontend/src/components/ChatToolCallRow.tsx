@@ -65,7 +65,7 @@ function hasVisibleResult(result: string | undefined, isError?: boolean): boolea
  * Copilot 风格的瀑布流行：图标 + 名称 + 目标/命令 + 状态，点击展开详情。
  * 工具调用与文本型条目（思考 / 节点输出）共用同一套外观，保证时间线样式一致。
  */
-export default function ChatToolCallRow({ name, args, result, isError, running, text, label, onOpenPath, onRunCommand, compact = false }: ChatToolCallRowProps) {
+export default function ChatToolCallRow({ name, args, result, isError, running, text, label, onOpenPath, onRunCommand, compact = true }: ChatToolCallRowProps) {
   const { t } = useTranslation('chat')
   const [open, setOpen] = useState(false)
   const isText = text !== undefined
