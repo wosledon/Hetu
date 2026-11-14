@@ -26,7 +26,6 @@ public class ChatMessagesController : ControllerBase
     private readonly IChatMessageService _chatMessageService;
     private readonly IChatTopicService _chatTopicService;
     private readonly ILLMProviderFactory _llmProviderFactory;
-    private readonly IMemoryService _memoryService;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILocalSkillService _localSkillService;
     private readonly MentionContextBuilder _mentionContext;
@@ -41,12 +40,12 @@ public class ChatMessagesController : ControllerBase
     private readonly ILocalizer _localizer;
     private readonly AgentSteeringHub _steering;
     private readonly AgentPermissionModeHub _permissionModes;
+    private readonly IBackgroundTaskCoordinator _backgroundTasks;
 
     public ChatMessagesController(
         IChatMessageService chatMessageService,
         IChatTopicService chatTopicService,
         ILLMProviderFactory llmProviderFactory,
-        IMemoryService memoryService,
         IUnitOfWork unitOfWork,
         ILocalSkillService localSkillService,
         MentionContextBuilder mentionContext,
@@ -60,12 +59,12 @@ public class ChatMessagesController : ControllerBase
         ILogger<ChatMessagesController> logger,
         ILocalizer localizer,
         AgentSteeringHub steering,
-        AgentPermissionModeHub permissionModes)
+        AgentPermissionModeHub permissionModes,
+        IBackgroundTaskCoordinator backgroundTasks)
     {
         _chatMessageService = chatMessageService;
         _chatTopicService = chatTopicService;
         _llmProviderFactory = llmProviderFactory;
-        _memoryService = memoryService;
         _unitOfWork = unitOfWork;
         _localSkillService = localSkillService;
         _mentionContext = mentionContext;
@@ -80,6 +79,7 @@ public class ChatMessagesController : ControllerBase
         _steering = steering;
         _localizer = localizer;
         _permissionModes = permissionModes;
+        _backgroundTasks = backgroundTasks;
     }
 
     [HttpGet("topic/{topicId:guid}")]
@@ -362,9 +362,20 @@ public class ChatMessagesController : ControllerBase
             contentPreview: request.Content,
             ct: CancellationToken.None);
 
+        // 先发 done 结束前端运行态：记忆提取已提交后台任务，不再占用本轮请求
+        await writer.WriteJsonAsync(new { type = "done" });
+
         if (!cancelled && request.Memory)
         {
-            try { await _memoryService.TryAutoExtractAsync(topicId, ct); } catch { }
+            try
+            {
+                await _backgroundTasks.EnqueueAsync(
+                    new BackgroundTaskRequest(BackgroundTaskType.ChatMemoryExtract, topicId, topic.Title));
+            }
+            catch (Exception ex)
+            {
+                Log.Debug(ex, "[Chat] 自动记忆提取入队失败");
+            }
         }
     }
 

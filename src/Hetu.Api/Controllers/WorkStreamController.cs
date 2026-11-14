@@ -39,11 +39,11 @@ public class WorkStreamController : ControllerBase
     private readonly MentionContextBuilder _mentionContext;
     private readonly ChatContextInjector _contextInjector;
     private readonly ContextCompactionService _contextCompaction;
-    private readonly IMemoryService _memoryService;
     private readonly ILogger<WorkStreamController> _logger;
     private readonly ILocalizer _localizer;
     private readonly AgentSteeringHub _steering;
     private readonly WorkRunRegistry _runs;
+    private readonly IBackgroundTaskCoordinator _backgroundTasks;
 
     public WorkStreamController(
         IUnitOfWork unitOfWork,
@@ -60,7 +60,7 @@ public class WorkStreamController : ControllerBase
         MentionContextBuilder mentionContext,
         ChatContextInjector contextInjector,
         ContextCompactionService contextCompaction,
-        IMemoryService memoryService,
+        IBackgroundTaskCoordinator backgroundTasks,
         ILogger<WorkStreamController> logger,
         ILocalizer localizer,
         AgentSteeringHub steering,
@@ -80,11 +80,11 @@ public class WorkStreamController : ControllerBase
         _mentionContext = mentionContext;
         _contextInjector = contextInjector;
         _contextCompaction = contextCompaction;
-        _memoryService = memoryService;
         _logger = logger;
         _localizer = localizer;
         _steering = steering;
         _runs = runs;
+        _backgroundTasks = backgroundTasks;
     }
 
     /// <summary>会话历史注入 LLM 的最大文本消息数，超出部分做摘要压缩</summary>
@@ -608,10 +608,16 @@ public class WorkStreamController : ControllerBase
 
         await writer.WriteJsonAsync(new { type = "done" });
 
-        // 自动项目记忆：Code 会话累计到阈值后提取项目级事实，写入该会话关联项目的项目作用域。
-        // 放在 done 之后执行——不阻塞前端收尾；失败不影响本轮结果（与对话侧的自动提取同一节奏）。
-        try { await _memoryService.TryAutoExtractWorkAsync(sessionId, CancellationToken.None); }
-        catch (Exception ex) { Log.Debug(ex, "[WorkStream] 自动项目记忆提取失败"); }
+        // 自动项目记忆：改为后台任务，不再拖住本轮 SSE 连接
+        try
+        {
+            await _backgroundTasks.EnqueueAsync(
+                new BackgroundTaskRequest(BackgroundTaskType.WorkMemoryExtract, sessionId, session.Title));
+        }
+        catch (Exception ex)
+        {
+            Log.Debug(ex, "[WorkStream] 自动项目记忆提取入队失败");
+        }
     }
 
     /// <summary>

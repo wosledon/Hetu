@@ -13,7 +13,11 @@ public enum BackgroundTaskType
     /// <summary>项目 Wiki 生成（规划分页 + 多页 LLM 撰写）</summary>
     WikiGenerate,
     /// <summary>从项目 Wiki 页面抽取知识图谱（来源记为 Wiki 页面）</summary>
-    WikiGraphExtract
+    WikiGraphExtract,
+    /// <summary>对话话题的自动记忆提取</summary>
+    ChatMemoryExtract,
+    /// <summary>Code 会话的自动项目记忆提取</summary>
+    WorkMemoryExtract
 }
 
 /// <summary>

@@ -336,6 +336,9 @@ export const useChatStreamStore = create<ChatStreamStore>((set, get) => {
             next.notice = String(chunk.text ?? '')
             break
           case 'done':
+            // 输出已结束：后续可能只是服务端后处理，界面不再显示「回复中」
+            next.isStreaming = false
+            break
           case 'debug':
             break
         }

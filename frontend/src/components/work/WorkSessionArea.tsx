@@ -122,6 +122,8 @@ type WorkStreamHandlers = {
   /** 上下文提示（自动压缩等），显示在输入框上方 */
   onNotice: (text: string) => void
   onError: (text: string) => void
+  /** 收到 done：本轮输出结束（连接可能仍在跑后处理） */
+  onDone: () => void
 }
 
 /**
@@ -178,8 +180,10 @@ function dispatchWorkEvent(data: string, handlers: WorkStreamHandlers): void {
     case 'notice':
       handlers.onNotice(event.text)
       break
-    case 'debug':
     case 'done':
+      handlers.onDone()
+      break
+    case 'debug':
     case 'search_results':
     case 'knowledge_results':
     case 'memory_results':
@@ -229,6 +233,8 @@ export default function WorkSessionArea({
   // 本组件起的那轮流式状态。刷新后恢复的运行态不在这里——见下面的 runStatus 查询，
   // 两者合并成 isStreaming，别让用户回来看到「空闲」的空会话
   const [localStreaming, setLocalStreaming] = useState(() => !!session?.id && workStreamRuns.isRunning(session.id))
+  /** 已收到 done：本轮输出结束，后续可能只是服务端在跑记忆提取等后处理 */
+  const [streamDone, setStreamDone] = useState(false)
   // 本轮流式输出：思考、正文、工具、文件、检查点、审批统一按发生顺序排列
   const [streamItems, setStreamItems] = useState<StreamItem[]>([])
   const [liveUsage, setLiveUsage] = useState<UsageView | null>(null)
@@ -296,8 +302,9 @@ export default function WorkSessionArea({
     refetchInterval: (query) => (query.state.data?.active ? 2000 : false),
   })
 
-  // 运行态 = 本组件起的流 ∪ 后端说还在跑的那一流
-  const isStreaming = localStreaming || (runStatus?.active ?? false)
+  // 运行态 = 本组件起的流 ∪ 后端说还在跑的那一流；收到 done 后只等连接收尾，界面不再显示「回复中」
+  const busy = localStreaming || (runStatus?.active ?? false)
+  const isStreaming = busy && !streamDone
 
   // 默认只取最新一页，避免长会话一次加载全部历史；「加载更早」时扩大窗口
   const [messagePageSize, setMessagePageSize] = useState(200)
@@ -344,6 +351,8 @@ export default function WorkSessionArea({
         useInteractionStore.getState().resolve(sessionId, event.id)
       } else if (event.type === 'question' || event.type === 'todo' || event.type === 'plan') {
         useInteractionStore.getState().applyChunk(sessionId, event as unknown as Record<string, unknown>)
+      } else if (event.type === 'done') {
+        setStreamDone(true)
       }
     })
   }, [session?.id, localStreaming, runStatus?.active, queryClient])
@@ -852,6 +861,7 @@ export default function WorkSessionArea({
   const resetStreamState = () => {
     setStreamItems([])
     setLiveUsage(null)
+    setStreamDone(false)
     seqRef.current = 0
   }
 
@@ -897,8 +907,8 @@ export default function WorkSessionArea({
       await compactContext()
       return
     }
-    // 回复进行中：不打断当前回复，消息进入发送队列（本轮结束后自动发出）；也可在队列条上点「引导」立即注入
-    if (isStreaming) {
+    // 回复进行中（含 done 后仍在收尾的连接）：不打断当前回复，消息进入发送队列
+    if (busy) {
       enqueue(buildContent(content))
       setInput('')
       setInputHistory(pushInputHistory(content))
@@ -1187,6 +1197,7 @@ export default function WorkSessionArea({
       onUsage: (usage) => setLiveUsage(usage),
       onNotice: (text) => { setContextNotice(text); refreshContextUsage() },
       onError: () => { streamFailed = true },
+      onDone: () => setStreamDone(true),
     }
     let streamFailed = false
     try {

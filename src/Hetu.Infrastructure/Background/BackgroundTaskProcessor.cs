@@ -279,6 +279,16 @@ public class BackgroundTaskProcessor : BackgroundService
                     throw new InvalidOperationException(wikiGraphResult.Error);
                 break;
 
+            case BackgroundTaskType.ChatMemoryExtract:
+                var chatMemoryService = sp.GetRequiredService<IMemoryService>();
+                await chatMemoryService.TryAutoExtractAsync(item.EntityId, ct);
+                break;
+
+            case BackgroundTaskType.WorkMemoryExtract:
+                var workMemoryService = sp.GetRequiredService<IMemoryService>();
+                await workMemoryService.TryAutoExtractWorkAsync(item.EntityId, ct);
+                break;
+
             default:
                 _logger.LogWarning("未知的后台任务类型: {Type}", item.Type);
                 break;
