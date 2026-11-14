@@ -57,7 +57,9 @@ export default function RetrievalResultCard({ kind, results }: RetrievalResultCa
         aria-expanded={open}
         className="flex min-h-8 w-full items-center gap-1.5 rounded-md px-1 py-1 text-left transition-colors hover:bg-gray-50/80 dark:hover:bg-white/[0.025]"
       >
-        {open ? <ChevronDown size={12} className="shrink-0 text-gray-400" /> : <ChevronRight size={12} className="shrink-0 text-gray-400" />}
+        <span className="flex h-4 w-4 shrink-0 items-center justify-center text-gray-400">
+          {open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+        </span>
         <Icon size={13} className={`shrink-0 ${config.tone}`} />
         <span className="shrink-0 text-[11px] font-medium text-gray-500 dark:text-gray-400">
           {t(config.label)} · {results.length}

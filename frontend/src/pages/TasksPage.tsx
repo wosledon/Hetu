@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   CheckCircle2, Clock, Loader2, AlertTriangle, Trash2, XCircle,
   ListTodo, RefreshCw, Cpu, Network, CalendarClock, Plus, Sparkles,
-  Pencil, Play, History, Power, Timer, X, Bot, MessageSquare, BookText,
+  Pencil, Play, History, Power, Timer, X, Bot, MessageSquare, BookText, Brain,
 } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
 import SlidingPill from '../components/SlidingPill'
@@ -37,6 +37,8 @@ const TYPE_MAP: Record<string, { labelKey: string; icon: typeof Cpu; color: stri
   GraphExtract: { labelKey: 'tasks.typeGraphExtract', icon: Network, color: 'text-violet-500' },
   WikiGenerate: { labelKey: 'tasks.typeWikiGenerate', icon: BookText, color: 'text-emerald-500' },
   WikiGraphExtract: { labelKey: 'tasks.typeWikiGraphExtract', icon: Network, color: 'text-violet-500' },
+  ChatMemoryExtract: { labelKey: 'tasks.typeChatMemoryExtract', icon: Brain, color: 'text-violet-500' },
+  WorkMemoryExtract: { labelKey: 'tasks.typeWorkMemoryExtract', icon: Brain, color: 'text-violet-500' },
 }
 
 type FilterStatus = 'all' | '0' | '1' | '2' | '3'

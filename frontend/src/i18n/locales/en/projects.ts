@@ -258,6 +258,8 @@ export default {
     typeGraphExtract: 'Knowledge graph extraction',
     typeWikiGraphExtract: 'Wiki graph extraction',
     typeWikiGenerate: 'Wiki generation',
+    typeChatMemoryExtract: 'Chat memory extraction',
+    typeWorkMemoryExtract: 'Code project memory extraction',
     clearCompleted: 'Clear completed',
     emptyTitle: 'No background tasks yet',
     emptyHint: 'Embeddings are generated and knowledge graphs extracted automatically when you edit notes',

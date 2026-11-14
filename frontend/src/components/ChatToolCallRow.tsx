@@ -109,7 +109,7 @@ export default function ChatToolCallRow({ name, args, result, isError, running, 
           ? `group flex min-h-8 items-center gap-1.5 rounded-md px-1 py-1 text-left transition-colors ${canExpand ? 'cursor-pointer hover:bg-gray-50/80 dark:hover:bg-white/[0.025]' : ''}`
           : `group flex min-h-11 items-center gap-2 px-2.5 py-2 text-left transition-colors ${canExpand ? 'cursor-pointer hover:bg-white/55 dark:hover:bg-white/[0.025]' : ''}`}
       >
-        {canExpand && (
+        {canExpand ? (
           <button
             type="button"
             aria-label={open ? t('tool.collapseDetails') : t('tool.expandDetails')}
@@ -119,6 +119,9 @@ export default function ChatToolCallRow({ name, args, result, isError, running, 
           >
             {open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
           </button>
+        ) : compact && (
+          // 不可展开时预留与 Chevron 同宽的槽位，保证同一时间线各行的图标与文字左对齐
+          <span className="h-4 w-4 shrink-0" aria-hidden />
         )}
         <span className={compact
           ? `flex h-4 w-4 shrink-0 items-center justify-center ${compactIconTone}`

@@ -21,7 +21,7 @@ import { wrapLongTextBlock } from '../../utils/longText'
 import { uiLocale } from '../../utils/locale'
 import { scrollToBottom } from '../../utils/scrollToBottom'
 import ToolCallGroup from '../ToolCallGroup'
-import { foldConsecutiveToolCalls, type ToolCallEntry } from '../../utils/toolRendering'
+import { foldConsecutiveToolCalls, type FoldedToolEntry, type ToolCallEntry } from '../../utils/toolRendering'
 import { consumeSseStream, SSE_ERROR_PREFIX } from '../../utils/sse'
 import { createSubagentCoalescer, formatTokens, mergeSubagentEntries, parseAgentFrame, subagentStage, type AgentUsage, type SubagentEntry, type SubagentFrame } from '../../utils/agentStream'
 import ChatToolCallRow from '../ChatToolCallRow'
@@ -122,6 +122,8 @@ type WorkStreamHandlers = {
   /** 上下文提示（自动压缩等），显示在输入框上方 */
   onNotice: (text: string) => void
   onError: (text: string) => void
+  /** 收到 done：本轮输出结束（连接可能仍在跑后处理） */
+  onDone: () => void
 }
 
 /**
@@ -178,8 +180,10 @@ function dispatchWorkEvent(data: string, handlers: WorkStreamHandlers): void {
     case 'notice':
       handlers.onNotice(event.text)
       break
-    case 'debug':
     case 'done':
+      handlers.onDone()
+      break
+    case 'debug':
     case 'search_results':
     case 'knowledge_results':
     case 'memory_results':
@@ -229,6 +233,8 @@ export default function WorkSessionArea({
   // 本组件起的那轮流式状态。刷新后恢复的运行态不在这里——见下面的 runStatus 查询，
   // 两者合并成 isStreaming，别让用户回来看到「空闲」的空会话
   const [localStreaming, setLocalStreaming] = useState(() => !!session?.id && workStreamRuns.isRunning(session.id))
+  /** 已收到 done：本轮输出结束，后续可能只是服务端在跑记忆提取等后处理 */
+  const [streamDone, setStreamDone] = useState(false)
   // 本轮流式输出：思考、正文、工具、文件、检查点、审批统一按发生顺序排列
   const [streamItems, setStreamItems] = useState<StreamItem[]>([])
   const [liveUsage, setLiveUsage] = useState<UsageView | null>(null)
@@ -296,8 +302,9 @@ export default function WorkSessionArea({
     refetchInterval: (query) => (query.state.data?.active ? 2000 : false),
   })
 
-  // 运行态 = 本组件起的流 ∪ 后端说还在跑的那一流
-  const isStreaming = localStreaming || (runStatus?.active ?? false)
+  // 运行态 = 本组件起的流 ∪ 后端说还在跑的那一流；收到 done 后只等连接收尾，界面不再显示「回复中」
+  const busy = localStreaming || (runStatus?.active ?? false)
+  const isStreaming = busy && !streamDone
 
   // 默认只取最新一页，避免长会话一次加载全部历史；「加载更早」时扩大窗口
   const [messagePageSize, setMessagePageSize] = useState(200)
@@ -344,6 +351,8 @@ export default function WorkSessionArea({
         useInteractionStore.getState().resolve(sessionId, event.id)
       } else if (event.type === 'question' || event.type === 'todo' || event.type === 'plan') {
         useInteractionStore.getState().applyChunk(sessionId, event as unknown as Record<string, unknown>)
+      } else if (event.type === 'done') {
+        setStreamDone(true)
       }
     })
   }, [session?.id, localStreaming, runStatus?.active, queryClient])
@@ -811,7 +820,28 @@ export default function WorkSessionArea({
     [visibleMessages],
   )
   // 历史消息同样折叠：仅以思考开启的过程合并为一组，纯工具调用逐行显示（与流式渲染、任务详情页一致）
-  const foldedHistory = foldConsecutiveToolCalls(visibleMessages, isFoldableProcessMessage, toProcessEntry)
+  const foldedHistory = useMemo(
+    () => foldConsecutiveToolCalls(visibleMessages, isFoldableProcessMessage, toProcessEntry),
+    [visibleMessages],
+  )
+  // 连续的过程条目合成一个紧凑块：消息容器是 space-y-6，若每条过程都作为直接子项，
+  // 切页回来（读历史）时间距会变成 24px，与流式时的紧凑排列不一致
+  const historyBlocks = useMemo(() => {
+    const blocks: Array<
+      | { kind: 'process'; entries: FoldedToolEntry<IWorkMessage>[] }
+      | { kind: 'message'; item: IWorkMessage }
+    > = []
+    for (const entry of foldedHistory) {
+      if (entry.kind === 'other' && !isProcessMessage(entry.item)) {
+        blocks.push({ kind: 'message', item: entry.item })
+        continue
+      }
+      const last = blocks[blocks.length - 1]
+      if (last?.kind === 'process') last.entries.push(entry)
+      else blocks.push({ kind: 'process', entries: [entry] })
+    }
+    return blocks
+  }, [foldedHistory])
   const renderProcessEntry = (item: ToolCallEntry, compact = true) =>
     item.kind === 'thought'
       ? <AgentThoughtBlock text={item.text ?? ''} compact={compact} />
@@ -831,6 +861,7 @@ export default function WorkSessionArea({
   const resetStreamState = () => {
     setStreamItems([])
     setLiveUsage(null)
+    setStreamDone(false)
     seqRef.current = 0
   }
 
@@ -876,8 +907,8 @@ export default function WorkSessionArea({
       await compactContext()
       return
     }
-    // 回复进行中：不打断当前回复，消息进入发送队列（本轮结束后自动发出）；也可在队列条上点「引导」立即注入
-    if (isStreaming) {
+    // 回复进行中（含 done 后仍在收尾的连接）：不打断当前回复，消息进入发送队列
+    if (busy) {
       enqueue(buildContent(content))
       setInput('')
       setInputHistory(pushInputHistory(content))
@@ -1166,6 +1197,7 @@ export default function WorkSessionArea({
       onUsage: (usage) => setLiveUsage(usage),
       onNotice: (text) => { setContextNotice(text); refreshContextUsage() },
       onError: () => { streamFailed = true },
+      onDone: () => setStreamDone(true),
     }
     let streamFailed = false
     try {
@@ -1465,44 +1497,59 @@ export default function WorkSessionArea({
             </Button>
           )}
           {/* 长会话渲染虚拟化：离屏消息跳过布局/绘制，但保留 DOM 供导轨锚点与查找使用 */}
-          {foldedHistory.map((entry, i) => {
-            if (entry.kind === 'tool') {
-              const only = entry.items[0]
-              return (
-                <div key={only.id ?? i} className="[content-visibility:auto] [contain-intrinsic-size:auto_80px]">
-                  {entry.items.length === 1
-                    ? renderProcessEntry(only)
-                    : <ToolCallGroup items={entry.items} renderItem={renderProcessEntry} />}
-                </div>
-              )
-            }
-            const msg = entry.item
-            return isProcessMessage(msg)
-              ? (
-                <div key={msg.id} className="[content-visibility:auto] [contain-intrinsic-size:auto_80px]">
-                  <ProcessMessageRow message={msg} onOpenFilePath={onOpenFilePath} onRunCommand={onRunCommand} />
-                </div>
-              )
-              : (
-                <div key={msg.id} data-message-anchor={msg.id} className="scroll-mt-4 [content-visibility:auto] [contain-intrinsic-size:auto_120px]">
-                <MessageRow
-                  message={msg}
-                  onOpenFilePath={onOpenFilePath}
-                  onCodeAction={(code, action) => { if (action === 'insert') onInsertCode?.(code) }}
-                  isEditing={editingMessageId === msg.id}
-                  editingContent={editingMessageId === msg.id ? editingContent : ''}
-                  isCopied={copiedMessageId === msg.id}
-                  actionsDisabled={isStreaming || updateMessageMutation.isPending || deleteMessageMutation.isPending}
-                  onCopy={copyMessage}
-                  onStartEdit={(id, content) => { setEditingMessageId(id); setEditingContent(content) }}
-                  onSaveEdit={saveEditingMessage}
-                  onCancelEdit={() => { setEditingMessageId(null); setEditingContent('') }}
-                  onDelete={deleteMessage}
-                  onEditContentChange={setEditingContent}
-                />
-                </div>
-              )
-          })}
+          {historyBlocks.length > 0 && (
+            <div>
+              {historyBlocks.map((block, i) => {
+                const prev = historyBlocks[i - 1]
+                const gap = i === 0 ? '' : prev?.kind === 'message' && prev.item.role === 'user' ? 'mt-6' : 'mt-2'
+                if (block.kind === 'message') {
+                  const msg = block.item
+                  return (
+                    <div key={msg.id} data-message-anchor={msg.id} className={`${gap} scroll-mt-4 [content-visibility:auto] [contain-intrinsic-size:auto_120px]`}>
+                    <MessageRow
+                      message={msg}
+                      onOpenFilePath={onOpenFilePath}
+                      onCodeAction={(code, action) => { if (action === 'insert') onInsertCode?.(code) }}
+                      isEditing={editingMessageId === msg.id}
+                      editingContent={editingMessageId === msg.id ? editingContent : ''}
+                      isCopied={copiedMessageId === msg.id}
+                      actionsDisabled={isStreaming || updateMessageMutation.isPending || deleteMessageMutation.isPending}
+                      onCopy={copyMessage}
+                      onStartEdit={(id, content) => { setEditingMessageId(id); setEditingContent(content) }}
+                      onSaveEdit={saveEditingMessage}
+                      onCancelEdit={() => { setEditingMessageId(null); setEditingContent('') }}
+                      onDelete={deleteMessage}
+                      onEditContentChange={setEditingContent}
+                    />
+                    </div>
+                  )
+                }
+                return (
+                  <div key={`process-${i}`} className={gap}>
+                    {block.entries.map((entry, j) => {
+                      if (entry.kind === 'tool') {
+                        const only = entry.items[0]
+                        const thoughtLed = only.kind === 'thought'
+                        return (
+                          <div key={only.id ?? j} className={`${thoughtLed ? 'mb-0' : 'mb-2'} last:mb-0 [content-visibility:auto] [contain-intrinsic-size:auto_80px]`}>
+                            {entry.items.length === 1
+                              ? renderProcessEntry(only)
+                              : <ToolCallGroup items={entry.items} renderItem={renderProcessEntry} />}
+                          </div>
+                        )
+                      }
+                      const msg = entry.item
+                      return (
+                        <div key={msg.id} className="mb-2 last:mb-0 [content-visibility:auto] [contain-intrinsic-size:auto_80px]">
+                          <ProcessMessageRow message={msg} onOpenFilePath={onOpenFilePath} onRunCommand={onRunCommand} />
+                        </div>
+                      )
+                    })}
+                  </div>
+                )
+              })}
+            </div>
+          )}
 
           {/* 刚发出、后端尚在持久化的消息（即时反馈） */}
           {showPendingUser && pendingUser && (

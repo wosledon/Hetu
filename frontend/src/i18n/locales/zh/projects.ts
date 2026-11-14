@@ -258,6 +258,8 @@ export default {
     typeGraphExtract: '知识图谱提取',
     typeWikiGraphExtract: 'Wiki 知识图谱提取',
     typeWikiGenerate: 'Wiki 生成',
+    typeChatMemoryExtract: '对话记忆提取',
+    typeWorkMemoryExtract: 'Code 项目记忆提取',
     clearCompleted: '清除已完成',
     emptyTitle: '暂无后台任务',
     emptyHint: '编辑笔记时会自动生成 Embedding 和提取知识图谱',
