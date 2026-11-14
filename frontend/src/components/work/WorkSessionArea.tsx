@@ -810,9 +810,9 @@ export default function WorkSessionArea({
     () => visibleMessages.filter((m) => m.role === 'user').map((m) => ({ id: m.id, content: m.content })),
     [visibleMessages],
   )
-  // 历史消息同样折叠：每轮思考及其后续工具调用合并为一组（与流式渲染、任务详情页一致）
+  // 历史消息同样折叠：仅以思考开启的过程合并为一组，纯工具调用逐行显示（与流式渲染、任务详情页一致）
   const foldedHistory = foldConsecutiveToolCalls(visibleMessages, isFoldableProcessMessage, toProcessEntry)
-  const renderProcessEntry = (item: ToolCallEntry, compact = item.kind === 'thought') =>
+  const renderProcessEntry = (item: ToolCallEntry, compact = true) =>
     item.kind === 'thought'
       ? <AgentThoughtBlock text={item.text ?? ''} compact={compact} />
       : <ChatToolCallRow name={item.name} args={item.args} result={item.result} isError={item.isError} onOpenPath={onOpenFilePath} onRunCommand={onRunCommand} compact={compact} />

@@ -112,7 +112,7 @@ export default memo(function ChatMessageItem({
     ? message.content.slice(timelineText.length)
     : ''
   const isLegacy = segments.length > 0 && !interleaved
-  // 每轮思考及其后续工具调用折叠为一组，文本输出作为组分界
+  // 仅以思考开启的过程折叠为一组；纯工具调用逐行显示，文本输出作为组分界
   const foldedSegments = foldConsecutiveToolCalls(
     segments,
     (s) => s.kind === 'tool' || s.kind === 'thought',

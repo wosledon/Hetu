@@ -31,7 +31,7 @@ export interface AgentTimelineProps {
  * Agent 执行过程的统一时间线渲染器。
  *
  * 对话页、编码会话、任务看板详情三端共用：把 思考 → 工具调用 → 正文
- * 按发生顺序穿插展示，每轮思考及其后续工具折叠成组。三端的能力差异通过可选
+ * 按发生顺序穿插展示；仅以思考开启的过程折叠成组，纯工具调用逐行显示。三端的能力差异通过可选
  * 回调表达——编码会话传 onOpenPath / onRunCommand / onRestoreCheckpoint，
  * 对话页与任务看板只读展示。
  */
@@ -68,6 +68,7 @@ export default function AgentTimeline({
                         running={only.running}
                         onOpenPath={onOpenPath}
                         onRunCommand={onRunCommand}
+                        compact
                       />
                     )}
               </div>
