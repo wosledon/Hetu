@@ -47,9 +47,9 @@ export default function ToolCallGroup({ items, renderItem }: ToolCallGroupProps)
         aria-expanded={open}
         className="flex min-h-8 w-full items-center gap-1.5 rounded-md px-1 py-1 text-left transition-colors hover:bg-gray-50/80 dark:hover:bg-white/[0.025]"
       >
-        {open
-          ? <ChevronDown size={12} className="shrink-0 text-gray-400" />
-          : <ChevronRight size={12} className="shrink-0 text-gray-400" />}
+        <span className="flex h-4 w-4 shrink-0 items-center justify-center text-gray-400">
+          {open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+        </span>
         <span className={`flex h-4 w-4 shrink-0 items-center justify-center ${
           failed
             ? 'text-red-500 dark:text-red-400'
@@ -74,14 +74,8 @@ export default function ToolCallGroup({ items, renderItem }: ToolCallGroupProps)
       {open && (
         <div className="ml-2 space-y-0.5 border-l border-gray-200/80 py-1 pl-3 dark:border-white/[0.08]">
           {items.map((item, i) => {
-            if (item.kind === 'thought') {
-              return (
-                <pre key={item.id ?? i} className="whitespace-pre-wrap break-words px-1 py-1 font-sans text-xs leading-5 text-gray-600 dark:text-gray-300">
-                  {item.text}
-                </pre>
-              )
-            }
-            if (item.kind === 'node') {
+            // 思考与工具一样走可折叠行：展开组时只显示摘要，避免长思考铺满面板
+            if (item.kind === 'thought' || item.kind === 'node') {
               return (
                 <div key={item.id ?? i}>
                   {renderItem
@@ -91,7 +85,7 @@ export default function ToolCallGroup({ items, renderItem }: ToolCallGroupProps)
                         name={item.name}
                         args={item.text ?? ''}
                         text={item.text ?? ''}
-                        label={t('tool.nodeLabel', { name: item.name })}
+                        label={item.kind === 'thought' ? t('shared.thinking') : t('tool.nodeLabel', { name: item.name })}
                         compact
                       />
                     )}
