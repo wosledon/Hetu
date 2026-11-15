@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback, lazy, Suspense } from 'react'
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Bot, FileText, Search, GitBranch, X, Globe, Database, ChevronDown, ArrowDown, Loader2, Zap, AlertCircle, Eraser, Gauge } from 'lucide-react'
@@ -30,7 +30,6 @@ import { loadInputHistory, pushInputHistory } from '../utils/inputHistory'
 import { loadPendingQueue, savePendingQueue } from '../utils/pendingQueue'
 import AgentQueueBar, { type PendingMessage } from './agent/AgentQueueBar'
 import ToolInteractionDrawer from './ToolInteractionDrawer'
-import InlineWorkflowPanel from './workflow/InlineWorkflowPanel'
 import { type InputCommandItem } from './InputCommandMenu'
 import { useStreaming } from '../hooks/useStreaming'
 import { reasoningEffortDefault } from '../utils/agentReasoning'
@@ -45,6 +44,8 @@ import { useStickToBottom } from '../hooks/useStickToBottom'
 import { consumeSseStream } from '../utils/sse'
 import type { IChatTopic, IPromptPreset, IChatGroup, ISkill } from '../types'
 import { Button, Card, IconButton, SearchInput } from './ui'
+
+const InlineWorkflowPanel = lazy(() => import('./workflow/InlineWorkflowPanel'))
 
 interface ChatMessageAreaProps {
   topic?: IChatTopic
@@ -179,8 +180,11 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
     enabled: !!topic?.id,
     // 扩大窗口时保留上一页，避免列表短暂清空、滚动位置丢失
     placeholderData: keepPreviousData,
+    // 不同 pageSize 各自一份缓存，旧页一分钟不用就释放
+    gcTime: 60_000,
   })
   const messages = useMemo(() => messagePage?.items ?? [], [messagePage])
+  const chatTimelineItems = useMemo(() => fromChatTimeline(timeline), [timeline])
   const totalMessages = messagePage?.totalCount ?? 0
 
 
@@ -938,7 +942,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
               {/* 瀑布流：按时间线顺序穿插渲染 思考 → 工具调用 → 文本，与编码会话/任务看板共用 AgentTimeline */}
               <div className="text-gray-800 dark:text-gray-100">
                 <AgentTimeline
-                  items={fromChatTimeline(timeline)}
+                  items={chatTimelineItems}
                   streaming={isStreaming}
                   onApprove={handleApprove}
                 />
@@ -1004,16 +1008,18 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
         {/* 工作流独立面板：流程图 + 状态 + 交互（选中状态由输入框工具栏展示，这里不重复） */}
         {runningWorkflow && workflowNodes.length > 0 && (
           <div className="mb-3">
-            <InlineWorkflowPanel
-              workflow={runningWorkflow}
-              nodeStates={workflowNodes}
-              pendingApproval={pendingApproval}
-              workflowToolCall={workflowToolCall}
-              onApprove={workflowRun.approve}
-              onToolApprove={workflowRun.submitToolInteraction}
-              isStreaming={isStreaming}
-              error={workflowError}
-            />
+            <Suspense fallback={null}>
+              <InlineWorkflowPanel
+                workflow={runningWorkflow}
+                nodeStates={workflowNodes}
+                pendingApproval={pendingApproval}
+                workflowToolCall={workflowToolCall}
+                onApprove={workflowRun.approve}
+                onToolApprove={workflowRun.submitToolInteraction}
+                isStreaming={isStreaming}
+                error={workflowError}
+              />
+            </Suspense>
           </div>
         )}
 

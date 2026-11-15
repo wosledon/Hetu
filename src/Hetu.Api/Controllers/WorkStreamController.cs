@@ -825,7 +825,7 @@ public class WorkStreamController : ControllerBase
         {
             // 单条结果立即落库：后续 plan/question 等待或进程异常都不会拖住此前的过程记录
             await _owner._sessionService.AddMessageAsync(
-                _sessionId, "assistant", Truncate(result.Result ?? string.Empty), "tool",
+                _sessionId, "assistant", result.Result ?? string.Empty, "tool",
                 metadata: JsonSerializer.Serialize(new
                 {
                     toolCallId = result.Call.Id,

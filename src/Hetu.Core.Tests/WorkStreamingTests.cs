@@ -9,13 +9,13 @@ public class WorkStreamingTests
     public async Task AttachAsync_多个挂载方_都收到完整事件序列()
     {
         var buffer = new SseEventBuffer();
-        buffer.Publish("one");
+        await buffer.PublishAsync("one");
         var first = new List<string>();
         var second = new List<string>();
 
         var firstAttach = buffer.AttachAsync(data => { first.Add(data); return Task.CompletedTask; }, CancellationToken.None);
         var secondAttach = buffer.AttachAsync(data => { second.Add(data); return Task.CompletedTask; }, CancellationToken.None);
-        buffer.Publish("two");
+        await buffer.PublishAsync("two");
         buffer.Complete();
         await Task.WhenAll(firstAttach, secondAttach).WaitAsync(TimeSpan.FromSeconds(1));
 
@@ -27,14 +27,13 @@ public class WorkStreamingTests
     public async Task AttachAsync_重放期间发布_不丢事件且顺序正确()
     {
         var buffer = new SseEventBuffer();
-        buffer.Publish("one");
+        await buffer.PublishAsync("one");
         var received = new List<string>();
 
-        var attach = buffer.AttachAsync(data =>
+        var attach = buffer.AttachAsync(async data =>
         {
             received.Add(data);
-            if (data == "one") buffer.Publish("two");
-            return Task.CompletedTask;
+            if (data == "one") await buffer.PublishAsync("two");
         }, CancellationToken.None);
         buffer.Complete();
         await attach.WaitAsync(TimeSpan.FromSeconds(1));
@@ -43,11 +42,11 @@ public class WorkStreamingTests
     }
 
     [Fact]
-    public void Publish_超过缓冲上限_保留早期交互事件()
+    public async Task PublishAsync_超过缓冲上限_保留早期交互事件()
     {
         var buffer = new SseEventBuffer();
-        buffer.Publish("{\"type\":\"plan\",\"toolCallId\":\"call-1\"}");
-        for (var i = 0; i < 5000; i++) buffer.Publish($"{{\"type\":\"content\",\"text\":\"{i}\"}}");
+        await buffer.PublishAsync("{\"type\":\"plan\",\"toolCallId\":\"call-1\"}");
+        for (var i = 0; i < 5000; i++) await buffer.PublishAsync($"{{\"type\":\"content\",\"text\":\"{i}\"}}");
 
         var snapshot = buffer.Snapshot();
 

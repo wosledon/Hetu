@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback, memo, lazy, Suspense } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import {
@@ -57,11 +57,12 @@ import { loadTopicSettings, saveTopicSettings } from '../../utils/topicSettings'
 import { useMentionItems } from '../../hooks/useMentionItems'
 import { useWorkflowRun } from '../../hooks/useWorkflowRun'
 import useElementWidth from '../../hooks/useElementWidth'
-import InlineWorkflowPanel from '../workflow/InlineWorkflowPanel'
 import { useConfirm } from '../../components/confirm'
 import ToolInteractionDrawer from '../ToolInteractionDrawer'
 import { useInteractionStore } from '../../stores/interactionStore'
 import { Button, Card, IconButton, Textarea } from '../ui'
+
+const InlineWorkflowPanel = lazy(() => import('../workflow/InlineWorkflowPanel'))
 
 interface WorkSessionAreaProps {
   project?: IWorkProject
@@ -313,6 +314,8 @@ export default function WorkSessionArea({
     enabled: !!session?.id,
     // 扩大窗口时保留上一页，避免列表短暂清空、滚动位置丢失
     placeholderData: keepPreviousData,
+    // 「加载更早」会按 pageSize 生成新缓存键，旧页只在内存里占着——一分钟没人用就释放
+    gcTime: 60_000,
     // 有流在跑（含切走页面期间恢复的运行态）时轮询回读：
     // 组件卸载过，streamItems 拿不回来，只能靠消息落库看到进度
     refetchInterval: isStreaming ? 2000 : false,
@@ -439,17 +442,29 @@ export default function WorkSessionArea({
     },
   })
 
-  const saveEditingMessage = () => {
+  const updateMessage = updateMessageMutation.mutate
+  const saveEditingMessage = useCallback(() => {
     if (!editingMessageId || !editingContent.trim()) return
-    updateMessageMutation.mutate({ id: editingMessageId, content: editingContent.trim() })
-  }
+    updateMessage({ id: editingMessageId, content: editingContent.trim() })
+  }, [editingMessageId, editingContent, updateMessage])
 
-  const deleteMessage = (id: string) => {
+  const deleteMessageById = deleteMessageMutation.mutate
+  const deleteMessage = useCallback((id: string) => {
     confirmRef.current({
       message: t('session.deleteMessageConfirm'),
-      onConfirm: () => deleteMessageMutation.mutate(id),
+      onConfirm: () => deleteMessageById(id),
     })
-  }
+  }, [deleteMessageById, t])
+
+  const startEditingMessage = useCallback((id: string, content: string) => {
+    setEditingMessageId(id)
+    setEditingContent(content)
+  }, [])
+
+  const cancelEditingMessage = useCallback(() => {
+    setEditingMessageId(null)
+    setEditingContent('')
+  }, [])
 
   // @ 提及 / / 指令 浮层：输入中的查询词、选中项、文件候选
   const [inputMenu, setInputMenu] = useState<{ kind: 'mention' | 'slash'; query: string } | null>(null)
@@ -638,11 +653,8 @@ export default function WorkSessionArea({
   const [inputHistory, setInputHistory] = useState<string[]>(() => loadInputHistory())
 
 
-  // 长会话：旧回合默认折叠——但仅限「打开会话时」的初始态。
-  // 本会话内一旦发过消息（含连续重发）就展示全部，避免回复到达后旧消息被突然折起来；
-  // 用户也可点「展开更早」手动展开（showOlder）。
+  // 长会话：旧回合默认折叠，只有用户主动展开时才挂载更早的历史。
   const [showOlder, setShowOlder] = useState(false)
-  const [sentThisVisit, setSentThisVisit] = useState(() => !!session?.id && workStreamRuns.isRunning(session.id))
 
   // 未手动切换过模型时，跟随会话上保存的模型
   const selectedModelId =
@@ -811,12 +823,12 @@ export default function WorkSessionArea({
     return -1
   }, [orderedMessages])
   const visibleMessages = useMemo(
-    () => (showOlder || sentThisVisit || lastUserIndex <= 0
+    () => (showOlder || lastUserIndex <= 0
       ? orderedMessages
       : orderedMessages.slice(lastUserIndex)),
-    [showOlder, sentThisVisit, lastUserIndex, orderedMessages],
+    [showOlder, lastUserIndex, orderedMessages],
   )
-  const olderCount = showOlder || sentThisVisit || lastUserIndex <= 0 ? 0 : lastUserIndex
+  const olderCount = showOlder || lastUserIndex <= 0 ? 0 : lastUserIndex
   const unloadedCount = Math.max(0, totalMessages - messages.length)
   const loadEarlierMessages = () => {
     const container = scrollRef.current
@@ -848,8 +860,13 @@ export default function WorkSessionArea({
       if (last?.kind === 'process') last.messages.push(message)
       else blocks.push({ kind: 'process', messages: [message] })
     }
-    return blocks
+    // 历史过程只在消息变化时转换一次；否则每秒的流式增量都会重建整段时间线
+    return blocks.map((block) => (block.kind === 'process'
+      ? { ...block, items: fromWorkHistoryMessages(block.messages) }
+      : block))
   }, [historyMessages])
+
+  const streamTimelineItems = useMemo(() => fromWorkStreamItems(streamItems), [streamItems])
 
   // 刚发出且后端尚未在历史中持久化的消息 → 派生展示（持久化后自动让位）
   // 判据必须同时满足「内容与待发消息一致 + 时间不早于发送时刻」：只用内容相等会把上一轮
@@ -869,6 +886,29 @@ export default function WorkSessionArea({
     setStreamDone(false)
     seqRef.current = 0
   }
+
+  const submitApproval = useCallback((id: string, approve: boolean) => {
+    const sessionId = draftCreatedRef.current?.id ?? session?.id
+      if (!sessionId) return
+      setStreamItems((prev) => prev.filter((x) => !(x.kind === 'approval' && x.id === id)))
+      workSessionService.approve(sessionId, id, approve).catch(() => {})
+  }, [session?.id])
+
+  /** 回滚到检查点：与历史消息里的检查点行共用同一逻辑（confirm 为回调式，确认后才执行） */
+  const restoreCheckpoint = useCallback((id: string) => {
+      if (!id) return
+      confirmRef.current({
+        message: t('session.rollbackCheckpointConfirm'),
+        onConfirm: () => {
+          workCheckpointService.restore(id).catch(() => {})
+        },
+      })
+  }, [t])
+
+  const handleInsertCode = useCallback((code: string) => { onInsertCode?.(code) }, [onInsertCode])
+  const handleMessageCodeAction = useCallback((code: string, action: 'copy' | 'insert') => {
+    if (action === 'insert') handleInsertCode(code)
+  }, [handleInsertCode])
 
   if (!session) {
     return (
@@ -1115,8 +1155,6 @@ export default function WorkSessionArea({
 
     const activeId = active.id
     setLocalStreaming(true)
-    // 本会话内发过消息：旧回合不再自动折叠（见 visibleMessages 处注释）
-    setSentThisVisit(true)
     if (persistUserMessage)
     {
       setPendingUser(content)
@@ -1133,7 +1171,6 @@ export default function WorkSessionArea({
     workStreamRuns.register(activeId, controller, () => {
       // 后端运行已结束（模块级泵收到 done）：同步掉本地运行态
       setLocalStreaming(false)
-      setSentThisVisit(false)
     })
     // 子 Agent 过程帧合批：一次运行有数百个 delta 帧，逐帧 setState 会反复重建内层时间线，
     // 把渲染拖垮（内容铺成长竖列、折叠卡片缺失）；按 ~100ms 合批后再进 state
@@ -1156,19 +1193,44 @@ export default function WorkSessionArea({
       next[idx] = merged
       return next
     }))
-   const handlers: WorkStreamHandlers = {
-      onContent: (text) => setStreamItems((prev) => {
+    // 高频正文/思考增量按 50ms 合批；结构性事件前先冲刷，保证时间线顺序与交互即时性。
+    let deltaTimer: number | null = null
+    let pendingDelta: { kind: 'text' | 'thought'; text: string } | null = null
+    const flushDelta = () => {
+      if (deltaTimer !== null) {
+        window.clearTimeout(deltaTimer)
+        deltaTimer = null
+      }
+      const delta = pendingDelta
+      pendingDelta = null
+      if (!delta) return
+      setStreamItems((prev) => {
         const last = prev[prev.length - 1]
-        // 连续的正文增量合并为一项，遇到其他事件就另起一项，保证顺序可见
-        if (last && last.kind === 'text') return [...prev.slice(0, -1), { ...last, text: last.text + text }]
-        return [...prev, { kind: 'text', seq: seqRef.current++, text }]
-      }),
-      onThought: (text) => setStreamItems((prev) => {
-        const last = prev[prev.length - 1]
-        if (last && last.kind === 'thought') return [...prev.slice(0, -1), { ...last, text: last.text + text }]
-        return [...prev, { kind: 'thought', seq: seqRef.current++, text }]
-      }),
-      onToolCall: (tc) => setStreamItems((prev) => {
+        if (last?.kind === 'text' && delta.kind === 'text') {
+          return [...prev.slice(0, -1), { ...last, text: last.text + delta.text }]
+        }
+        if (last?.kind === 'thought' && delta.kind === 'thought') {
+          return [...prev.slice(0, -1), { ...last, text: last.text + delta.text }]
+        }
+        const item: StreamItem = delta.kind === 'text'
+          ? { kind: 'text', seq: seqRef.current++, text: delta.text }
+          : { kind: 'thought', seq: seqRef.current++, text: delta.text }
+        return [...prev, item]
+      })
+    }
+    const queueDelta = (kind: 'text' | 'thought', text: string) => {
+      if (pendingDelta && pendingDelta.kind !== kind) flushDelta()
+      pendingDelta = pendingDelta
+        ? { kind, text: pendingDelta.text + text }
+        : { kind, text }
+      if (deltaTimer === null) deltaTimer = window.setTimeout(flushDelta, 50)
+    }
+    const handlers: WorkStreamHandlers = {
+      onContent: (text) => queueDelta('text', text),
+      onThought: (text) => queueDelta('thought', text),
+      onToolCall: (tc) => {
+        flushDelta()
+        setStreamItems((prev) => {
         const idx = prev.findIndex((x) => x.kind === 'tool' && x.id === tc.id)
         if (idx >= 0) {
           const next = [...prev]
@@ -1176,8 +1238,10 @@ export default function WorkSessionArea({
           return next
         }
         return [...prev, { kind: 'tool', seq: seqRef.current++, ...tc } as StreamItem]
-      }),
+        })
+      },
       onToolResult: (id, result, isError) => {
+        flushDelta()
         useInteractionStore.getState().resolve(activeId, id)
         setStreamItems((prev) =>
           // 审批模式切成「无需确认」时后端按批准直接执行：结果一到就撤掉审批条目
@@ -1185,7 +1249,9 @@ export default function WorkSessionArea({
             .map((x) => (x.kind === 'tool' && x.id === id ? { ...x, result, isError } : x)),
         )
       },
-      onFileChange: (fc) => setStreamItems((prev) => {
+      onFileChange: (fc) => {
+        flushDelta()
+        setStreamItems((prev) => {
         const idx = prev.findIndex((x) => x.kind === 'file' && x.path === fc.path)
         if (idx >= 0) {
           const next = [...prev]
@@ -1193,18 +1259,31 @@ export default function WorkSessionArea({
           return next
         }
         return [...prev, { kind: 'file', seq: seqRef.current++, ...fc } as StreamItem]
-      }),
-      onApprovalRequest: (req) => setStreamItems((prev) => [
-        ...prev.filter((x) => !(x.kind === 'approval' && x.id === req.id)),
-        { kind: 'approval', seq: seqRef.current++, ...req },
-      ]),
-      onInteraction: (evt) => useInteractionStore.getState().applyChunk(activeId, evt),
-      onCheckpoint: (cp) => setStreamItems((prev) => [...prev, { kind: 'checkpoint', seq: seqRef.current++, ...cp } as StreamItem]),
-      onSubAgent: coalescer.push,
+        })
+      },
+      onApprovalRequest: (req) => {
+        flushDelta()
+        setStreamItems((prev) => [
+          ...prev.filter((x) => !(x.kind === 'approval' && x.id === req.id)),
+          { kind: 'approval', seq: seqRef.current++, ...req },
+        ])
+      },
+      onInteraction: (evt) => {
+        flushDelta()
+        useInteractionStore.getState().applyChunk(activeId, evt)
+      },
+      onCheckpoint: (cp) => {
+        flushDelta()
+        setStreamItems((prev) => [...prev, { kind: 'checkpoint', seq: seqRef.current++, ...cp } as StreamItem])
+      },
+      onSubAgent: (sa) => {
+        flushDelta()
+        coalescer.push(sa)
+      },
       onUsage: (usage) => setLiveUsage(usage),
       onNotice: (text) => { setContextNotice(text); refreshContextUsage() },
-      onError: () => { streamFailed = true },
-      onDone: () => setStreamDone(true),
+      onError: () => { flushDelta(); streamFailed = true },
+      onDone: () => { flushDelta(); setStreamDone(true) },
     }
     let streamFailed = false
     try {
@@ -1245,7 +1324,8 @@ export default function WorkSessionArea({
       streamRef.current = null
       workStreamRuns.unregister(activeId)
       setLocalStreaming(false)
-      // 冲刷合批器里积压的尾帧：流结束/中断时不能丢掉最后一段内层过程
+      // 冲刷合批器里积压的尾帧：流结束/中断时不能丢掉最后一截正文或内层过程
+      flushDelta()
       coalescer.flush()
       // 等消息列表回读（后端已落库）后再清空本轮输出，避免完成后正文瞬间消失
       void Promise.allSettled([
@@ -1312,23 +1392,6 @@ export default function WorkSessionArea({
       setSteeringId(null)
     }
   }
-    const submitApproval = (id: string, approve: boolean) => {
-      const sessionId = draftCreatedRef.current?.id ?? session?.id
-      if (!sessionId) return
-      setStreamItems((prev) => prev.filter((x) => !(x.kind === 'approval' && x.id === id)))
-      workSessionService.approve(sessionId, id, approve).catch(() => {})
-    }
-
-    /** 回滚到检查点：与历史消息里的检查点行共用同一逻辑（confirm 为回调式，确认后才执行） */
-    const restoreCheckpoint = (id: string) => {
-      if (!id) return
-      confirmRef.current({
-        message: t('session.rollbackCheckpointConfirm'),
-        onConfirm: () => {
-          workCheckpointService.restore(id).catch(() => {})
-        },
-      })
-    }
 
 
   /** 导出会话为 Markdown */
@@ -1517,15 +1580,15 @@ export default function WorkSessionArea({
                     <MessageRow
                       message={msg}
                       onOpenFilePath={onOpenFilePath}
-                      onCodeAction={(code, action) => { if (action === 'insert') onInsertCode?.(code) }}
+                      onCodeAction={handleMessageCodeAction}
                       isEditing={editingMessageId === msg.id}
                       editingContent={editingMessageId === msg.id ? editingContent : ''}
                       isCopied={copiedMessageId === msg.id}
                       actionsDisabled={isStreaming || updateMessageMutation.isPending || deleteMessageMutation.isPending}
                       onCopy={copyMessage}
-                      onStartEdit={(id, content) => { setEditingMessageId(id); setEditingContent(content) }}
+                      onStartEdit={startEditingMessage}
                       onSaveEdit={saveEditingMessage}
-                      onCancelEdit={() => { setEditingMessageId(null); setEditingContent('') }}
+                      onCancelEdit={cancelEditingMessage}
                       onDelete={deleteMessage}
                       onEditContentChange={setEditingContent}
                     />
@@ -1535,10 +1598,10 @@ export default function WorkSessionArea({
                 return (
                   <div key={`process-${i}`} className={gap}>
                     <AgentTimeline
-                      items={fromWorkHistoryMessages(block.messages)}
+                      items={block.items}
                       onOpenPath={onOpenFilePath}
                       onRunCommand={onRunCommand}
-                      onInsertCode={(code) => onInsertCode?.(code)}
+                      onInsertCode={handleInsertCode}
                       onRestoreCheckpoint={restoreCheckpoint}
                     />
                   </div>
@@ -1563,13 +1626,13 @@ export default function WorkSessionArea({
             {(isStreaming || streamItems.length > 0) && (
               <div>
                 <AgentTimeline
-                  items={fromWorkStreamItems(streamItems)}
+                  items={streamTimelineItems}
                   streaming={isStreaming}
                   onOpenPath={onOpenFilePath}
                   onRunCommand={onRunCommand}
-                  onInsertCode={(code) => onInsertCode?.(code)}
-                  onApprove={(id, approved) => submitApproval(id, approved)}
-                  onRestoreCheckpoint={(id) => restoreCheckpoint(id)}
+                  onInsertCode={handleInsertCode}
+                  onApprove={submitApproval}
+                  onRestoreCheckpoint={restoreCheckpoint}
                 />
               </div>
             )}
@@ -1578,16 +1641,18 @@ export default function WorkSessionArea({
           {workflowRun.workflow && (
             <div className="space-y-2">
               {workflowRun.nodes.length > 0 && (
-                <InlineWorkflowPanel
-                  workflow={workflowRun.workflow}
-                  nodeStates={workflowRun.nodes}
-                  pendingApproval={workflowRun.pendingApproval}
-                  workflowToolCall={workflowRun.toolCall}
-                  onApprove={workflowRun.approve}
-                  onToolApprove={workflowRun.submitToolInteraction}
-                  isStreaming={isStreaming}
-                  error={workflowRun.error}
-                />
+                <Suspense fallback={null}>
+                  <InlineWorkflowPanel
+                    workflow={workflowRun.workflow}
+                    nodeStates={workflowRun.nodes}
+                    pendingApproval={workflowRun.pendingApproval}
+                    workflowToolCall={workflowRun.toolCall}
+                    onApprove={workflowRun.approve}
+                    onToolApprove={workflowRun.submitToolInteraction}
+                    isStreaming={isStreaming}
+                    error={workflowRun.error}
+                  />
+                </Suspense>
               )}
               {workflowOutput && (
                 <Card className="p-3 text-sm text-gray-800 dark:text-gray-100">
@@ -2142,7 +2207,7 @@ const isProcessMessage = (m: IWorkMessage) =>
   m.type === 'thought' || m.type === 'tool' || m.type === 'subagent' || m.type === 'file_change' || m.type === 'checkpoint'
 
 /** 普通历史消息：用户气泡 / Agent 文本 / 系统提示 / 文件变更 / 检查点 */
-function MessageRow({ message, onOpenFilePath, onCodeAction, ...actions }: {
+const MessageRow = memo(function MessageRow({ message, onOpenFilePath, onCodeAction, ...actions }: {
   message: IWorkMessage
   onOpenFilePath?: (path: string) => void
   onCodeAction?: (code: string, action: 'copy' | 'insert') => void
@@ -2155,7 +2220,7 @@ function MessageRow({ message, onOpenFilePath, onCodeAction, ...actions }: {
   if (message.type === 'checkpoint') return <CheckpointRow message={message} />
   if (message.role === 'user') return <UserBubble message={message} actions={actions} />
   return <AgentTextBlock message={message} onCodeAction={onCodeAction} actions={actions} />
-}
+})
 
 /** 检查点行：会话内可直接回滚到该快照（与流式时间线共用 AgentCheckpointRow） */
 function CheckpointRow({ message }: { message: IWorkMessage }) {

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { memo, useState } from 'react'
 import { Brain, ChevronDown, ChevronRight, Loader2, Play, Wrench, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { renderToolName, renderToolResult } from '../utils/toolRendering'
@@ -65,15 +65,16 @@ function hasVisibleResult(result: string | undefined, isError?: boolean): boolea
  * Copilot 风格的瀑布流行：图标 + 名称 + 目标/命令 + 状态，点击展开详情。
  * 工具调用与文本型条目（思考 / 节点输出）共用同一套外观，保证时间线样式一致。
  */
-export default function ChatToolCallRow({ name, args, result, isError, running, text, label, onOpenPath, onRunCommand, compact = true }: ChatToolCallRowProps) {
+function ChatToolCallRow({ name, args, result, isError, running, text, label, onOpenPath, onRunCommand, compact = true }: ChatToolCallRowProps) {
   const { t } = useTranslation('chat')
   const [open, setOpen] = useState(false)
   const isText = text !== undefined
   const isCommand = name === 'run_command' || name === 'work_run_command'
   const Icon = isError ? X : isText ? Brain : (TOOL_ICONS[name] ?? Wrench)
   const rowLabel = isText ? (label ?? t('shared.thinking')) : renderToolName(name)
+  // 先截断再压缩空白：长思考动辄几十 KB，整串正则替换会在每个流式增量上展平全文
   const summary = isText
-    ? (text.replace(/\s+/g, ' ').trim().slice(0, 160) || null)
+    ? (text.slice(0, 512).replace(/\s+/g, ' ').trim().slice(0, 160) || null)
     : summarizeArgs(name, args)
   const canRun = !isText && !!onRunCommand && isCommand
   const showArgs = !compact && !isFileTarget(name) && !isCommand
@@ -199,3 +200,5 @@ export default function ChatToolCallRow({ name, args, result, isError, running, 
     </div>
   )
 }
+
+export default memo(ChatToolCallRow)

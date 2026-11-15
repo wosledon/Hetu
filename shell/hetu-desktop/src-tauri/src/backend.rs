@@ -191,6 +191,8 @@ fn build_command(
                 .env("HETU_PARENT_PID", std::process::id().to_string())
                 .env("ASPNETCORE_ENVIRONMENT", "Production")
                 .env("DOTNET_NOLOGO", "1")
+                // 桌面常驻 sidecar：宁可多几次 GC，也要把空闲内存还给系统（0-9，越大越积极）
+                .env("DOTNET_GCConserveMemory", "5")
                 .spawn()
                 .context("spawn Hetu.Api sidecar")?
         }
@@ -215,6 +217,7 @@ fn build_command(
                 .env("HETU_PARENT_PID", std::process::id().to_string())
                 .env("ASPNETCORE_ENVIRONMENT", "Development")
                 .env("DOTNET_NOLOGO", "1")
+                .env("DOTNET_GCConserveMemory", "5")
                 .spawn()
                 .context("spawn dotnet run for Hetu.Api")?
         }
