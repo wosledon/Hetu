@@ -17,6 +17,7 @@ import {
   Bot,
   ChevronLeft,
   ChevronRight,
+  X,
 } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
 import { usageService, type IUsageLog, type IUsageModelDayStat, type IUsageSourceModelStat } from '../services/usageService'
@@ -276,9 +277,11 @@ const bySource = stats?.bySource ?? []
   const cards = overview
     ? [
         { label: t('usage.totalTokens'), value: fmtNum(overview.totalTokens), icon: Zap, color: 'text-amber-500', bg: 'bg-amber-50 dark:bg-amber-500/10' },
+        { label: t('usage.requests'), value: fmtNum(overview.totalMessages), icon: Layers, color: 'text-indigo-500', bg: 'bg-indigo-50 dark:bg-indigo-500/10' },
         { label: t('usage.inputCompressed'), value: fmtNum(overview.totalInputTokens || 0), subValue: fmtNum(overview.totalCompressedTokens || 0), icon: Minimize2, color: 'text-blue-500', bg: 'bg-blue-50 dark:bg-blue-500/10' },
         { label: t('usage.outputTokens'), value: fmtNum(overview.totalOutputTokens || 0), icon: Bot, color: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-500/10' },
-        { label: t('usage.cachedTokens'), value: fmtNum(overview.totalCachedTokens), icon: DatabaseZap, color: 'text-teal-500', bg: 'bg-teal-50 dark:bg-teal-500/10' },
+        { label: t('usage.cachedTokens'), value: fmtNum(overview.totalCachedTokens), subValue: overview.totalCacheCreationTokens > 0 ? fmtNum(overview.totalCacheCreationTokens) : undefined, icon: DatabaseZap, color: 'text-teal-500', bg: 'bg-teal-50 dark:bg-teal-500/10' },
+        { label: t('usage.cacheHitRate'), value: overview.cacheHitRate != null ? `${(overview.cacheHitRate * 100).toFixed(1)}%` : '—', icon: Gauge, color: 'text-cyan-500', bg: 'bg-cyan-50 dark:bg-cyan-500/10' },
         { label: t('usage.avgLatency'), value: overview.avgLatencyMs > 0 ? `${(overview.avgLatencyMs / 1000).toFixed(2)}s` : '—', icon: Clock, color: 'text-violet-500', bg: 'bg-violet-50 dark:bg-violet-500/10' },
         { label: t('usage.activeDays'), value: String(overview.activeDays), icon: CalendarDays, color: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-500/10' },
         { label: t('usage.todayTokens'), value: fmtNum(overview.todayTokens), icon: Zap, color: 'text-orange-500', bg: 'bg-orange-50 dark:bg-orange-500/10' },
@@ -312,8 +315,8 @@ const bySource = stats?.bySource ?? []
             <div className="flex h-64 items-center justify-center rounded-2xl border border-dashed border-gray-200 text-sm text-gray-400 dark:border-gray-800 dark:text-gray-500">{t('common:empty')}</div>
           ) : (
             <div className="space-y-6">
-              {/* 概览指标：单卡分栏，避免 7 个同尺寸卡片挤成一行 */}
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-7">
+              {/* 概览指标：单卡分栏，9 个指标排两行，避免挤成一行 */}
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
                 {cards.map((c: typeof cards[number] & { subValue?: string }) => {
                   const Icon = c.icon
                   return (
@@ -436,13 +439,15 @@ function UsageLogs() {
   const [page, setPage] = useState(1)
   const [modelFilter, setModelFilter] = useState('')
   const [sourceFilter, setSourceFilter] = useState('')
+  // 点「第 N 次」徽标下钻到某一轮：一轮 Agent 往往有几十次请求，混在全量里看不清
+  const [turnFilter, setTurnFilter] = useState('')
 
   // 筛选项来自全量统计（不受当前页限制），日志本体按页从服务端拉取
   const { data: stats } = useQuery({ queryKey: ['usageStats'], queryFn: () => usageService.getStats() })
   const { data, isLoading, isPlaceholderData } = useQuery({
-    queryKey: ['usageLogs', page, sourceFilter, modelFilter],
+    queryKey: ['usageLogs', page, sourceFilter, modelFilter, turnFilter],
     queryFn: () =>
-      usageService.getLogs(page, LOGS_PAGE_SIZE, sourceFilter || undefined, undefined, modelFilter || undefined),
+      usageService.getLogs(page, LOGS_PAGE_SIZE, sourceFilter || undefined, undefined, modelFilter || undefined, turnFilter || undefined),
     placeholderData: keepPreviousData,
   })
   const logs = data?.items ?? []
@@ -461,6 +466,7 @@ function UsageLogs() {
 
   const changeSource = (v: string) => { setSourceFilter(v); setPage(1) }
   const changeModel = (v: string) => { setModelFilter(v); setPage(1) }
+  const changeTurn = (v: string) => { setTurnFilter(v); setPage(1) }
 
   const fmtDate = (s: string) => {
     const d = new Date(s)
@@ -482,6 +488,16 @@ function UsageLogs() {
         <CalendarClock size={15} className="text-blue-500" />
         {t('usage.logs')}
         <div className="ml-auto flex items-center gap-2">
+          {turnFilter ? (
+            <button
+              onClick={() => changeTurn('')}
+              title={t('usage.clearTurn')}
+              className="flex items-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-2 py-1 text-[11px] font-medium text-blue-600 transition-colors hover:bg-blue-100 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-300 dark:hover:bg-blue-500/20"
+            >
+              {t('usage.turnFilter', { id: turnFilter.slice(0, 8) })}
+              <X size={12} />
+            </button>
+          ) : null}
           <Select
             value={sourceFilter}
             onChange={changeSource}
@@ -510,20 +526,23 @@ function UsageLogs() {
                   <tr className="border-b border-gray-200 bg-gray-50 text-left text-[11px] text-gray-400 dark:border-gray-800 dark:bg-white/[0.03] dark:text-gray-500">
                     <th className="whitespace-nowrap px-3 py-2.5 font-medium">{t('usage.time')}</th>
                     <th className="whitespace-nowrap px-3 py-2.5 font-medium">{t('usage.source')}</th>
+                    <th className="whitespace-nowrap px-3 py-2.5 font-medium" title={t('usage.iterationHint')}>{t('usage.request')}</th>
                     <th className="whitespace-nowrap px-3 py-2.5 font-medium">{t('usage.model')}</th>
-                    <th className="whitespace-nowrap px-3 py-2.5 text-right font-medium">{t('usage.input')}</th>
-                    <th className="whitespace-nowrap px-3 py-2.5 text-right font-medium">{t('usage.compressed')}</th>
+                    <th className="whitespace-nowrap px-3 py-2.5 text-right font-medium" title={t('usage.inputRealHint')}>{t('usage.input')}</th>
                     <th className="whitespace-nowrap px-3 py-2.5 text-right font-medium" title={t('usage.ratioHint')}>{t('usage.compressionRatio')}</th>
                     <th className="whitespace-nowrap px-3 py-2.5 text-right font-medium" title={t('usage.cacheHitHint')}>{t('usage.cached')}</th>
+                    <th className="whitespace-nowrap px-3 py-2.5 text-right font-medium" title={t('usage.cacheCreationHint')}>{t('usage.cacheCreation')}</th>
                     <th className="whitespace-nowrap px-3 py-2.5 text-right font-medium">{t('usage.output')}</th>
                     <th className="whitespace-nowrap px-3 py-2.5 text-right font-medium">{t('usage.total')}</th>
                     <th className="whitespace-nowrap px-3 py-2.5 text-right font-medium">{t('usage.latency')}</th>
+                    <th className="whitespace-nowrap px-3 py-2.5 text-right font-medium" title={t('usage.toolsHint')}>{t('usage.tools')}</th>
                     <th className="whitespace-nowrap px-3 py-2.5 font-medium">{t('usage.content')}</th>
                   </tr>
                 </thead>
                 <tbody className={`transition-opacity ${isPlaceholderData ? 'opacity-60' : ''}`}>
                   {logs.map((log) => {
                     const ratio = compressionRatio(log)
+                    const turnId = log.turnId
                     const latency = log.latencyMs
                     const latencyTone =
                       latency == null
@@ -547,9 +566,36 @@ function UsageLogs() {
                             {log.sourceName || log.source}
                           </span>
                         </td>
+                        <td className="whitespace-nowrap px-3 py-2">
+                          <div className="flex items-center gap-1">
+                            {log.iteration != null && turnId ? (
+                              <button
+                                onClick={() => changeTurn(turnId === turnFilter ? '' : turnId)}
+                                title={t('usage.iterationHint')}
+                                className={`rounded px-1.5 py-0.5 text-[10px] font-medium tabular-nums transition-colors ${
+                                  turnId === turnFilter
+                                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-500/25 dark:text-blue-200'
+                                    : 'bg-gray-100 text-gray-600 hover:bg-blue-50 hover:text-blue-600 dark:bg-white/10 dark:text-gray-300 dark:hover:bg-blue-500/15'
+                                }`}
+                              >
+                                {t('usage.iteration', { n: log.iteration })}
+                              </button>
+                            ) : (
+                              <span className="text-[10px] text-gray-300 dark:text-gray-600">—</span>
+                            )}
+                            <span className="text-[10px] text-gray-400 dark:text-gray-500">{log.requestKindName || log.requestKind}</span>
+                          </div>
+                        </td>
                         <td className="whitespace-nowrap px-3 py-2 text-gray-600 dark:text-gray-300">{log.modelName}</td>
-                        <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-blue-600 dark:text-blue-400">{log.inputTokens ?? '—'}</td>
-                        <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-violet-600 dark:text-violet-400">{log.compressedTokens ?? '—'}</td>
+                        <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums">
+                          {log.promptTokens != null ? (
+                            <span className="text-blue-600 dark:text-blue-400" title={t('usage.inputRealHint')}>{log.promptTokens}</span>
+                          ) : log.inputTokens != null ? (
+                            <span className="text-gray-400 dark:text-gray-500" title={t('usage.inputEstimatedHint')}>≈{log.inputTokens}</span>
+                          ) : (
+                            <span className="text-gray-300 dark:text-gray-600">—</span>
+                          )}
+                        </td>
                         <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums">
                           {ratio == null ? (
                             <span className="text-gray-300 dark:text-gray-600">—</span>
@@ -570,7 +616,8 @@ function UsageLogs() {
                         </td>
                         {(() => {
                           const cached = log.cachedTokens
-                          const hitBase = log.compressedTokens ?? log.inputTokens ?? 0
+                          // 分母必须是 Provider 实报的 Prompt（含缓存读取），字符估算会让命中率失真
+                          const hitBase = log.promptTokens ?? 0
                           const hit = cached != null && hitBase > 0 ? Math.min(cached / hitBase, 1) : null
                           if (hit == null) return <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-gray-300 dark:text-gray-600">—</td>
                           const tone = hit >= 0.5
@@ -586,10 +633,20 @@ function UsageLogs() {
                             </td>
                           )
                         })()}
-                        <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-emerald-600 dark:text-emerald-400">{log.outputTokens ?? '—'}</td>
-                        <td className="whitespace-nowrap px-3 py-2 text-right font-medium tabular-nums text-gray-700 dark:text-gray-200">{log.tokensUsed ?? '—'}</td>
+                        <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-sky-600 dark:text-sky-400">
+                          {log.cacheCreationTokens != null && log.cacheCreationTokens > 0 ? log.cacheCreationTokens : <span className="text-gray-300 dark:text-gray-600">—</span>}
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-emerald-600 dark:text-emerald-400">
+                          {log.outputTokens ?? <span className="text-[10px] text-gray-300 dark:text-gray-600" title={t('usage.inputEstimatedHint')}>{t('usage.noUsage')}</span>}
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-2 text-right font-medium tabular-nums text-gray-700 dark:text-gray-200">
+                          {log.tokensUsed ?? <span className="text-[10px] font-normal text-gray-300 dark:text-gray-600" title={t('usage.inputEstimatedHint')}>{t('usage.noUsage')}</span>}
+                        </td>
                         <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums">
                           <span className={latencyTone}>{latency != null ? `${(latency / 1000).toFixed(1)}s` : '—'}</span>
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-gray-500 dark:text-gray-400">
+                          {log.toolCallCount != null && log.toolCallCount > 0 ? log.toolCallCount : <span className="text-gray-300 dark:text-gray-600">—</span>}
                         </td>
                         <td className="max-w-[160px] truncate px-3 py-2 text-gray-400 dark:text-gray-500" title={log.contentPreview}>{log.contentPreview}</td>
                       </tr>

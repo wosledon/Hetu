@@ -151,6 +151,7 @@ public class SubAgentExecutionTests
         services.AddSingleton(Substitute.For<ILogger<ToolExecutionService>>());
         services.AddSingleton(Substitute.For<ILogger<AgentLoopService>>());
         services.AddSingleton(Substitute.For<ILogger<CompressionPipelineService>>());
+        services.AddSingleton(Substitute.For<ILlmUsageRecorder>());
         services.AddSingleton<ToolExecutionService>();
         services.AddSingleton<CompressionPipelineService>();
         services.AddScoped<AgentLoopService>();

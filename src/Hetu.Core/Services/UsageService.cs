@@ -37,7 +37,21 @@ public class UsageService
         LlmUsageSources.Search => _localizer.T("usage.sourceSearch"),
         LlmUsageSources.Scheduled => _localizer.T("usage.sourceScheduled"),
         LlmUsageSources.Proxy => _localizer.T("usage.sourceProxy"),
+        LlmUsageSources.Compression => _localizer.T("usage.sourceCompression"),
         _ => source,
+    };
+
+    /// <summary>请求类型展示名：区分主 Agent 请求与压缩 / 摘要 / 子 Agent 等辅助请求</summary>
+    private string LocalizeRequestKind(string kind) => kind.ToLowerInvariant() switch
+    {
+        LlmUsageRequestKinds.Agent => _localizer.T("usage.kindAgent"),
+        LlmUsageRequestKinds.SubAgent => _localizer.T("usage.kindSubAgent"),
+        LlmUsageRequestKinds.Compression => _localizer.T("usage.kindCompression"),
+        LlmUsageRequestKinds.Compaction => _localizer.T("usage.kindCompaction"),
+        LlmUsageRequestKinds.Summarize => _localizer.T("usage.kindSummarize"),
+        LlmUsageRequestKinds.Classify => _localizer.T("usage.kindClassify"),
+        LlmUsageRequestKinds.Memory => _localizer.T("usage.kindMemory"),
+        _ => kind,
     };
 
     public async Task<UsageStatsDto> GetStatsAsync(int days = 0, CancellationToken ct = default)
@@ -50,6 +64,8 @@ public class UsageService
                 l.CreatedAt,
                 l.TokensUsed,
                 l.CachedTokens,
+                l.CacheCreationTokens,
+                l.PromptTokens,
                 l.InputTokens,
                 l.CompressedTokens,
                 l.OutputTokens,
@@ -72,6 +88,12 @@ public class UsageService
         result.Overview.TotalMessages = logs.Count;
         result.Overview.TotalTokens = logs.Sum(l => (long)(l.TokensUsed ?? 0));
         result.Overview.TotalCachedTokens = logs.Sum(l => (long)(l.CachedTokens ?? 0));
+        result.Overview.TotalCacheCreationTokens = logs.Sum(l => (long)(l.CacheCreationTokens ?? 0));
+        result.Overview.TotalPromptTokens = logs.Sum(l => (long)(l.PromptTokens ?? 0));
+        // 命中率分母用 Provider 实报的 Prompt（含缓存读取），而不是字符估算值
+        result.Overview.CacheHitRate = result.Overview.TotalPromptTokens > 0
+            ? (double)result.Overview.TotalCachedTokens / result.Overview.TotalPromptTokens
+            : null;
         result.Overview.TotalInputTokens = logs.Sum(l => (long)(l.InputTokens ?? 0));
         result.Overview.TotalCompressedTokens = logs.Sum(l => (long)(l.CompressedTokens ?? l.InputTokens ?? 0));
         result.Overview.TotalOutputTokens = logs.Sum(l => (long)(l.OutputTokens ?? 0));
@@ -149,6 +171,7 @@ public class UsageService
                 Messages = g.Count(),
                 Tokens = g.Sum(l => (long)(l.TokensUsed ?? 0)),
                 CachedTokens = g.Sum(l => (long)(l.CachedTokens ?? 0)),
+                PromptTokens = g.Sum(l => (long)(l.PromptTokens ?? 0)),
             })
             .OrderByDescending(m => m.Tokens)
             .ToList();
@@ -183,13 +206,14 @@ public class UsageService
         return result;
     }
 
-    /// <summary>获取请求日志明细（数据库分页，含总数）。可按来源、模型与业务引用（话题 / 会话 / 任务）过滤。</summary>
+    /// <summary>获取请求日志明细（数据库分页，含总数）。可按来源、模型、业务引用（话题 / 会话 / 任务）与轮次过滤。</summary>
     public async Task<PagedResult<UsageLogDto>> GetLogsAsync(
         int page = 1,
         int pageSize = 50,
         string? source = null,
         string? model = null,
         Guid? refId = null,
+        Guid? turnId = null,
         CancellationToken ct = default)
     {
         page = Math.Max(1, page);
@@ -197,6 +221,7 @@ public class UsageService
         var sourceFilter = string.IsNullOrWhiteSpace(source) ? null : source.Trim();
         var modelFilter = string.IsNullOrWhiteSpace(model) ? null : model.Trim();
         var refFilter = refId;
+        var turnFilter = turnId;
         var models = await _unitOfWork.AiModels.GetAllAsync(ct);
         var modelNames = models.ToDictionary(m => m.Id, m => string.IsNullOrWhiteSpace(m.DisplayName) ? m.ModelId : m.DisplayName);
         var defaultModelName = _localizer.T("usage.defaultModel");
@@ -213,6 +238,7 @@ public class UsageService
         Expression<Func<LlmUsageLog, bool>> predicate = l =>
             (sourceFilter == null || l.Source == sourceFilter) &&
             (refFilter == null || l.RefId == refFilter) &&
+            (turnFilter == null || l.TurnId == turnFilter) &&
             (modelFilter == null ||
                 (l.ModelId == null
                     ? defaultModelName == modelFilter
@@ -235,14 +261,22 @@ public class UsageService
                 {
                     MessageId = l.Id,
                     TopicId = l.RefId ?? Guid.Empty,
+                    TurnId = l.TurnId,
+                    Iteration = l.Iteration,
+                    RequestKind = l.RequestKind,
+                    RequestKindName = LocalizeRequestKind(l.RequestKind),
                     CreatedAt = l.CreatedAt,
                     ModelName = l.ModelId.HasValue && modelNames.TryGetValue(l.ModelId.Value, out var n) ? n : defaultModelName,
                     InputTokens = l.InputTokens,
                     CompressedTokens = l.CompressedTokens,
+                    PromptTokens = l.PromptTokens,
                     OutputTokens = l.OutputTokens,
                     TokensUsed = l.TokensUsed,
                     CachedTokens = l.CachedTokens,
+                    CacheCreationTokens = l.CacheCreationTokens,
                     LatencyMs = l.LatencyMs,
+                    FinishReason = l.FinishReason,
+                    ToolCallCount = l.ToolCallCount,
                     ContentPreview = l.ContentPreview ?? "",
                     Source = l.Source,
                     SourceName = LocalizeSource(l.Source),

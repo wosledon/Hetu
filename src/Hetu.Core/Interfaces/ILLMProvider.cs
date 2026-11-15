@@ -37,10 +37,24 @@ public class LlmToolCall
 /// </summary>
 public class LlmUsage
 {
+    /// <summary>
+    /// 本次请求的完整 Prompt Token。Anthropic 的 input_tokens 只含未命中缓存的部分，
+    /// 适配器必须把 cache_read / cache_creation 一并计入，否则缓存命中率的分母会偏小。
+    /// </summary>
     public int PromptTokens { get; set; }
     public int CompletionTokens { get; set; }
     public int TotalTokens { get; set; }
+    /// <summary>命中缓存读取的 Prompt Token（计费低于常规输入）</summary>
     public int CachedTokens { get; set; }
+    /// <summary>本次写入缓存的 Prompt Token（Anthropic cache_creation_input_tokens，计费高于常规输入）</summary>
+    public int CacheCreationTokens { get; set; }
+}
+
+/// <summary>非流式调用的结果：正文 + 用量（Provider 未上报用量时 Usage 为 null）</summary>
+public class LlmChatResult
+{
+    public string Content { get; set; } = string.Empty;
+    public LlmUsage? Usage { get; set; }
 }
 
 /// <summary>
@@ -56,6 +70,16 @@ public enum ToolApprovalMode
     Ask
 }
 
+/// <summary>
+/// 一段完整的思考块。Anthropic 扩展思考在工具调用后继续对话时，
+/// 必须把带 signature 的思考块原样回传，否则模型每轮都要从零重想。
+/// </summary>
+public class LlmThinkingBlock
+{
+    public string Text { get; set; } = string.Empty;
+    public string? Signature { get; set; }
+}
+
 public class LlmChatMessage
 {
     public string Role { get; set; } = "user";
@@ -68,6 +92,10 @@ public class LlmChatMessage
     /// assistant 消息携带的工具调用请求（LLM 要求调用工具）
     /// </summary>
     public List<LlmToolCall>? ToolCalls { get; set; }
+    /// <summary>
+    /// assistant 消息的思考块（仅 Anthropic 回传；OpenAI 兼容端不回传 reasoning_content）
+    /// </summary>
+    public List<LlmThinkingBlock>? ThinkingBlocks { get; set; }
     /// <summary>
     /// tool 角色消息关联的工具调用 ID
     /// </summary>
@@ -125,4 +153,11 @@ public interface ILLMProvider
     Task<string> ChatAsync(IReadOnlyList<LlmChatMessage> messages, ChatOptions options, CancellationToken cancellationToken = default);
     IAsyncEnumerable<string> ChatStreamAsync(IReadOnlyList<LlmChatMessage> messages, ChatOptions options, CancellationToken cancellationToken = default);
     Task<string> CompleteAsync(string prompt, CompletionOptions options, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 非流式调用并带回用量。默认实现退回 <see cref="ChatAsync"/>（用量为空）；
+    /// 能从响应体读到 usage 的 Provider 应重写，否则这些调用在用量统计里只有输入没有输出。
+    /// </summary>
+    async Task<LlmChatResult> ChatWithUsageAsync(IReadOnlyList<LlmChatMessage> messages, ChatOptions options, CancellationToken cancellationToken = default)
+        => new LlmChatResult { Content = await ChatAsync(messages, options, cancellationToken) };
 }

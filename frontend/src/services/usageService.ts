@@ -2,9 +2,15 @@ import { get } from './api'
 import type { IPagedResult } from '../types'
 
 export interface IUsageOverview {
+  /** 模型请求数（一行日志 = 一次请求，一轮 Agent 可能有多次） */
   totalMessages: number
   totalTokens: number
   totalCachedTokens: number
+  totalCacheCreationTokens: number
+  /** Provider 实报的 Prompt Token 合计，缓存命中率的分母 */
+  totalPromptTokens: number
+  /** 缓存命中率 = 缓存读取 / 实报 Prompt；无实报数据时为 null */
+  cacheHitRate: number | null
   avgLatencyMs: number
   activeDays: number
   todayMessages: number
@@ -32,6 +38,7 @@ export interface IUsageModelStat {
   messages: number
   tokens: number
   cachedTokens: number
+  promptTokens: number
 }
 
 /** 按调用来源聚合的用量（对话 / 编码会话 / 任务看板 / Wiki / ...） */
@@ -73,16 +80,28 @@ export interface IUsageStats {
 export interface IUsageLog {
   messageId: string
   topicId: string
+  /** 同一用户轮次的分组键：一轮 Agent 的多次请求共享它 */
+  turnId: string | null
+  /** 轮次内的请求序号（1 起）；非 Agent 路径为空 */
+  iteration: number | null
+  /** agent / subagent / compression / compaction / summarize / classify / memory */
+  requestKind: string
+  requestKindName: string
   createdAt: string
   modelName: string
   inputTokens: number | null
   compressedTokens: number | null
+  /** Provider 实报的完整 Prompt Token（含缓存），缓存命中率的分母 */
+  promptTokens: number | null
   outputTokens: number | null
   tokensUsed: number | null
   cachedTokens: number | null
+  cacheCreationTokens: number | null
   latencyMs: number | null
+  finishReason: string | null
+  toolCallCount: number | null
   contentPreview: string
-  /** chat / work / kanban / workflow / wiki / note-ai / skill / graph / search / scheduled / proxy */
+  /** chat / work / kanban / workflow / wiki / note-ai / skill / graph / search / scheduled / proxy / compression */
   source: string
   sourceName: string
 }
@@ -91,12 +110,13 @@ export const usageService = {
   /** days>0 时按模型/来源的聚合只统计最近 N 天；缺省为全量 */
   getStats: (days?: number) =>
     get<IUsageStats>('/usage/stats', days && days > 0 ? { days } : {}),
-  getLogs: (page = 1, pageSize = 50, source?: string, refId?: string, model?: string) =>
+  getLogs: (page = 1, pageSize = 50, source?: string, refId?: string, model?: string, turnId?: string) =>
     get<IPagedResult<IUsageLog>>('/usage/logs', {
       page,
       pageSize,
       ...(source ? { source } : {}),
       ...(refId ? { refId } : {}),
       ...(model ? { model } : {}),
+      ...(turnId ? { turnId } : {}),
     }),
 }

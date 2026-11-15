@@ -137,18 +137,18 @@ public class SkillService : ISkillService
         var provider = await _llmProviderFactory.CreateChatProviderAsync(cancellationToken);
         if (provider == null) return ApiResponse<string>.Fail(_localizer.T("model.chatUnavailable"));
 
-        var result = await provider.ChatAsync(
+        var result = await provider.ChatWithUsageAsync(
             [new LlmChatMessage { Role = "user", Content = prompt }],
             new ChatOptions { ModelId = string.Empty, SystemPrompt = systemPrompt },
             cancellationToken);
 
         await _usageRecorder.RecordAsync(
-            LlmUsageSources.Skill, null,
+            LlmUsageSources.Skill, result.Usage,
             inputTokens: LlmTokenEstimator.Estimate(systemPrompt) + LlmTokenEstimator.Estimate(prompt),
             contentPreview: input,
             ct: cancellationToken);
 
-        return ApiResponse<string>.Ok(result);
+        return ApiResponse<string>.Ok(result.Content);
     }
 
     private async Task<ApiResponse<string>> InvokeWithConfigAsync(string? configJson, string input, CancellationToken cancellationToken)
@@ -162,18 +162,18 @@ public class SkillService : ISkillService
         var provider = await _llmProviderFactory.CreateChatProviderAsync(cancellationToken);
         if (provider == null) return ApiResponse<string>.Fail(_localizer.T("model.chatUnavailable"));
 
-        var result = await provider.ChatAsync(
+        var result = await provider.ChatWithUsageAsync(
             [new LlmChatMessage { Role = "user", Content = prompt }],
             new ChatOptions { ModelId = string.Empty, SystemPrompt = systemPrompt },
             cancellationToken);
 
         await _usageRecorder.RecordAsync(
-            LlmUsageSources.Skill, null,
+            LlmUsageSources.Skill, result.Usage,
             inputTokens: LlmTokenEstimator.Estimate(systemPrompt) + LlmTokenEstimator.Estimate(prompt),
             contentPreview: input,
             ct: cancellationToken);
 
-        return ApiResponse<string>.Ok(result);
+        return ApiResponse<string>.Ok(result.Content);
     }
 
     private static SkillConfig? ParseConfig(string? json)

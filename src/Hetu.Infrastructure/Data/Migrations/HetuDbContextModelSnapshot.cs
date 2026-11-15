@@ -785,6 +785,9 @@ namespace Hetu.Infrastructure.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");
 
+                    b.Property<int?>("CacheCreationTokens")
+                        .HasColumnType("INTEGER");
+
                     b.Property<int?>("CachedTokens")
                         .HasColumnType("INTEGER");
 
@@ -797,7 +800,14 @@ namespace Hetu.Infrastructure.Data.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("FinishReason")
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
                     b.Property<int?>("InputTokens")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("Iteration")
                         .HasColumnType("INTEGER");
 
                     b.Property<int?>("LatencyMs")
@@ -809,8 +819,18 @@ namespace Hetu.Infrastructure.Data.Migrations
                     b.Property<int?>("OutputTokens")
                         .HasColumnType("INTEGER");
 
+                    b.Property<int?>("PromptTokens")
+                        .HasColumnType("INTEGER");
+
                     b.Property<Guid?>("RefId")
                         .HasColumnType("TEXT");
+
+                    b.Property<string>("RequestKind")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(30)
+                        .HasColumnType("TEXT")
+                        .HasDefaultValue("agent");
 
                     b.Property<string>("Source")
                         .IsRequired()
@@ -819,10 +839,24 @@ namespace Hetu.Infrastructure.Data.Migrations
                     b.Property<int?>("TokensUsed")
                         .HasColumnType("INTEGER");
 
+                    b.Property<int?>("ToolCallCount")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid?>("TurnId")
+                        .HasColumnType("TEXT");
+
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("RefId");
+
+                    b.HasIndex("Source");
+
+                    b.HasIndex("TurnId");
 
                     b.ToTable("LlmUsageLogs");
                 });

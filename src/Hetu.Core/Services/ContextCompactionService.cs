@@ -32,17 +32,20 @@ public class ContextCompactionService
 
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILLMProviderFactory _llmProviderFactory;
+    private readonly ILlmUsageRecorder _usageRecorder;
     private readonly ILogger<ContextCompactionService> _logger;
     private readonly ILocalizer _localizer;
 
     public ContextCompactionService(
         IUnitOfWork unitOfWork,
         ILLMProviderFactory llmProviderFactory,
+        ILlmUsageRecorder usageRecorder,
         ILogger<ContextCompactionService> logger,
         ILocalizer localizer)
     {
         _unitOfWork = unitOfWork;
         _llmProviderFactory = llmProviderFactory;
+        _usageRecorder = usageRecorder;
         _logger = logger;
         _localizer = localizer;
     }
@@ -314,10 +317,22 @@ public class ContextCompactionService
                 : await _llmProviderFactory.CreateChatProviderAsync(ct);
             if (provider == null) return null;
 
-            var summary = await provider.ChatAsync(
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            var completion = await provider.ChatWithUsageAsync(
                 [new LlmChatMessage { Role = "user", Content = text }],
                 new ChatOptions { ModelId = string.Empty, SystemPrompt = SummarySystemPrompt, MaxTokens = 2048 },
                 ct);
+            clock.Stop();
+            await _usageRecorder.RecordAsync(
+                LlmUsageSources.Compression,
+                completion.Usage,
+                modelId: modelId,
+                inputTokens: LlmTokenEstimator.Estimate(SummarySystemPrompt) + LlmTokenEstimator.Estimate(text),
+                latencyMs: (int)clock.ElapsedMilliseconds,
+                contentPreview: text,
+                requestKind: LlmUsageRequestKinds.Compaction,
+                ct: CancellationToken.None);
+            var summary = completion.Content;
             return string.IsNullOrWhiteSpace(summary) ? null : summary.Trim();
         }
         catch (Exception ex)

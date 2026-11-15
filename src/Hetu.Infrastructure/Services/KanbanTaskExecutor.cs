@@ -39,7 +39,6 @@ public class KanbanTaskExecutor : IKanbanTaskExecutor
     private readonly WorkflowExecutionEngine _workflowEngine;
     private readonly IWorkCommandRunnerFactory _runnerFactory;
     private readonly InboxService _inbox;
-    private readonly ILlmUsageRecorder _usageRecorder;
     private readonly CompressionPipelineService _compression;
     private readonly ILogger<KanbanTaskExecutor> _logger;
     private readonly ILocalizer _localizer;
@@ -51,7 +50,6 @@ public class KanbanTaskExecutor : IKanbanTaskExecutor
         WorkflowExecutionEngine workflowEngine,
         IWorkCommandRunnerFactory runnerFactory,
         InboxService inbox,
-        ILlmUsageRecorder usageRecorder,
         CompressionPipelineService compression,
         ILogger<KanbanTaskExecutor> logger,
         ILocalizer localizer)
@@ -62,7 +60,6 @@ public class KanbanTaskExecutor : IKanbanTaskExecutor
         _workflowEngine = workflowEngine;
         _runnerFactory = runnerFactory;
         _inbox = inbox;
-        _usageRecorder = usageRecorder;
         _compression = compression;
         _logger = logger;
         _localizer = localizer;
@@ -219,6 +216,8 @@ public class KanbanTaskExecutor : IKanbanTaskExecutor
                     PlanHandler = _ => Task.FromResult(new PlanDecision(true, "")),
                     MaxIterations = MaxAgentIterations,
                     SessionId = $"kanban-task-{taskId}-{run.Id}",
+                    UsageSource = LlmUsageSources.Kanban,
+                    UsageRefId = taskId,
                     WorkScope = string.IsNullOrEmpty(rootPath)
                         ? null
                         : new WorkToolScope
@@ -236,17 +235,7 @@ public class KanbanTaskExecutor : IKanbanTaskExecutor
                 if (string.IsNullOrWhiteSpace(output) && !string.IsNullOrWhiteSpace(agentResult.Thinking))
                     output = agentResult.Thinking!;
 
-                // 看板任务同样是 LLM 调用方，统一记入用量统计
-                await _usageRecorder.RecordAsync(
-                    LlmUsageSources.Kanban,
-                    agentResult.Usage.TotalTokens > 0 ? agentResult.Usage : null,
-                    refId: taskId,
-                    // 「输入 / 压缩后」与对话页同一口径：压缩管道处理前后的简报规模（字符数折算 token），
-                    // 无压缩时两值相同即压缩率 0%
-                    inputTokens: LlmTokenEstimator.EstimateChars(rawBrief.Length),
-                    compressedTokens: LlmTokenEstimator.EstimateChars(brief.Length),
-                    contentPreview: output,
-                    ct: cancellationToken);
+                // 用量按「一次模型请求一行」由 Agent 循环内部落库，这里不再记轮级汇总
             }
 
             if (string.IsNullOrWhiteSpace(output))

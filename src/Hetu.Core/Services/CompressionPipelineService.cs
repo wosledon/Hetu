@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text;
 using System.Text.RegularExpressions;
 using Hetu.Core.Interfaces;
@@ -13,16 +14,19 @@ public class CompressionPipelineService
 {
     private readonly IAppSettingService _appSettingService;
     private readonly ILLMProviderFactory? _llmProviderFactory;
+    private readonly ILlmUsageRecorder _usageRecorder;
     private readonly ILogger<CompressionPipelineService> _logger;
 
     public CompressionPipelineService(
         IAppSettingService appSettingService,
         ILogger<CompressionPipelineService> logger,
-        ILLMProviderFactory llmProviderFactory)
+        ILLMProviderFactory llmProviderFactory,
+        ILlmUsageRecorder usageRecorder)
     {
         _appSettingService = appSettingService;
         _logger = logger;
         _llmProviderFactory = llmProviderFactory;
+        _usageRecorder = usageRecorder;
     }
 
     /// <summary>获取当前压缩配置（与内置默认合并，保证新增节点能出现在已有配置里）</summary>
@@ -224,12 +228,15 @@ public class CompressionPipelineService
         }
 
         ILLMProvider? provider;
+        Guid? configuredModelId = null;
         if (!string.IsNullOrWhiteSpace(config.LlmModelId) && Guid.TryParse(config.LlmModelId, out var modelId))
         {
             provider = await factory.CreateProviderAsync(modelId, ct);
             // 配置里记的模型可能已被删除/重建：回落到默认对话模型，避免压缩静默失效
             if (provider == null)
                 _logger.LogWarning("[Compression] LLM 摘要模型 {ModelId} 不可用（可能已删除），回落到默认对话模型", modelId);
+            else
+                configuredModelId = modelId;
         }
         else
         {
@@ -249,10 +256,23 @@ public class CompressionPipelineService
         {
             // 预算下限 1024：推理类模型会先消耗思考 token，给太少会导致正文为空（压缩静默失效）
             var maxTokens = Math.Clamp(input.Length / 2, 1024, 4096);
-            var compressed = await provider.ChatAsync(
+            var clock = Stopwatch.StartNew();
+            var completion = await provider.ChatWithUsageAsync(
                 [new LlmChatMessage { Role = "user", Content = input }],
                 new ChatOptions { ModelId = string.Empty, SystemPrompt = prompt, MaxTokens = maxTokens },
                 ct);
+            clock.Stop();
+            // 压缩本身就是一次模型请求，同样计费：不记的话这部分开销在用量统计里完全隐形
+            await _usageRecorder.RecordAsync(
+                LlmUsageSources.Compression,
+                completion.Usage,
+                modelId: configuredModelId,
+                inputTokens: LlmTokenEstimator.Estimate(prompt) + LlmTokenEstimator.Estimate(input),
+                latencyMs: (int)clock.ElapsedMilliseconds,
+                contentPreview: input,
+                requestKind: LlmUsageRequestKinds.Compression,
+                ct: CancellationToken.None);
+            var compressed = completion.Content;
             if (string.IsNullOrWhiteSpace(compressed))
             {
                 _logger.LogWarning("[Compression] LLM 摘要返回空内容（maxTokens={MaxTokens}），保留原文", maxTokens);

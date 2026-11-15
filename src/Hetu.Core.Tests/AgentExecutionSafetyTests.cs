@@ -296,7 +296,7 @@ public class AgentExecutionSafetyTests
             .Returns(call =>
             {
                 var current = invocation++;
-                if (current < 3) return Frames(ToolCallsFrame($"call-{current + 1}", "{}"), FinishFrame("stop"));
+                if (current < 6) return Frames(ToolCallsFrame($"call-{current + 1}", "{}"), FinishFrame("stop"));
                 finalMessages = call.Arg<IReadOnlyList<LlmChatMessage>>().Select(m => new LlmChatMessage
                 {
                     Role = m.Role,
@@ -310,16 +310,65 @@ public class AgentExecutionSafetyTests
         await service.RunAsync(new AgentLoopRequest
         {
             ToolNames = ["test_tool"],
-            MaxIterations = 4,
+            MaxIterations = 8,
             ActiveTurnBudgetChars = 1000,
             CompressHistory = false,
         }, CancellationToken.None);
 
         var toolMessages = finalMessages?.Where(m => m.Role == "tool").ToList();
-        Assert.Equal(3, toolMessages?.Count);
+        Assert.Equal(6, toolMessages?.Count);
         Assert.Equal("call-1", toolMessages?[0].ToolCallId);
+        // 旧输出被压缩，但压缩是一次性的：已压过的前缀不再逐轮改写，供应商侧缓存才能命中
         Assert.StartsWith("[tool-output-compacted", toolMessages?[0].Content);
-        Assert.True(toolMessages?[0].Content.Length < 2000);
+        Assert.StartsWith("[tool-output-compacted", toolMessages?[1].Content);
+        Assert.True(toolMessages?[0].Content.Length < 4000);
+        // 最近 4 条保留完整内容，避免模型「忘了」刚读过什么又去重读
+        for (var i = 2; i < 6; i++)
+        {
+            Assert.DoesNotMatch("^\\[tool-output-compacted", toolMessages?[i].Content ?? "");
+            Assert.Equal(5000, toolMessages?[i].Content.Length);
+        }
+    }
+
+    [Fact]
+    public async Task RunAsync_连续重复只读调用_提前收尾不烧完迭代()
+    {
+        var executions = 0;
+        var executor = CreateExecutor("test_tool");
+        executor.Risk.Returns(ToolRisk.Read);
+        executor.ExecuteAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                executions++;
+                return ToolExecutionResult.Success("same-result");
+            });
+        var localizer = CreateLocalizer();
+        var registry = new ToolRegistry([executor], localizer);
+        using var services = CreateToolServices(registry);
+        var provider = Substitute.For<ILLMProvider>();
+        var invocation = 0;
+        provider.ChatStreamAsync(Arg.Any<IReadOnlyList<LlmChatMessage>>(), Arg.Any<ChatOptions>(), Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                invocation++;
+                // 名字与参数完全相同：首轮执行并缓存，之后每轮都命中复用而被跳过
+                return invocation <= 3
+                    ? Frames(ToolCallsFrame($"call-{invocation}", "{}"), FinishFrame("stop"))
+                    : Frames(ContentFrame("done"), FinishFrame("stop"));
+            });
+        var service = CreateAgentLoop(provider, registry, services, localizer);
+
+        var result = await service.RunAsync(new AgentLoopRequest
+        {
+            ToolNames = ["test_tool"],
+            MaxIterations = 10,
+            CompressHistory = false,
+        }, CancellationToken.None);
+
+        // 第 1 轮执行，第 2、3 轮全部被跳过 → 判定打转并收尾，收尾请求是第 4 次
+        Assert.Equal(4, invocation);
+        Assert.Equal(1, executions);
+        Assert.Equal("done", result.Content);
     }
 
     [Fact]
@@ -666,8 +715,10 @@ public class AgentExecutionSafetyTests
             new CompressionPipelineService(
                 Substitute.For<IAppSettingService>(),
                 Substitute.For<ILogger<CompressionPipelineService>>(),
-                factory),
+                factory,
+                Substitute.For<ILlmUsageRecorder>()),
             Substitute.For<IUnitOfWork>(),
+            Substitute.For<ILlmUsageRecorder>(),
             Substitute.For<ILogger<AgentLoopService>>(),
             localizer);
     }

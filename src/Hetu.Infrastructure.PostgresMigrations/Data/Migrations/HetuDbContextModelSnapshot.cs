@@ -792,6 +792,9 @@ namespace Hetu.Infrastructure.PostgresMigrations.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<int?>("CacheCreationTokens")
+                        .HasColumnType("integer");
+
                     b.Property<int?>("CachedTokens")
                         .HasColumnType("integer");
 
@@ -804,7 +807,14 @@ namespace Hetu.Infrastructure.PostgresMigrations.Data.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("FinishReason")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
                     b.Property<int?>("InputTokens")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("Iteration")
                         .HasColumnType("integer");
 
                     b.Property<int?>("LatencyMs")
@@ -816,8 +826,18 @@ namespace Hetu.Infrastructure.PostgresMigrations.Data.Migrations
                     b.Property<int?>("OutputTokens")
                         .HasColumnType("integer");
 
+                    b.Property<int?>("PromptTokens")
+                        .HasColumnType("integer");
+
                     b.Property<Guid?>("RefId")
                         .HasColumnType("uuid");
+
+                    b.Property<string>("RequestKind")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasDefaultValue("agent");
 
                     b.Property<string>("Source")
                         .IsRequired()
@@ -826,10 +846,24 @@ namespace Hetu.Infrastructure.PostgresMigrations.Data.Migrations
                     b.Property<int?>("TokensUsed")
                         .HasColumnType("integer");
 
+                    b.Property<int?>("ToolCallCount")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("TurnId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("RefId");
+
+                    b.HasIndex("Source");
+
+                    b.HasIndex("TurnId");
 
                     b.ToTable("LlmUsageLogs");
                 });

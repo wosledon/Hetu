@@ -716,5 +716,17 @@ public class HetuDbContext : DbContext
                 entity.Property(e => e.Embedding).IsRequired();
             }
         });
+
+        modelBuilder.Entity<LlmUsageLog>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.RequestKind).IsRequired().HasMaxLength(30).HasDefaultValue("agent");
+            entity.Property(e => e.FinishReason).HasMaxLength(50);
+            // 一行 = 一次模型请求后增长很快：明细分页按时间倒序、按轮归组、按来源/引用过滤都要走索引
+            entity.HasIndex(e => e.CreatedAt);
+            entity.HasIndex(e => e.TurnId);
+            entity.HasIndex(e => e.Source);
+            entity.HasIndex(e => e.RefId);
+        });
     }
 }

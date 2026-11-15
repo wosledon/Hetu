@@ -46,18 +46,22 @@ public class SearchQueryRewriter
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             cts.CancelAfter(TimeSpan.FromSeconds(15));
 
-            var raw = await provider.CompleteAsync(question, new CompletionOptions
-            {
-                ModelId = string.Empty,
-                SystemPrompt = SystemPrompt,
-                Temperature = 0.2,
-                MaxTokens = 120,
-            }, cts.Token);
+            var completion = await provider.ChatWithUsageAsync(
+                [new LlmChatMessage { Role = "user", Content = question }],
+                new ChatOptions
+                {
+                    ModelId = string.Empty,
+                    SystemPrompt = SystemPrompt,
+                    Temperature = 0.2,
+                    MaxTokens = 120,
+                }, cts.Token);
+            var raw = completion.Content;
 
             await _usageRecorder.RecordAsync(
-                LlmUsageSources.Search, null,
+                LlmUsageSources.Search, completion.Usage,
                 inputTokens: LlmTokenEstimator.Estimate(SystemPrompt) + LlmTokenEstimator.Estimate(question),
                 contentPreview: question,
+                requestKind: LlmUsageRequestKinds.Classify,
                 ct: cancellationToken);
 
             _logger.LogDebug("查询改写原始输出：{Raw}", (raw ?? string.Empty).Replace("\n", " / ")[..Math.Min(200, (raw ?? string.Empty).Length)]);

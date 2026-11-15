@@ -32,9 +32,10 @@ public class UsageController : ControllerBase
         [FromQuery] string? source = null,
         [FromQuery] string? model = null,
         [FromQuery] Guid? refId = null,
+        [FromQuery] Guid? turnId = null,
         CancellationToken ct = default)
     {
-        var logs = await _usageService.GetLogsAsync(page, pageSize, source, model, refId, ct);
+        var logs = await _usageService.GetLogsAsync(page, pageSize, source, model, refId, turnId, ct);
         return ApiResponse<PagedResult<UsageLogDto>>.Ok(logs);
     }
 }

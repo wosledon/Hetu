@@ -16,14 +16,12 @@ public class AgentNodeExecutor : INodeExecutor
 {
     private readonly IUnitOfWork _unitOfWork;
     private readonly AgentLoopService _agentLoopService;
-    private readonly ILlmUsageRecorder _usageRecorder;
     private readonly ILogger<AgentNodeExecutor> _logger;
     private readonly ILocalizer _localizer;
-    public AgentNodeExecutor(IUnitOfWork unitOfWork, AgentLoopService agentLoopService, ILlmUsageRecorder usageRecorder, ILogger<AgentNodeExecutor> logger, ILocalizer localizer)
+    public AgentNodeExecutor(IUnitOfWork unitOfWork, AgentLoopService agentLoopService, ILogger<AgentNodeExecutor> logger, ILocalizer localizer)
     {
         _unitOfWork = unitOfWork;
         _agentLoopService = agentLoopService;
-        _usageRecorder = usageRecorder;
         _logger = logger;
         _localizer = localizer;
     }
@@ -110,18 +108,15 @@ public class AgentNodeExecutor : INodeExecutor
             MaxToolCallsPerTurn = TryGetInt(config, "maxToolCallsPerTurn", 5),
             ToolApprovals = toolApprovals,
             SessionId = $"workflow-{ctx.RunId}-{node.Id}",
+            UsageSource = LlmUsageSources.Workflow,
+            UsageRefId = ctx.RunId,
             QuestionHandler = ctx.QuestionHandler,
             Sink = new CollectingAgentLoopSink(sink, ctx.RunId, node.Id)
         };
 
         var result = await _agentLoopService.RunAsync(request, ct);
 
-        // Agent 节点也是 LLM 调用方，统一记入用量统计
-        await _usageRecorder.RecordAsync(
-            LlmUsageSources.Workflow,
-            result.Usage.TotalTokens > 0 ? result.Usage : null,
-            refId: ctx.RunId,
-            ct: ct);
+        // 用量按「一次模型请求一行」由 Agent 循环内部落库，这里不再记轮级汇总
 
         var agentOutput = result.Content;
         // 若 LLM 只返回了 thinking 没有 content，用 thinking 作为输出

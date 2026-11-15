@@ -34,7 +34,6 @@ public class ChatMessagesController : ControllerBase
     private readonly PromptComposer _promptComposer;
     private readonly ToolExecutionService _toolExecution;
     private readonly AgentLoopService _agentLoop;
-    private readonly ILlmUsageRecorder _llmUsageRecorder;
     private readonly ContextCompactionService _contextCompaction;
     private readonly ILogger<ChatMessagesController> _logger;
     private readonly ILocalizer _localizer;
@@ -54,7 +53,6 @@ public class ChatMessagesController : ControllerBase
         PromptComposer promptComposer,
         ToolExecutionService toolExecution,
         AgentLoopService agentLoop,
-        ILlmUsageRecorder llmUsageRecorder,
         ContextCompactionService contextCompaction,
         ILogger<ChatMessagesController> logger,
         ILocalizer localizer,
@@ -73,7 +71,6 @@ public class ChatMessagesController : ControllerBase
         _promptComposer = promptComposer;
         _toolExecution = toolExecution;
         _agentLoop = agentLoop;
-        _llmUsageRecorder = llmUsageRecorder;
         _contextCompaction = contextCompaction;
         _logger = logger;
         _steering = steering;
@@ -293,6 +290,8 @@ public class ChatMessagesController : ControllerBase
             Temperature = options.Temperature,
             ToolApprovals = approvalOverrides,
             SessionId = topicId.ToString(),
+            UsageSource = LlmUsageSources.Chat,
+            UsageRefId = topicId,
             Sink = sink,
             DrainSteering = () => _steering.Drain(steeringKey),
             EnableTools = useToolCalling,
@@ -348,21 +347,7 @@ public class ChatMessagesController : ControllerBase
                 cancellationToken: CancellationToken.None);
         }
 
-        await _llmUsageRecorder.RecordAsync(
-            LlmUsageSources.Chat,
-            loopResult.Usage.TotalTokens > 0 ? loopResult.Usage : null,
-            refId: topicId,
-            modelId: modelId,
-            // 输入的「压缩前 / 压缩后」：优先记压缩管道的实际规模（有压缩时才非零），否则退回请求规模估算
-            inputTokens: loopResult.FirstIterationInputChars > 0
-                ? LlmTokenEstimator.EstimateChars(loopResult.FirstIterationInputChars)
-                : estimatedInput,
-            compressedTokens: loopResult.FirstIterationCompressedChars > 0
-                ? LlmTokenEstimator.EstimateChars(loopResult.FirstIterationCompressedChars)
-                : estimatedCompressed,
-            latencyMs: latencyMs,
-            contentPreview: request.Content,
-            ct: CancellationToken.None);
+        // 用量按「一次模型请求一行」由 Agent 循环内部落库（含本轮全部迭代），这里不再记轮级汇总
 
         // 先发 done 结束前端运行态：记忆提取已提交后台任务，不再占用本轮请求
         await writer.WriteJsonAsync(new { type = "done" });

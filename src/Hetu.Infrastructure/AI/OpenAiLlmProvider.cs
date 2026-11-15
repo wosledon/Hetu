@@ -25,6 +25,9 @@ public class OpenAiLlmProvider : ILLMProvider
     }
 
     public async Task<string> ChatAsync(IReadOnlyList<LlmChatMessage> messages, ChatOptions options, CancellationToken cancellationToken = default)
+        => (await ChatWithUsageAsync(messages, options, cancellationToken)).Content;
+
+    public async Task<LlmChatResult> ChatWithUsageAsync(IReadOnlyList<LlmChatMessage> messages, ChatOptions options, CancellationToken cancellationToken = default)
     {
         var requestBody = CreateChatRequest(messages, false, options);
         using var request = CreateRequest("chat/completions", requestBody);
@@ -35,8 +38,13 @@ public class OpenAiLlmProvider : ILLMProvider
             throw new HttpRequestException($"OpenAI API returned {(int)response.StatusCode}: {errorBody}");
         }
 
-        var result = await response.Content.ReadFromJsonAsync<OpenAiChatResponse>(cancellationToken: cancellationToken);
-        return result?.Choices?.FirstOrDefault()?.Message?.Content ?? string.Empty;
+        // 必须用 snake_case 选项：默认的 web 选项只认 promptTokens，读不到 prompt_tokens / usage 明细
+        var result = await response.Content.ReadFromJsonAsync<OpenAiChatResponse>(JsonOptions, cancellationToken);
+        return new LlmChatResult
+        {
+            Content = result?.Choices?.FirstOrDefault()?.Message?.Content ?? string.Empty,
+            Usage = result?.Usage != null ? ToUsage(result.Usage) : null,
+        };
     }
 
     public async IAsyncEnumerable<string> ChatStreamAsync(
@@ -59,6 +67,10 @@ public class OpenAiLlmProvider : ILLMProvider
         // Accumulate tool calls across stream chunks
         var toolCallAccumulators = new Dictionary<int, (string Id, string Name, StringBuilder Args)>();
         OpenAiUsage? lastUsage = null;
+        // 带 stream_options.include_usage 时，usage 由 finish_reason 之后的独立尾帧（choices 为空）送达。
+        // 看到 finish_reason 就结束迭代的话尾帧永远读不到，用量统计里输出/总计/缓存会全为空。
+        string? streamFinishReason = null;
+        var toolCallsEmitted = false;
 
         while (!cancellationToken.IsCancellationRequested)
         {
@@ -134,43 +146,24 @@ public class OpenAiLlmProvider : ILLMProvider
                 }
             }
 
-            // Check finish reason — handle any completion state
+            // 结束原因先记下但继续读流：工具调用可以立刻发，usage 要等尾帧
             var finishReason = choice?.FinishReason;
             if (finishReason != null)
             {
-                // 透传结束原因：length/max_tokens 表示被输出上限截断，消费方可据此续写
-                yield return JsonSerializer.Serialize(new { type = "finish", reason = finishReason }, JsonOptionsOut);
-                if (toolCallAccumulators.Count > 0)
+                streamFinishReason ??= finishReason;
+                if (!toolCallsEmitted && toolCallAccumulators.Count > 0)
                 {
-                    var toolCalls = toolCallAccumulators.Values.Select((tc, i) => new LlmToolCall
-                    {
-                        Id = string.IsNullOrEmpty(tc.Id) ? $"call_{i}_{Guid.NewGuid():N}" : tc.Id,
-                        Name = tc.Name,
-                        Arguments = tc.Args.ToString()
-                    }).ToList();
-
-                    yield return JsonSerializer.Serialize(new { type = "tool_calls", toolCalls }, JsonOptionsOut);
+                    yield return BuildToolCallsFrame(toolCallAccumulators);
+                    toolCallsEmitted = true;
                 }
-                if (lastUsage != null)
-                {
-                    yield return JsonSerializer.Serialize(new { type = "usage", usage = ToUsage(lastUsage) }, JsonOptionsOut);
-                }
-                yield break;
             }
         }
 
-        // Stream ended without explicit finish_reason — emit any accumulated tool calls / usage
-        yield return JsonSerializer.Serialize(new { type = "finish", reason = "stop" }, JsonOptionsOut);
-        if (toolCallAccumulators.Count > 0)
+        // 流末统一收尾：结束原因（length/max_tokens 表示被输出上限截断，消费方可据此续写）+ 工具调用 + 用量
+        yield return JsonSerializer.Serialize(new { type = "finish", reason = streamFinishReason ?? "stop" }, JsonOptionsOut);
+        if (!toolCallsEmitted && toolCallAccumulators.Count > 0)
         {
-            var toolCalls = toolCallAccumulators.Values.Select((tc, i) => new LlmToolCall
-            {
-                Id = string.IsNullOrEmpty(tc.Id) ? $"call_{i}_{Guid.NewGuid():N}" : tc.Id,
-                Name = tc.Name,
-                Arguments = tc.Args.ToString()
-            }).ToList();
-
-            yield return JsonSerializer.Serialize(new { type = "tool_calls", toolCalls }, JsonOptionsOut);
+            yield return BuildToolCallsFrame(toolCallAccumulators);
         }
         if (lastUsage != null)
         {
@@ -178,13 +171,32 @@ public class OpenAiLlmProvider : ILLMProvider
         }
     }
 
+    private static string BuildToolCallsFrame(Dictionary<int, (string Id, string Name, StringBuilder Args)> accumulators)
+    {
+        var toolCalls = accumulators.Values.Select((tc, i) => new LlmToolCall
+        {
+            Id = string.IsNullOrEmpty(tc.Id) ? $"call_{i}_{Guid.NewGuid():N}" : tc.Id,
+            Name = tc.Name,
+            Arguments = tc.Args.ToString()
+        }).ToList();
+        return JsonSerializer.Serialize(new { type = "tool_calls", toolCalls }, JsonOptionsOut);
+    }
+
     /// <summary>Map provider usage payload to LlmUsage, tolerating both top-level and nested cached_tokens.</summary>
-    private static LlmUsage ToUsage(OpenAiUsage u) => new()    {
-        PromptTokens = u.PromptTokens ?? 0,
-        CompletionTokens = u.CompletionTokens ?? 0,
-        TotalTokens = u.TotalTokens ?? (u.PromptTokens ?? 0) + (u.CompletionTokens ?? 0),
-        CachedTokens = u.CachedTokens ?? u.PromptTokensDetails?.CachedTokens ?? 0,
-    };
+    private static LlmUsage ToUsage(OpenAiUsage u)
+    {
+        var prompt = u.PromptTokens ?? 0;
+        var completion = u.CompletionTokens ?? 0;
+        // DeepSeek 等把命中/未命中分开报；cached_tokens 可能在顶层，也可能在 prompt_tokens_details 里
+        var cached = u.CachedTokens ?? u.PromptTokensDetails?.CachedTokens ?? u.PromptCacheHitTokens ?? 0;
+        return new LlmUsage
+        {
+            PromptTokens = prompt,
+            CompletionTokens = completion,
+            TotalTokens = u.TotalTokens ?? prompt + completion,
+            CachedTokens = cached,
+        };
+    }
 
     public async Task<string> CompleteAsync(string prompt, CompletionOptions options, CancellationToken cancellationToken = default)
     {
@@ -358,6 +370,7 @@ public class OpenAiLlmProvider : ILLMProvider
     private class OpenAiChatResponse
     {
         public List<OpenAiChoice>? Choices { get; set; }
+        public OpenAiUsage? Usage { get; set; }
     }
 
     private class OpenAiChoice
@@ -412,6 +425,8 @@ public class OpenAiLlmProvider : ILLMProvider
         public int? CompletionTokens { get; set; }
         public int? TotalTokens { get; set; }
         public int? CachedTokens { get; set; }
+        /// <summary>DeepSeek 风格：命中的缓存 token 单独报</summary>
+        public int? PromptCacheHitTokens { get; set; }
         public OpenAiPromptTokenDetails? PromptTokensDetails { get; set; }
     }
 

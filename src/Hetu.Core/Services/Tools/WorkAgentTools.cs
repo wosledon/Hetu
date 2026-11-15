@@ -124,6 +124,8 @@ public class WorkTaskTool : IToolExecutor
                 MaxToolCallsPerTurn = MaxToolCallsPerTurn,
                 CompressHistory = false,
                 SessionId = $"subagent-{subAgentId}",
+                UsageSource = LlmUsageSources.Work,
+                UsageRequestKind = LlmUsageRequestKinds.SubAgent,
                 Sink = sink,
                 // 只读白名单硬约束：模型即便请求白名单外的工具，也只回一条拒绝结果，不会真正执行
                 DecideToolCall = (call, _) => Task.FromResult(

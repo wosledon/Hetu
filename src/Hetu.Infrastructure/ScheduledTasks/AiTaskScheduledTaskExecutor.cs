@@ -46,19 +46,19 @@ public class AiTaskScheduledTaskExecutor : IScheduledTaskExecutor
             SystemPrompt = string.IsNullOrWhiteSpace(systemPrompt) ? "你是智能助手。" : systemPrompt,
         };
 
-        var result = await provider.ChatAsync(
+        var result = await provider.ChatWithUsageAsync(
             [new LlmChatMessage { Role = "user", Content = prompt }],
             options,
             cancellationToken);
 
         await _usageRecorder.RecordAsync(
-            LlmUsageSources.Scheduled, null,
+            LlmUsageSources.Scheduled, result.Usage,
             refId: task.Id,
             inputTokens: LlmTokenEstimator.Estimate(options.SystemPrompt) + LlmTokenEstimator.Estimate(prompt),
             contentPreview: task.Name,
             ct: cancellationToken);
 
-        return Truncate(result);
+        return Truncate(result.Content);
     }
 
     internal static (string? SystemPrompt, string? Prompt) ParseParameters(string? parameters)

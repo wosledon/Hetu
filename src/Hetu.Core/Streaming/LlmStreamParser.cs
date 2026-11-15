@@ -12,6 +12,8 @@ public enum LlmStreamEventType
     Content,
     /// <summary>思考增量</summary>
     Thinking,
+    /// <summary>一段完整思考块（含签名），供下一轮请求原样回传</summary>
+    ThinkingBlock,
     /// <summary>本轮工具调用请求（流末一次性给出）</summary>
     ToolCalls,
     /// <summary>用量统计（流末一次性给出）</summary>
@@ -30,6 +32,8 @@ public sealed class LlmStreamChunk
     public string Text { get; init; } = string.Empty;
     public List<LlmToolCall>? ToolCalls { get; init; }
     public LlmUsage? Usage { get; init; }
+    /// <summary>ThinkingBlock 事件的完整思考块；其余事件为空</summary>
+    public LlmThinkingBlock? ThinkingBlock { get; init; }
     /// <summary>Finish 事件的结束原因；其余事件为空</summary>
     public string? Reason { get; init; }
 }
@@ -129,6 +133,24 @@ public sealed class LlmStreamParser
                     chunks = TryParseTextualToolCall(element, calls)
                         ? new[] { new LlmStreamChunk { Type = LlmStreamEventType.ToolCalls, ToolCalls = calls } }
                         : new[] { new LlmStreamChunk { Type = LlmStreamEventType.Finish, Reason = "invalid_tool_call" } };
+                    return true;
+                }
+                case "thinking_block":
+                {
+                    var text = TryGetProperty(root, "text", out var textEl) && textEl.ValueKind == JsonValueKind.String
+                        ? textEl.GetString() ?? ""
+                        : "";
+                    var signature = TryGetProperty(root, "signature", out var sigEl) && sigEl.ValueKind == JsonValueKind.String
+                        ? sigEl.GetString()
+                        : null;
+                    chunks = new[]
+                    {
+                        new LlmStreamChunk
+                        {
+                            Type = LlmStreamEventType.ThinkingBlock,
+                            ThinkingBlock = new LlmThinkingBlock { Text = text, Signature = signature },
+                        }
+                    };
                     return true;
                 }
                 case "usage":

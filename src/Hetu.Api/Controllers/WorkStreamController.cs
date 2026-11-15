@@ -35,7 +35,6 @@ public class WorkStreamController : ControllerBase
     private readonly ILocalSkillService _localSkillService;
     private readonly IWorkCodeIndexRefreshQueue _codeIndexRefreshQueue;
     private readonly IWorkCommandRunnerFactory _commandRunnerFactory;
-    private readonly ILlmUsageRecorder _llmUsageRecorder;
     private readonly MentionContextBuilder _mentionContext;
     private readonly ChatContextInjector _contextInjector;
     private readonly ContextCompactionService _contextCompaction;
@@ -56,7 +55,6 @@ public class WorkStreamController : ControllerBase
         ILocalSkillService localSkillService,
         IWorkCodeIndexRefreshQueue codeIndexRefreshQueue,
         IWorkCommandRunnerFactory commandRunnerFactory,
-        ILlmUsageRecorder llmUsageRecorder,
         MentionContextBuilder mentionContext,
         ChatContextInjector contextInjector,
         ContextCompactionService contextCompaction,
@@ -76,7 +74,6 @@ public class WorkStreamController : ControllerBase
         _localSkillService = localSkillService;
         _codeIndexRefreshQueue = codeIndexRefreshQueue;
         _commandRunnerFactory = commandRunnerFactory;
-        _llmUsageRecorder = llmUsageRecorder;
         _mentionContext = mentionContext;
         _contextInjector = contextInjector;
         _contextCompaction = contextCompaction;
@@ -493,6 +490,8 @@ public class WorkStreamController : ControllerBase
             Temperature = options.Temperature,
             ToolApprovals = overrides,
             SessionId = sessionId.ToString(),
+            UsageSource = LlmUsageSources.Work,
+            UsageRefId = sessionId,
             Sink = sink,
             Hooks = hooks,
             DrainSteering = () => _steering.Drain(steeringKey),
@@ -575,22 +574,7 @@ public class WorkStreamController : ControllerBase
             }
         }
 
-        await _llmUsageRecorder.RecordAsync(
-            LlmUsageSources.Work,
-            loopResult.Usage.TotalTokens > 0 ? loopResult.Usage : null,
-            refId: sessionId,
-            modelId: modelId,
-            latencyMs: usageTotal.LatencyMs > 0 ? usageTotal.LatencyMs : null,
-            // 用量日志的「输入 / 压缩后」：压缩管道本轮的实际规模；没有历史可压时退回首次请求规模估算
-            // （与对话页同一口径：两个值相同即压缩率 0%，而不是留空）
-            inputTokens: loopResult.FirstIterationInputChars > 0
-                ? LlmTokenEstimator.EstimateChars(loopResult.FirstIterationInputChars)
-                : (hooks.FirstIterationEstimate > 0 ? hooks.FirstIterationEstimate : null),
-            compressedTokens: loopResult.FirstIterationCompressedChars > 0
-                ? LlmTokenEstimator.EstimateChars(loopResult.FirstIterationCompressedChars)
-                : (hooks.FirstIterationEstimate > 0 ? hooks.FirstIterationEstimate : null),
-            contentPreview: request.Content,
-            ct: CancellationToken.None);
+        // 用量按「一次模型请求一行」由 Agent 循环内部落库（含本轮全部迭代），这里不再记轮级汇总
 
         // 保存文件变更事件消息（供历史回放展示）
         foreach (var change in fileChanges)

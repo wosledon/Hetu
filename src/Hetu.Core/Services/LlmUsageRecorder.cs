@@ -18,32 +18,59 @@ public static class LlmUsageSources
     public const string Search = "search";
     public const string Scheduled = "scheduled";
     public const string Proxy = "proxy";
+    /// <summary>上下文压缩 / 摘要：不属于任何业务页面，但同样计费，单独成源便于定位开销</summary>
+    public const string Compression = "compression";
 }
 
-/// <summary>一条待记录的 LLM 调用。</summary>
+/// <summary>
+/// 请求类型：区分同一来源下的不同调用目的。Agent 迭代是主请求，
+/// 压缩 / 摘要 / 子 Agent 等辅助请求同样计费，必须能在明细里分辨出来。
+/// </summary>
+public static class LlmUsageRequestKinds
+{
+    public const string Agent = "agent";
+    public const string SubAgent = "subagent";
+    public const string Compression = "compression";
+    public const string Compaction = "compaction";
+    public const string Summarize = "summarize";
+    public const string Classify = "classify";
+    public const string Memory = "memory";
+}
+
+/// <summary>一条待记录的 LLM 请求。</summary>
 public sealed class LlmUsageRecord
 {
     public required string Source { get; init; }
     public Guid? RefId { get; init; }
+    public Guid? TurnId { get; init; }
+    public int? Iteration { get; init; }
+    public string RequestKind { get; init; } = LlmUsageRequestKinds.Agent;
     public Guid? ModelId { get; init; }
     public int? InputTokens { get; init; }
     public int? CompressedTokens { get; init; }
+    public int? PromptTokens { get; init; }
     public int? OutputTokens { get; init; }
     public int? TokensUsed { get; init; }
     public int? CachedTokens { get; init; }
+    public int? CacheCreationTokens { get; init; }
     public int? LatencyMs { get; init; }
+    public string? FinishReason { get; init; }
+    public int? ToolCallCount { get; init; }
     public string? ContentPreview { get; init; }
 }
 
 /// <summary>
-/// 统一用量记录器。所有 LLM 调用路径都通过它落一条 <see cref="LlmUsageLog"/>，
+/// 统一用量记录器。所有 LLM 调用路径都通过它落一条 <see cref="LlmUsageLog"/>（一行 = 一次请求），
 /// 使用量统计覆盖全部来源，而不是只有对话页。
 /// </summary>
 public interface ILlmUsageRecorder
 {
     Task RecordAsync(LlmUsageRecord record, CancellationToken ct = default);
 
-    /// <summary>按 Provider 上报的用量记录（未上报用量时不落库）</summary>
+    /// <summary>
+    /// 按 Provider 上报的用量记录一次请求。Provider 未上报用量时仍落库（输出/总计留空），
+    /// 因为请求确实发生了；只有连输入估算都没有时才跳过。
+    /// </summary>
     Task RecordAsync(
         string source,
         LlmUsage? usage,
@@ -53,6 +80,11 @@ public interface ILlmUsageRecorder
         int? compressedTokens = null,
         int? latencyMs = null,
         string? contentPreview = null,
+        Guid? turnId = null,
+        int? iteration = null,
+        string requestKind = LlmUsageRequestKinds.Agent,
+        string? finishReason = null,
+        int? toolCallCount = null,
         CancellationToken ct = default);
 }
 
@@ -63,6 +95,8 @@ public class LlmUsageRecorder : ILlmUsageRecorder
 {
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<LlmUsageRecorder> _logger;
+    private Guid? _defaultChatModelId;
+    private bool _defaultModelResolved;
 
     public LlmUsageRecorder(IUnitOfWork unitOfWork, ILogger<LlmUsageRecorder> logger)
     {
@@ -81,28 +115,46 @@ public class LlmUsageRecorder : ILlmUsageRecorder
         int? compressedTokens = null,
         int? latencyMs = null,
         string? contentPreview = null,
+        Guid? turnId = null,
+        int? iteration = null,
+        string requestKind = LlmUsageRequestKinds.Agent,
+        string? finishReason = null,
+        int? toolCallCount = null,
         CancellationToken ct = default)
     {
-        // Provider 未上报用量、也没有估算输入时无意义，跳过
+        // 既没有 Provider 用量也没有输入估算：这条记录没有任何信息量，跳过
         if (usage == null && inputTokens == null) return;
-
-        var total = usage?.TotalTokens;
-        if (total is null or 0 && inputTokens is null && usage?.PromptTokens is null or 0)
-            return;
 
         await SaveAsync(new LlmUsageRecord
         {
             Source = source,
             RefId = refId,
+            TurnId = turnId,
+            Iteration = iteration,
+            RequestKind = requestKind,
             ModelId = modelId,
             InputTokens = inputTokens ?? usage?.PromptTokens,
             CompressedTokens = compressedTokens,
+            // Provider 报了用量就照实记（含 0：0 命中是真实的 0%，与「没上报」要能区分）
+            PromptTokens = usage?.PromptTokens,
             OutputTokens = usage?.CompletionTokens,
-            TokensUsed = total ?? usage?.PromptTokens,
+            TokensUsed = ResolveTotal(usage),
             CachedTokens = usage?.CachedTokens,
+            CacheCreationTokens = usage is { CacheCreationTokens: > 0 } ? usage.CacheCreationTokens : null,
             LatencyMs = latencyMs,
+            FinishReason = finishReason,
+            ToolCallCount = toolCallCount,
             ContentPreview = Truncate(contentPreview),
         }, ct);
+    }
+
+    /// <summary>总计以 Provider 上报为准；只报了输入/输出没报总计时自行相加，避免总计列空着</summary>
+    private static int? ResolveTotal(LlmUsage? usage)
+    {
+        if (usage == null) return null;
+        if (usage.TotalTokens > 0) return usage.TotalTokens;
+        var sum = usage.PromptTokens + usage.CompletionTokens;
+        return sum > 0 ? sum : null;
     }
 
     private async Task SaveAsync(LlmUsageRecord record, CancellationToken ct)
@@ -115,13 +167,20 @@ public class LlmUsageRecorder : ILlmUsageRecorder
                 Id = Guid.NewGuid(),
                 Source = record.Source,
                 RefId = record.RefId,
-                ModelId = record.ModelId,
+                TurnId = record.TurnId,
+                Iteration = record.Iteration,
+                RequestKind = record.RequestKind,
+                ModelId = await ResolveModelIdAsync(record.ModelId, ct),
                 InputTokens = record.InputTokens,
                 CompressedTokens = record.CompressedTokens,
+                PromptTokens = record.PromptTokens,
                 OutputTokens = record.OutputTokens,
                 TokensUsed = record.TokensUsed,
                 CachedTokens = record.CachedTokens,
+                CacheCreationTokens = record.CacheCreationTokens,
                 LatencyMs = record.LatencyMs,
+                FinishReason = record.FinishReason,
+                ToolCallCount = record.ToolCallCount,
                 ContentPreview = record.ContentPreview,
                 CreatedAt = now,
                 UpdatedAt = now,
@@ -133,6 +192,22 @@ public class LlmUsageRecorder : ILlmUsageRecorder
         {
             _logger.LogWarning(ex, "记录 LLM 用量失败 source={Source}", record.Source);
         }
+    }
+
+    /// <summary>
+    /// 调用方没指定模型时补上默认对话模型：这些路径（技能 / 定时任务 / 查询改写 / 上下文压缩）
+    /// 走的都是 CreateChatProviderAsync，不补的话明细里模型列只能显示「默认模型」。
+    /// 作用域内只查一次。
+    /// </summary>
+    private async Task<Guid?> ResolveModelIdAsync(Guid? modelId, CancellationToken ct)
+    {
+        if (modelId.HasValue) return modelId;
+        if (!_defaultModelResolved)
+        {
+            _defaultChatModelId = (await _unitOfWork.AiModels.GetDefaultByPurposeAsync("chat", ct))?.Id;
+            _defaultModelResolved = true;
+        }
+        return _defaultChatModelId;
     }
 
     private static string? Truncate(string? text)
