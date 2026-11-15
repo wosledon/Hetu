@@ -353,12 +353,6 @@ export default function WorkSessionArea({
     })
   }, [session?.id, localStreaming, runStatus?.active, queryClient])
 
-  // 会话级开关落 localStorage（与对话页共用同一套 key 规则，按会话隔离）
-  useEffect(() => {
-    if (!session) return
-    saveTopicSettings(session.id, { webSearch, knowledgeBase, deepThinking })
-  }, [session, webSearch, knowledgeBase, deepThinking])
-
   const { data: aiModels = [] } = useQuery({
     queryKey: ['aiModels'],
     queryFn: () => aiModelService.getAll(),
@@ -400,7 +394,11 @@ export default function WorkSessionArea({
     ...localAgents.map((a: { id: string; name: string; content: string }) => ({ id: a.id, name: a.name, content: a.content })),
   ]
   const [agentOverride, setAgentOverride] = useState<{ sessionId: string; value: string } | null>(null)
-  const [effortOverride, setEffortOverride] = useState<{ sessionId: string; value: string } | null>(null)
+  // 推理强度按会话记忆：切走页面会重挂载组件，未持久化就会回落到模型默认档（表现为「高强度变中强度」）
+  const [effortOverride, setEffortOverride] = useState<{ sessionId: string; value: string } | null>(() =>
+    session?.id && cachedSettings.reasoningEffort
+      ? { sessionId: session.id, value: cachedSettings.reasoningEffort }
+      : null)
   // 会话级上下文上限（token），空 = 模型支持的上限
   const [contextOverride, setContextOverride] = useState<{ sessionId: string; value: number } | null>(null)
   const selectedAgentId = session && agentOverride?.sessionId === session.id ? agentOverride.value : ''
@@ -667,6 +665,12 @@ export default function WorkSessionArea({
     ? effortOverride.value
     : reasoningEffortDefault(currentModel)
   const contextWindow = session && contextOverride?.sessionId === session.id ? contextOverride.value : undefined
+
+  // 会话级开关落 localStorage（与对话页共用同一套 key 规则，按会话隔离）
+  useEffect(() => {
+    if (!session) return
+    saveTopicSettings(session.id, { webSearch, knowledgeBase, deepThinking, reasoningEffort })
+  }, [session, webSearch, knowledgeBase, deepThinking, reasoningEffort])
 
   // Agent 模式：交互式 / 托管执行（autopilot 下写操作不再逐步确认）。以服务端会话值为准，本地仅做乐观覆盖
   const [agentModeOverride, setAgentModeOverride] = useState<{ sessionId: string; value: AgentRunMode } | null>(null)
