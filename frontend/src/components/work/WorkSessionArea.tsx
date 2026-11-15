@@ -48,6 +48,7 @@ import { parsePermissionMode } from '../../utils/agentPermission'
 import { POPOVER_PANEL_CLASS, popoverItemClass } from '../../utils/styles'
 import { fromWorkStreamItems } from '../../utils/agentTimeline'
 import { fromWorkHistoryMessages } from '../../utils/historyTimeline'
+import { excludeLiveTurnMessages } from '../../utils/liveHistory'
 import { loadInputHistory, pushInputHistory } from '../../utils/inputHistory'
 import { workStreamRuns } from '../../utils/workStreamRuns'
 import { loadPendingQueue, savePendingQueue } from '../../utils/pendingQueue'
@@ -237,6 +238,8 @@ export default function WorkSessionArea({
   const [pendingUser, setPendingUser] = useState<string | null>(null)
   /** 本次用户消息的发送时刻（ms）：判断乐观气泡是否已被持久化，按内容+时间双条件，避免重发相同内容时误判 */
   const [pendingUserSentAt, setPendingUserSentAt] = useState(0)
+  /** 本轮开始时刻（ms）：流式期间用它把历史里「本轮已落库」的过程消息排除，避免与实时时间线重复渲染 */
+  const [streamTurnStartedAt, setStreamTurnStartedAt] = useState(0)
   // 发送队列（回复进行中排队的消息）与引导中的那一条
   const [queue, setQueue] = useState<PendingMessage[]>(() => loadPendingQueue('work', session?.id || session?.projectId || ''))
   const queueRef = useRef<PendingMessage[]>(queue)
@@ -821,12 +824,17 @@ export default function WorkSessionArea({
   )
   // 连续的过程消息合成一个紧凑块：消息容器是 space-y-6，若每条过程都作为直接子项，
   // 切页回来（读历史）时间距会变成 24px，与流式时的紧凑排列不一致
+  // 本轮流式期间：历史只保留用户消息与本轮之前的内容，其余由实时时间线渲染
+  const historyMessages = useMemo(
+    () => excludeLiveTurnMessages(visibleMessages, streamTurnStartedAt),
+    [visibleMessages, streamTurnStartedAt],
+  )
   const historyBlocks = useMemo(() => {
     const blocks: Array<
       | { kind: 'process'; messages: IWorkMessage[] }
       | { kind: 'message'; item: IWorkMessage }
     > = []
-    for (const message of visibleMessages) {
+    for (const message of historyMessages) {
       if (!isProcessMessage(message)) {
         blocks.push({ kind: 'message', item: message })
         continue
@@ -836,7 +844,7 @@ export default function WorkSessionArea({
       else blocks.push({ kind: 'process', messages: [message] })
     }
     return blocks
-  }, [visibleMessages])
+  }, [historyMessages])
 
   // 刚发出且后端尚未在历史中持久化的消息 → 派生展示（持久化后自动让位）
   // 判据必须同时满足「内容与待发消息一致 + 时间不早于发送时刻」：只用内容相等会把上一轮
@@ -1110,6 +1118,7 @@ export default function WorkSessionArea({
       setPendingUserSentAt(nowMs())
     }
     resetStreamState()
+    setStreamTurnStartedAt(nowMs())
     useInteractionStore.getState().clear(activeId)
 
     const controller = new AbortController()
@@ -1243,6 +1252,7 @@ export default function WorkSessionArea({
         if (streamRef.current) return // 期间已开始新一轮流，状态交给新一轮管理
         setStreamItems((prev) => (prev.length > 0 ? [] : prev))
         setLiveUsage((prev) => (prev === null ? prev : null))
+        setStreamTurnStartedAt(0)
       })
       workSessionService.getById(activeId).then((s) => {
         onSessionUpdated?.(s)
