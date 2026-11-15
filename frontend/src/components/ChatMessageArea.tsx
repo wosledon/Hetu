@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { Bot, FileText, Search, GitBranch, X, Globe, Database, ChevronDown, Loader2, Zap, AlertCircle, Eraser, Gauge } from 'lucide-react'
+import { Bot, FileText, Search, GitBranch, X, Globe, Database, ChevronDown, ArrowDown, Loader2, Zap, AlertCircle, Eraser, Gauge } from 'lucide-react'
 import i18n from '../i18n'
 import { chatMessageService, chatTopicService, promptPresetService } from '../services/chatService'
 import { settingService } from '../services/settingService'
@@ -41,7 +41,7 @@ import { useChatStreamStore, chatStreamControl } from '../stores/chatStreamStore
 import { useConfirm } from './confirm'
 import { loadTopicSettings, saveTopicSettings } from '../utils/topicSettings'
 import { wrapLongTextBlock } from '../utils/longText'
-import { scrollToBottom } from '../utils/scrollToBottom'
+import { useStickToBottom } from '../hooks/useStickToBottom'
 import { consumeSseStream } from '../utils/sse'
 import type { IChatTopic, IPromptPreset, IChatGroup, ISkill } from '../types'
 import { Button, Card, IconButton, SearchInput } from './ui'
@@ -166,7 +166,8 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
   const containerRef = useRef<HTMLDivElement>(null)
   const containerWidth = useElementWidth(containerRef)
   const interactionInRail = containerWidth >= 1180
-  const scrollRef = useRef<HTMLDivElement>(null)
+  const { scrollRef, following, onScroll, followBottom, scrollToBottomNow } = useStickToBottom()
+  const prevPendingUserRef = useRef<string | null>(null)
   const loadingOlderRef = useRef<{ scrollHeight: number; scrollTop: number } | null>(null)
 
   // 默认只取最新一页，避免长会话一次加载全部历史；「加载更早」时扩大窗口
@@ -308,13 +309,13 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
     const observer = new IntersectionObserver((entries) => {
       for (const entry of entries) {
         if (entry.isIntersecting && messages.length > 0) {
-          scrollToBottom(scrollRef.current)
+          scrollToBottomNow()
         }
       }
     }, { threshold: 0.1 })
     observer.observe(containerRef.current)
     return () => observer.disconnect()
-  }, [messages.length])
+  }, [messages.length, scrollToBottomNow])
 
   // 首次加载消息后直接滚到底部，后续新消息/流式分片持续跟随
   useEffect(() => {
@@ -328,12 +329,20 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
       return
     }
     if (isInitialLoadRef.current && messages.length > 0) {
-      scrollToBottom(container)
+      scrollToBottomNow()
       isInitialLoadRef.current = false
       return
     }
-    scrollToBottom(container)
-  }, [messages, pendingUserMessage, streamingContent, streamingThinking, messagesLoading])
+    // 用户刚发出消息才强制回到底部；流式分片只在贴底时跟随，向上翻阅历史不打断
+    if (pendingUserMessage && prevPendingUserRef.current !== pendingUserMessage) scrollToBottomNow()
+    prevPendingUserRef.current = pendingUserMessage
+    followBottom()
+  }, [messages, pendingUserMessage, streamingContent, streamingThinking, messagesLoading, followBottom, scrollToBottomNow, scrollRef])
+
+  // 切换话题时回到最新位置并恢复跟随
+  useEffect(() => {
+    scrollToBottomNow()
+  }, [topic?.id, scrollToBottomNow])
 
   // Clear streaming display when messages are refreshed (after query invalidation).
   // The persisted message from the backend is the canonical response — once it arrives,
@@ -882,7 +891,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       {!emptyChat && (
       <div className="relative flex min-h-0 flex-1">
-        <div ref={scrollRef} className="min-w-0 flex-1 overflow-y-auto px-4 py-7 sm:px-6">
+        <div ref={scrollRef} onScroll={onScroll} className="min-w-0 flex-1 overflow-y-auto px-4 py-7 sm:px-6">
         <div className="mx-auto w-full max-w-4xl space-y-7">
           {/* 长会话渲染虚拟化：离屏消息跳过布局/绘制，但保留 DOM 供导轨锚点与查找使用 */}
           {totalMessages > messages.length && (
@@ -966,6 +975,16 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
         )}
 
         </div>
+        {!following && (
+          <button
+            onClick={scrollToBottomNow}
+            title={t('messageArea.jumpToBottom')}
+            aria-label={t('messageArea.jumpToBottom')}
+            className="absolute bottom-4 left-1/2 z-10 -translate-x-1/2 rounded-full border border-gray-200 bg-white/95 p-2 text-gray-500 shadow-lg backdrop-blur transition-colors hover:border-blue-300 hover:text-blue-600 dark:border-gray-700 dark:bg-gray-800/95 dark:text-gray-300 dark:hover:border-blue-600 dark:hover:text-blue-300"
+          >
+            <ArrowDown size={15} />
+          </button>
+        )}
         <ConversationRail items={railItems} scrollRef={scrollRef} />
       </div>
       )}

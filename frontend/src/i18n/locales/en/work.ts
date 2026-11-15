@@ -281,6 +281,7 @@ export default {
     exportMarkdown: 'Export the session as Markdown',
     expandOlder: 'Show {{count}} earlier messages',
     loadEarlier: 'Load {{count}} earlier messages',
+    jumpToBottom: 'Jump to latest',
     thinking: 'Thinking...',
     planHint: 'Plan mode is read-only research; confirm the plan to switch to execution mode and implement it.',
     executePlan: 'Execute the plan',

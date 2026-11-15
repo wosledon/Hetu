@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import {
-  ChevronDown, Loader2,
+  ChevronDown, ArrowDown, Loader2,
 
   ListChecks, Coins, Copy, Check, X, Braces, FolderOpen, SquareTerminal, Bot, Plus,
   Download, Stethoscope, RotateCcw, FileCode, PanelRightClose, PanelRightOpen, Zap,
@@ -19,7 +19,7 @@ import ThemedMarkdown from '../ThemedMarkdown'
 import UserMessageContent from '../UserMessageContent'
 import { wrapLongTextBlock } from '../../utils/longText'
 import { uiLocale } from '../../utils/locale'
-import { scrollToBottom } from '../../utils/scrollToBottom'
+import { useStickToBottom } from '../../hooks/useStickToBottom'
 import { consumeSseStream, SSE_ERROR_PREFIX } from '../../utils/sse'
 import { createSubagentCoalescer, formatTokens, mergeSubagentEntries, parseAgentFrame, subagentStage, type AgentUsage, type SubagentEntry, type SubagentFrame } from '../../utils/agentStream'
 import ConversationRail from '../ConversationRail'
@@ -266,7 +266,7 @@ export default function WorkSessionArea({
   const containerRef = useRef<HTMLDivElement>(null)
   const containerWidth = useElementWidth(containerRef)
   const interactionInRail = containerWidth >= 1180
-  const scrollRef = useRef<HTMLDivElement>(null)
+  const { scrollRef, following, onScroll, followBottom, scrollToBottomNow } = useStickToBottom()
   const loadingOlderRef = useRef<{ scrollHeight: number; scrollTop: number } | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const streamRef = useRef<AbortController | null>(null)
@@ -741,8 +741,13 @@ export default function WorkSessionArea({
     }
     // 直接写容器 scrollTop：scrollIntoView 会连带滚所有可滚动祖先（页面根节点
     // overflow:hidden，有溢出时会被一起滚走），流式期间每个分片都会把整页顶跳
-    scrollToBottom(container)
-  }, [messages, streamItems])
+    followBottom()
+  }, [messages, streamItems, followBottom, scrollRef])
+
+  // 切换会话时回到最新位置并恢复跟随，避免沿用上一个会话「已向上翻阅」的状态
+  useEffect(() => {
+    scrollToBottomNow()
+  }, [session?.id, scrollToBottomNow])
 
   // 会话切换 / 历史变化后刷新上下文占用（面板打开时也会主动拉一次）
   useEffect(() => {
@@ -1119,6 +1124,7 @@ export default function WorkSessionArea({
     }
     resetStreamState()
     setStreamTurnStartedAt(nowMs())
+    scrollToBottomNow()
     useInteractionStore.getState().clear(activeId)
 
     const controller = new AbortController()
@@ -1487,7 +1493,7 @@ export default function WorkSessionArea({
       {/* 消息区：瀑布流；空会话时不占位，起步引导随输入框一起居中 */}
       {!emptyConversation && (
       <div className="relative flex min-h-0 flex-1">
-        <div ref={scrollRef} className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden px-4 py-7 sm:px-6">
+        <div ref={scrollRef} onScroll={onScroll} className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden px-4 py-7 sm:px-6">
         <div className="mx-auto w-full max-w-4xl space-y-6">
           {unloadedCount > 0 ? (
             <Button variant="secondary" pill className="mx-auto flex items-center gap-1 rounded-full border border-gray-200 bg-white glass px-3 py-1 text-[11px] text-gray-500 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.12]" onClick={loadEarlierMessages}>
@@ -1626,6 +1632,16 @@ export default function WorkSessionArea({
           {isStreaming && <AgentWorkingIndicator />}
         </div>
         </div>
+        {!following && (
+          <button
+            onClick={scrollToBottomNow}
+            title={t('session.jumpToBottom')}
+            aria-label={t('session.jumpToBottom')}
+            className="absolute bottom-4 left-1/2 z-10 -translate-x-1/2 rounded-full border border-gray-200 bg-white/95 p-2 text-gray-500 shadow-lg backdrop-blur transition-colors hover:border-blue-300 hover:text-blue-600 dark:border-gray-700 dark:bg-gray-800/95 dark:text-gray-300 dark:hover:border-blue-600 dark:hover:text-blue-300"
+          >
+            <ArrowDown size={15} />
+          </button>
+        )}
         <ConversationRail items={railItems} scrollRef={scrollRef} />
       </div>
       )}

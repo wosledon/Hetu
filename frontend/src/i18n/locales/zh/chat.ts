@@ -15,6 +15,7 @@ export default {
     selectTopic: '选择一个话题开始对话',
     messagesCount: '{{count}} 条消息',
     loadEarlier: '加载更早的 {{count}} 条消息',
+    jumpToBottom: '回到底部',
     railLabel: '会话导航',
     railJumpTo: '跳转到此消息',
     railYou: '你',
