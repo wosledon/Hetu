@@ -11,6 +11,8 @@ public class StdioMcpClient : IDisposable
 {
     private readonly Process _process;
     private readonly SemaphoreSlim _lock = new(1, 1);
+    private readonly SemaphoreSlim _initGate = new(1, 1);
+    private volatile bool _initialized;
     private readonly ILocalizer _localizer;
     private int _requestId;
     private bool _disposed;
@@ -62,16 +64,33 @@ public class StdioMcpClient : IDisposable
 
     public async Task<List<McpToolDto>> ListToolsAsync(CancellationToken cancellationToken = default)
     {
-        await InitializeAsync(cancellationToken);
+        await EnsureInitializedAsync(cancellationToken);
         var response = await SendRequestAsync("tools/list", new { }, cancellationToken);
         return ParseTools(response);
     }
 
     public async Task<CallMcpToolResultDto> CallToolAsync(string toolName, Dictionary<string, object>? arguments, CancellationToken cancellationToken = default)
     {
-        await InitializeAsync(cancellationToken);
+        await EnsureInitializedAsync(cancellationToken);
         var response = await SendRequestAsync("tools/call", new { name = toolName, arguments = arguments ?? new Dictionary<string, object>() }, cancellationToken);
         return ParseToolResult(response);
+    }
+
+    /// <summary>同一进程只握手一次：池化复用后每次调用都重新 initialize 会多一轮往返</summary>
+    private async Task EnsureInitializedAsync(CancellationToken cancellationToken)
+    {
+        if (_initialized) return;
+        await _initGate.WaitAsync(cancellationToken);
+        try
+        {
+            if (_initialized) return;
+            await InitializeAsync(cancellationToken);
+            _initialized = true;
+        }
+        finally
+        {
+            _initGate.Release();
+        }
     }
 
     private async Task InitializeAsync(CancellationToken cancellationToken)

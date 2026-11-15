@@ -16,6 +16,12 @@ public class SseStreamWriter
     private readonly CancellationToken _cancellationToken;
     /// <summary>运行期事件缓冲区：非空时每次写入都留一份，供客户端重连后重放</summary>
     private readonly SseEventBuffer? _buffer;
+    /// <summary>content / thinking 增量先入缓冲：每个 token 一次 write+flush 太贵</summary>
+    private readonly StringBuilder _deltaBuffer = new();
+    private string _deltaType = "content";
+    private long _deltaStartedAt;
+    private const int DeltaFlushChars = 512;
+    private static readonly TimeSpan DeltaFlushInterval = TimeSpan.FromMilliseconds(60);
 
     public SseStreamWriter(HttpResponse response, CancellationToken cancellationToken, SseEventBuffer? buffer = null)
     {
@@ -24,7 +30,43 @@ public class SseStreamWriter
         _buffer = buffer;
     }
 
+    /// <summary>写入正文 / 思考增量：先在本地缓冲，达到阈值或间隔后再一次性写出</summary>
+    public async Task WriteDeltaAsync(string type, string text)
+    {
+        if (string.IsNullOrEmpty(text)) return;
+        var now = System.Diagnostics.Stopwatch.GetTimestamp();
+        if (_deltaBuffer.Length > 0 &&
+            (_deltaType != type ||
+             _deltaBuffer.Length >= DeltaFlushChars ||
+             System.Diagnostics.Stopwatch.GetElapsedTime(_deltaStartedAt, now) >= DeltaFlushInterval))
+        {
+            await FlushDeltasAsync();
+        }
+        if (_deltaBuffer.Length == 0)
+        {
+            _deltaType = type;
+            _deltaStartedAt = now;
+        }
+        _deltaBuffer.Append(text);
+    }
+
+    /// <summary>把尚未写出的增量立即刷出（done / 其它事件之前调用）</summary>
+    public async Task FlushDeltasAsync()
+    {
+        if (_deltaBuffer.Length == 0) return;
+        var type = _deltaType;
+        var text = _deltaBuffer.ToString();
+        _deltaBuffer.Clear();
+        await WriteEventAsync(JsonSerializer.Serialize(new { type, text }, JsonDefaults.CamelCase));
+    }
+
     public async Task WriteEventAsync(string data)
+    {
+        await FlushDeltasAsync();
+        await WriteEventCoreAsync(data);
+    }
+
+    private async Task WriteEventCoreAsync(string data)
     {
         _buffer?.Publish(data);
         // 客户端已断开时写入会抛（请求被中止 / 连接重置）：这里只丢掉这次推送，
@@ -49,6 +91,7 @@ public class SseStreamWriter
     /// </summary>
     public async Task WriteTextAsync(string data)
     {
+        await FlushDeltasAsync();
         var sb = new StringBuilder();
         foreach (var line in data.Replace("\r\n", "\n").Split('\n'))
         {
@@ -79,6 +122,7 @@ public class SseStreamWriter
     /// </summary>
     public async Task WriteRawAsync(string data)
     {
+        await FlushDeltasAsync();
         if (_response.HttpContext.RequestAborted.IsCancellationRequested) return;
         try
         {

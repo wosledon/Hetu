@@ -74,7 +74,9 @@
         <tbody>
           <tr><td><code>MaxIterations</code></td><td>15</td><td>最大迭代轮数；传 ≤ 0 时回落默认 15，避免死循环</td></tr>
           <tr><td><code>MaxToolCallsPerTurn</code></td><td>5</td><td>单轮工具调用上限；超出部分跳过并回一条错误结果（不终止本轮，模型可拆小批次重试）</td></tr>
-          <tr><td><code>MaxContinuations</code></td><td>1（对话 / Code 为 2）</td><td>迭代上限用尽后自动续跑的段数；每段重新计 <code>MaxIterations</code></td></tr>
+          <tr><td><code>MaxContinuations</code></td><td>1（对话 / Code 为 2）</td><td>迭代上限用尽后自动续跑的段数；每段重新计 <code>MaxIterations</code>，本段无任何成功工具调用时不再续跑</td></tr>
+          <tr><td><code>ProviderMaxRetries</code></td><td>2</td><td>Provider 瞬时失败（连接 / 429 / 5xx）的重试次数；仅在尚未产出任何内容时生效，退避随次数递增</td></tr>
+          <tr><td><code>ToolTimeout</code></td><td>10 分钟</td><td>单个工具的默认执行上限；工具自身声明 <code>Timeout</code> 时取更短者，超时会取消工具自身的令牌</td></tr>
           <tr><td><code>CompressHistory</code></td><td>true</td><td>为 false 时跳过历史压缩（排查压缩引发的行为变化时用）</td></tr>
           <tr><td><code>EnableTools</code></td><td>true</td><td>关闭后不发工具 schema，纯对话模式</td></tr>
           <tr><td><code>CoreToolNames</code></td><td>null</td><td>给定时只暴露这些核心工具，其余按会话配置追加</td></tr>
@@ -133,6 +135,9 @@
         <li>引导只在迭代边界注入，同一轮内多次点击会合并成一条取走。</li>
         <li>对话页与编码会话的差别不在内核，而在<strong>权限判定器与工具集</strong>（编码会话带 <code>work_*</code> 工具与工作区范围）。</li>
         <li>看板与工作流复用同一内核，只是把「事件出口」换成记录运行步骤 / 节点事件。</li>
+        <li>同一轮里完全相同的只读调用会复用上次结果；同一调用连续失败两次后第三次直接拦下，避免原地打转烧迭代预算。</li>
+        <li>连续的只读文件工具（列目录 / 读文件 / glob / grep）在同一批次内并行执行；远程 SSH 项目仍串行，避免共享 runner 竞争。</li>
+        <li>MCP 客户端按连接配置池化复用，同一进程只握手一次；SSE 正文/思考增量按 ~60ms 或 512 字符合批写出。</li>
         <li><code>work_task</code> 子 Agent 同样复用该内核：只读工具白名单 + 12 轮 / 3 分钟上限，因此文本工具调用解析、参数校验与截断保护都与主会话一致。</li>
       </ul>
 

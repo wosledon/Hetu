@@ -31,6 +31,9 @@ public class McpToolAdapter : IToolExecutor
     public JsonElement ParametersSchema { get; }
     public ToolApprovalMode DefaultApproval => ToolApprovalMode.Auto;
 
+    /// <summary>MCP 调用可能卡在远端，给一个兜底上限（Agent 循环的默认超时更短时以更短者为准）</summary>
+    public TimeSpan? Timeout => TimeSpan.FromMinutes(5);
+
     public async Task<ToolExecutionResult> ExecuteAsync(string argumentsJson, CancellationToken cancellationToken = default)
     {
         Dictionary<string, object>? arguments;
@@ -47,14 +50,21 @@ public class McpToolAdapter : IToolExecutor
 
         try
         {
-            using var client = new StdioMcpClient(_connectionConfig, _localizer);
+            // 复用同一份配置的 MCP 子进程：避免每次工具调用都重新启动 + initialize
+            var client = await McpClientPool.Shared.GetAsync(_connectionConfig, _localizer, cancellationToken);
             var result = await client.CallToolAsync(_tool.Name, arguments, cancellationToken);
             if (result.IsError)
                 return ToolExecutionResult.Error(result.Content);
             return ToolExecutionResult.Success(result.Content);
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
+            // 进程可能已退出：摘除后下次重新启动，避免一直复用坏连接
+            McpClientPool.Shared.Invalidate(_connectionConfig);
             return ToolExecutionResult.Error(_localizer.T("mcp.toolCallFailed", Name, ex.Message));
         }
     }

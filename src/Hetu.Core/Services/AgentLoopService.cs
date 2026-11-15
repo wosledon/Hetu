@@ -86,6 +86,12 @@ public class AgentLoopRequest
 
     /// <summary>迭代上限用尽后允许自动续跑的次数（每段重新计 MaxIterations）</summary>
     public int MaxContinuations { get; set; } = 1;
+    /// <summary>Provider 瞬时失败的额外重试次数（只在尚未产出任何内容时生效）</summary>
+    public int ProviderMaxRetries { get; set; } = 2;
+    /// <summary>Provider 重试的基础退避毫秒（逐次线性递增）</summary>
+    public int ProviderRetryDelayMs { get; set; } = 400;
+    /// <summary>单个工具的默认执行超时（工具自身 Timeout 优先）</summary>
+    public TimeSpan ToolTimeout { get; set; } = TimeSpan.FromMinutes(10);
     public string? ReasoningEffort { get; set; }
     public int? ReasoningBudgetTokens { get; set; }
     public int? MaxTokens { get; set; }
@@ -181,6 +187,9 @@ public class AgentLoopService
     private const int DefaultMaxToolCallsPerTurn = 5;
     private const int DefaultActiveTurnBudgetChars = 60_000;
     private const int MaxToolResultCharsForModel = 8_000;
+    private const int MaxToolErrorCharsForModel = 16_000;
+    /// <summary>历史压缩的并发上限：过高会触发供应商限流，过低会让首轮等待变长</summary>
+    private const int MaxConcurrentCompressions = 3;
     private const int CompactedToolResultChars = 1_000;
 
     /// <summary>运行中引导的注入前缀：让模型知道这是执行期间的新指示，需立即结合调整</summary>
@@ -234,7 +243,7 @@ public class AgentLoopService
 
             try
             {
-                using var client = new StdioMcpClient(server.ConnectionConfig, _localizer);
+                var client = await McpClientPool.Shared.GetAsync(server.ConnectionConfig, _localizer, ct);
                 var tools = await client.ListToolsAsync(ct);
                 foreach (var tool in tools)
                 {
@@ -246,6 +255,7 @@ public class AgentLoopService
             }
             catch (Exception ex)
             {
+                McpClientPool.Shared.Invalidate(server.ConnectionConfig);
                 _logger.LogError(ex, "加载 MCP 服务器 {ServerName} 工具失败", server.Name);
             }
         }
@@ -331,6 +341,10 @@ public class AgentLoopService
         var maxContinuations = Math.Max(0, request.MaxContinuations);
         var continuation = 0;
         var totalIterations = 0;
+        var segmentProgress = false;
+        // 同一轮里的只读调用复用结果；同一调用连续失败两次后拦下，避免原地打转烧迭代
+        var readResultCache = new Dictionary<string, string>(StringComparer.Ordinal);
+        var failureCounts = new Dictionary<string, int>(StringComparer.Ordinal);
         try
         {
             // 4. Agent Loop：一段 = 最多 maxIter 次模型调用；用尽后按 MaxContinuations 自动续跑，
@@ -338,6 +352,7 @@ public class AgentLoopService
             while (true)
             {
             endedWithToolCalls = false;
+            segmentProgress = false;
             for (int iter = 0; iter < maxIter; iter++)
             {
                 totalIterations++;
@@ -379,8 +394,14 @@ public class AgentLoopService
 
                     if (pending.Count > 0)
                     {
-                        // 并行压缩：LLM 摘要每条一次模型调用，串行会把一轮的等待时间累加（7 条 ≈ 20s）
-                        var compressedTexts = await Task.WhenAll(pending.Select(p => _compressionPipeline.CompressAsync(p.Text, ct)));
+                        // 并行压缩：LLM 摘要每条一次模型调用；限制并发数，避免一次甩出十几路请求触发限流
+                        using var compressionGate = new SemaphoreSlim(MaxConcurrentCompressions, MaxConcurrentCompressions);
+                        var compressedTexts = await Task.WhenAll(pending.Select(async p =>
+                        {
+                            await compressionGate.WaitAsync(ct);
+                            try { return await _compressionPipeline.CompressAsync(p.Text, ct); }
+                            finally { compressionGate.Release(); }
+                        }));
                         for (var k = 0; k < pending.Count; k++)
                         {
                             var (index, original) = pending[k];
@@ -421,7 +442,7 @@ public class AgentLoopService
                 CompactActiveTurn(chatMessages, historyCompressBoundary,
                     request.ActiveTurnBudgetChars > 0 ? request.ActiveTurnBudgetChars : DefaultActiveTurnBudgetChars);
 
-                var (content, thinking, pendingToolCalls, usage, streamCancelled, finishReason) = await ProcessStreamAsync(provider, chatMessages, options, sink, ct);
+                var (content, thinking, pendingToolCalls, usage, streamCancelled, finishReason) = await ProcessStreamAsync(provider, chatMessages, options, sink, ct, request.ProviderMaxRetries, request.ProviderRetryDelayMs);
 
                 _logger.LogInformation("[AgentLoop] iter={Iter} contentLen={ContentLen} thinkingLen={ThinkingLen} toolCalls={ToolCallCount}",
                     iter, content.Length, thinking?.Length ?? 0, pendingToolCalls?.Count ?? 0);
@@ -491,6 +512,25 @@ public class AgentLoopService
                 }
                 endedWithToolCalls = true;
 
+                // 去重与重复失败拦截：命中的调用不再执行，但照常补 tool 结果
+                var skippedResults = new Dictionary<string, (string content, bool isError)>(StringComparer.Ordinal);
+                var executableCalls = new List<LlmToolCall>(pendingToolCalls.Count);
+                foreach (var call in pendingToolCalls)
+                {
+                    var key = CallKey(call);
+                    if (readResultCache.TryGetValue(key, out var cached))
+                    {
+                        skippedResults[call.Id] = (_localizer.T("toolExec.reusedResult", call.Name, cached), false);
+                        continue;
+                    }
+                    if (failureCounts.TryGetValue(key, out var failures) && failures >= 2)
+                    {
+                        skippedResults[call.Id] = (_localizer.T("toolExec.repeatedFailure", call.Name), true);
+                        continue;
+                    }
+                    executableCalls.Add(call);
+                }
+
                 chatMessages.Add(new LlmChatMessage
                 {
                     Role = "assistant",
@@ -499,11 +539,11 @@ public class AgentLoopService
                     ToolCalls = overflowToolCalls is null ? pendingToolCalls : [.. pendingToolCalls, .. overflowToolCalls]
                 });
 
-                await (hooks?.BeforeToolCallsAsync(pendingToolCalls) ?? Task.CompletedTask);
+                await (hooks?.BeforeToolCallsAsync(executableCalls) ?? Task.CompletedTask);
 
                 var toolResults = await _toolExecution.ExecuteToolCallsAsync(
                     request.SessionId,
-                    pendingToolCalls,
+                    executableCalls,
                     request.ToolApprovals,
                     sessionTodos,
                     data => sink.OnEventAsync(data),
@@ -515,6 +555,7 @@ public class AgentLoopService
                     workScope: request.WorkScope,
                     questionHandler: request.QuestionHandler,
                     planHandler: request.PlanHandler,
+                    defaultToolTimeout: request.ToolTimeout,
                     onToolResult: async toolResult =>
                     {
                         if (hooks == null) return;
@@ -561,7 +602,41 @@ public class AgentLoopService
                     {
                         Role = "tool",
                         ToolCallId = toolCallId,
-                        Content = CompactToolResult(toolContent, MaxToolResultCharsForModel),
+                        Content = CompactToolResult(toolContent, isError ? MaxToolErrorCharsForModel : MaxToolResultCharsForModel),
+                    });
+
+                    if (call == null) continue;
+                    if (isError)
+                    {
+                        var key = CallKey(call);
+                        failureCounts[key] = failureCounts.GetValueOrDefault(key) + 1;
+                    }
+                    else
+                    {
+                        segmentProgress = true;
+                        var key = CallKey(call);
+                        failureCounts.Remove(key);
+                        if (_toolRegistry.GetExecutor(call.Name)?.Risk == ToolRisk.Read) readResultCache[key] = toolContent;
+                    }
+                }
+
+                // 被跳过（复用结果 / 重复失败）的调用：只补工具结果，不产生额外过程卡片
+                foreach (var (skipId, skip) in skippedResults)
+                {
+                    await sink.OnEventAsync(new
+                    {
+                        type = "tool_result",
+                        id = skipId,
+                        name = pendingToolCalls.FirstOrDefault(tc => tc.Id == skipId)?.Name ?? "",
+                        content = skip.content,
+                        isError = skip.isError,
+                        hidden = true,
+                    });
+                    chatMessages.Add(new LlmChatMessage
+                    {
+                        Role = "tool",
+                        ToolCallId = skipId,
+                        Content = CompactToolResult(skip.content, skip.isError ? MaxToolErrorCharsForModel : MaxToolResultCharsForModel),
                     });
                 }
 
@@ -603,6 +678,10 @@ public class AgentLoopService
             if (!endedWithToolCalls || result.Cancelled || ct.IsCancellationRequested || result.Error != null)
                 break;
 
+            // 无进展（本轮所有工具都失败 / 全部被跳过）时不再续跑，避免空转烧预算
+            if (!segmentProgress)
+                break;
+
             if (continuation >= maxContinuations)
                 break;
 
@@ -634,7 +713,7 @@ public class AgentLoopService
                 });
                 options.Tools = null;
                 options.ToolChoice = "none";
-                var (content, thinking, _, usage, streamCancelled, finishReason) = await ProcessStreamAsync(provider, chatMessages, options, sink, ct);
+                var (content, thinking, _, usage, streamCancelled, finishReason) = await ProcessStreamAsync(provider, chatMessages, options, sink, ct, request.ProviderMaxRetries, request.ProviderRetryDelayMs);
                 AccumulateUsage(result.Usage, usage);
                 if (usage != null) await sink.OnUsageAsync(result.Usage);
 
@@ -747,7 +826,9 @@ public class AgentLoopService
         List<LlmChatMessage> chatMessages,
         ChatOptions options,
         IAgentLoopSink sink,
-        CancellationToken ct)
+        CancellationToken ct,
+        int maxRetries = 0,
+        int retryDelayMs = 0)
     {
         var contentSb = new StringBuilder();
         var thinkingSb = new StringBuilder();
@@ -755,64 +836,102 @@ public class AgentLoopService
         LlmUsage? usage = null;
         var cancelled = false;
         string? finishReason = null;
+        var emptyRetryUsed = false;
 
-        var parser = new LlmStreamParser();
-
-        try
+        for (var attempt = 0; ; attempt++)
         {
-            await foreach (var delta in provider.ChatStreamAsync(chatMessages, options, ct))
+            // 每次尝试都用全新的解析器与缓冲区：只在「尚未产出任何内容」时才会重试
+            var parser = new LlmStreamParser();
+            contentSb.Clear();
+            thinkingSb.Clear();
+            pendingToolCalls = null;
+            usage = null;
+            finishReason = null;
+
+            try
             {
-                foreach (var chunk in parser.Parse(delta))
+                await foreach (var delta in provider.ChatStreamAsync(chatMessages, options, ct))
                 {
-                    switch (chunk.Type)
+                    foreach (var chunk in parser.Parse(delta))
                     {
-                        case LlmStreamEventType.Content:
-                            contentSb.Append(chunk.Text);
-                            await sink.OnContentAsync(chunk.Text);
-                            break;
-                        case LlmStreamEventType.Thinking:
-                            thinkingSb.Append(chunk.Text);
-                            await sink.OnThinkingAsync(chunk.Text);
-                            break;
-                        case LlmStreamEventType.ToolCalls:
-                            if (chunk.ToolCalls is { Count: > 0 })
-                            {
-                                pendingToolCalls ??= [];
-                                pendingToolCalls.AddRange(chunk.ToolCalls);
-                            }
-                            break;
-                        case LlmStreamEventType.Usage:
-                            usage = chunk.Usage;
-                            break;
-                        case LlmStreamEventType.Finish:
-                            if (finishReason is not ("invalid_tool_call" or "length" or "max_tokens"))
-                                finishReason = chunk.Reason;
-                            break;
+                        switch (chunk.Type)
+                        {
+                            case LlmStreamEventType.Content:
+                                contentSb.Append(chunk.Text);
+                                await sink.OnContentAsync(chunk.Text);
+                                break;
+                            case LlmStreamEventType.Thinking:
+                                thinkingSb.Append(chunk.Text);
+                                await sink.OnThinkingAsync(chunk.Text);
+                                break;
+                            case LlmStreamEventType.ToolCalls:
+                                if (chunk.ToolCalls is { Count: > 0 })
+                                {
+                                    pendingToolCalls ??= [];
+                                    pendingToolCalls.AddRange(chunk.ToolCalls);
+                                }
+                                break;
+                            case LlmStreamEventType.Usage:
+                                usage = chunk.Usage;
+                                break;
+                            case LlmStreamEventType.Finish:
+                                if (finishReason is not ("invalid_tool_call" or "length" or "max_tokens"))
+                                    finishReason = chunk.Reason;
+                                break;
+                        }
+                    }
+                }
+
+                foreach (var chunk in parser.Flush())
+                {
+                    if (chunk.Type == LlmStreamEventType.Thinking)
+                    {
+                        thinkingSb.Append(chunk.Text);
+                        await sink.OnThinkingAsync(chunk.Text);
+                    }
+                    else
+                    {
+                        contentSb.Append(chunk.Text);
+                        await sink.OnContentAsync(chunk.Text);
                     }
                 }
             }
-
-            foreach (var chunk in parser.Flush())
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
-                if (chunk.Type == LlmStreamEventType.Thinking)
-                {
-                    thinkingSb.Append(chunk.Text);
-                    await sink.OnThinkingAsync(chunk.Text);
-                }
-                else
-                {
-                    contentSb.Append(chunk.Text);
-                    await sink.OnContentAsync(chunk.Text);
-                }
+                // 用户中断：已流式产出的部分照常返回给调用方落库——否则停止的那一轮
+                // 连同已经生成的正文一起被丢掉，历史里用户消息孤零零没有回复
+                cancelled = true;
+                _logger.LogInformation("[AgentLoop] 流式中断，保留已生成部分 contentLen={ContentLen} thinkingLen={ThinkingLen}",
+                    contentSb.Length, thinkingSb.Length);
+                break;
             }
-        }
-        catch (OperationCanceledException)
-        {
-            // 用户中断：已流式产出的部分照常返回给调用方落库——否则停止的那一轮
-            // 连同已经生成的正文一起被丢掉，历史里用户消息孤零零没有回复
-            cancelled = true;
-            _logger.LogInformation("[AgentLoop] 流式中断，保留已生成部分 contentLen={ContentLen} thinkingLen={ThinkingLen}",
-                contentSb.Length, thinkingSb.Length);
+            catch (Exception ex) when (attempt < maxRetries && IsTransientProviderError(ex)
+                                       && contentSb.Length == 0 && thinkingSb.Length == 0 && pendingToolCalls == null)
+            {
+                await DelayBeforeRetryAsync(attempt, retryDelayMs, ex, ct);
+                continue;
+            }
+            catch (OperationCanceledException)
+            {
+                // Provider 侧超时（非用户取消）：保留已产出内容，按取消收尾
+                cancelled = true;
+                _logger.LogInformation("[AgentLoop] Provider 流超时/取消 contentLen={ContentLen}", contentSb.Length);
+                break;
+            }
+
+            // 空回合重试：既没有正文也没有工具调用，多半是瞬时问题，最多补一次
+            var emptyTurn = contentSb.Length == 0 && thinkingSb.Length == 0
+                            && pendingToolCalls is not { Count: > 0 }
+                            && finishReason is not ("length" or "max_tokens" or "invalid_tool_call");
+            if (!emptyRetryUsed && emptyTurn && attempt < maxRetries)
+            {
+                emptyRetryUsed = true;
+                _logger.LogWarning("[AgentLoop] 模型返回空回合，重试一次");
+                await DelayBeforeRetryAsync(attempt, retryDelayMs, null, ct);
+                continue;
+            }
+
+            break;
         }
 
         if (pendingToolCalls is { Count: > 0 })
@@ -822,6 +941,20 @@ public class AgentLoopService
         }
 
         return (contentSb, thinkingSb, pendingToolCalls, usage, cancelled, finishReason);
+    }
+
+    private static string CallKey(LlmToolCall call) => call.Name + "\u0000" + call.Arguments;
+
+    /// <summary>Provider 侧的瞬时错误（连接、限流、5xx 包装成 HttpRequestException）：可安全重试</summary>
+    private static bool IsTransientProviderError(Exception ex)
+        => ex is HttpRequestException or IOException or System.Net.Sockets.SocketException or TimeoutException;
+
+    private async Task DelayBeforeRetryAsync(int attempt, int retryDelayMs, Exception? error, CancellationToken ct)
+    {
+        var delay = Math.Max(0, retryDelayMs) * (attempt + 1);
+        if (error != null)
+            _logger.LogWarning(error, "[AgentLoop] Provider 瞬时失败，{Delay}ms 后重试（第 {Attempt} 次）", delay, attempt + 1);
+        if (delay > 0) await Task.Delay(TimeSpan.FromMilliseconds(delay), ct);
     }
 
     /// <summary>

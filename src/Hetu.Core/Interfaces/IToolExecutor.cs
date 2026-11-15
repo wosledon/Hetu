@@ -34,6 +34,12 @@ public interface IToolExecutor
 
     /// <summary>执行工具</summary>
     Task<ToolExecutionResult> ExecuteAsync(string argumentsJson, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 单次执行的超时（null = 用 Agent 循环的默认值）。
+    /// 超时会取消工具自身的 CancellationToken，而不是只放弃等待。
+    /// </summary>
+    TimeSpan? Timeout => null;
 }
 
 /// <summary>
