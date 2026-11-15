@@ -576,13 +576,7 @@ public class WorkStreamController : ControllerBase
         }
 
         // 用量按「一次模型请求一行」由 Agent 循环内部落库（含本轮全部迭代），这里不再记轮级汇总
-
-        // 保存文件变更事件消息（供历史回放展示）
-        foreach (var change in fileChanges)
-        {
-            var json = JsonSerializer.Serialize(change);
-            await _sessionService.AddMessageAsync(sessionId, "system", "", "file_change", json, cancellationToken: CancellationToken.None);
-        }
+        // 文件变更消息已在变更发生时逐条落库（见 WorkStreamHooks），此处不再批量补记
 
         // 文件有改动时排队刷新代码索引（去抖 + 仅刷新已建索引的项目）
         if (fileChanges.Count > 0 && session.ProjectId != Guid.Empty)
@@ -852,6 +846,10 @@ public class WorkStreamController : ControllerBase
                     var evt = new { type = "file_change", path = change.Path, action };
                     _fileChanges.Add(evt);
                     await _writer.WriteJsonAsync(evt);
+                    // 发生时即落库：历史回放顺序与流式一致，不会在轮末堆成一整块文件卡片
+                    await _owner._sessionService.AddMessageAsync(
+                        _sessionId, "system", "", "file_change", JsonSerializer.Serialize(evt),
+                        cancellationToken: CancellationToken.None);
                 }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
                 {

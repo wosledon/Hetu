@@ -231,6 +231,9 @@ export default function WorkSessionArea({
   // 本组件起的那轮流式状态。刷新后恢复的运行态不在这里——见下面的 runStatus 查询，
   // 两者合并成 isStreaming，别让用户回来看到「空闲」的空会话
   const [localStreaming, setLocalStreaming] = useState(() => !!session?.id && workStreamRuns.isRunning(session.id))
+  // 本轮流是否由当前组件实例发起：切走页面重挂载的实例不是发起者，
+  // 必须 attach 到在跑的运行上才能收到 done，否则运行态永远清不掉
+  const [ownsStream, setOwnsStream] = useState(false)
   /** 已收到 done：本轮输出结束，后续可能只是服务端在跑记忆提取等后处理 */
   const [streamDone, setStreamDone] = useState(false)
   // 本轮流式输出：思考、正文、工具、文件、检查点、审批统一按发生顺序排列
@@ -293,12 +296,12 @@ export default function WorkSessionArea({
 
   // 刷新后重连：本地登记已清空，但后端可能还有一轮在跑——循环的生命周期与 HTTP 请求
   // 无关（WorkRunRegistry），断开连接不等于中止。轮询运行状态，active 就挂载上去，
-  // 并靠下面的消息轮询把进度补上。SPA 切走页面不走这里：登记还在，useState 初始值已恢复。
+  // 并靠下面的消息轮询把进度补上。切走页面重挂载的实例同样不是发起者，也要走这里。
   // 运行态由 isStreaming 派生，这里只负责挂载/摘除，不 setState。
   const { data: runStatus } = useQuery({
     queryKey: ['workRunStatus', session?.id],
     queryFn: () => workSessionService.getRunStatus(session!.id),
-    enabled: !!session?.id && !localStreaming,
+    enabled: !!session?.id && !ownsStream,
     refetchInterval: (query) => (query.state.data?.active ? 2000 : false),
   })
 
@@ -338,11 +341,15 @@ export default function WorkSessionArea({
   }, [session?.id, runStatus?.active])
 
   useEffect(() => {
-    if (!session?.id || localStreaming || !runStatus?.active) return
-    if (workStreamRuns.isRunning(session.id)) return
+    if (!session?.id || ownsStream) return
+    // 重挂载实例不是发起者：本地登记还在（旧实例的流未断）或后端说还在跑，都要挂上去收 done，
+    // 否则旧实例的 setState 已失效，本实例的运行态永远清不掉（表现为一直「进行中」）
+    if (!runStatus?.active && !workStreamRuns.isRunning(session.id)) return
     const sessionId = session.id
     return workStreamRuns.attach(sessionId, () => {
-      // 运行结束：重新拉状态与消息，把最终结果刷出来
+      // 运行结束：清掉本实例运行态并回读最终结果
+      setLocalStreaming(false)
+      setStreamDone(true)
       queryClient.invalidateQueries({ queryKey: ['workRunStatus', sessionId] })
       queryClient.invalidateQueries({ queryKey: ['workMessages', sessionId] })
       queryClient.invalidateQueries({ queryKey: ['workSessions'] })
@@ -357,7 +364,7 @@ export default function WorkSessionArea({
         setStreamDone(true)
       }
     })
-  }, [session?.id, localStreaming, runStatus?.active, queryClient])
+  }, [session?.id, ownsStream, runStatus?.active, queryClient])
 
   const { data: aiModels = [] } = useQuery({
     queryKey: ['aiModels'],
@@ -1155,6 +1162,7 @@ export default function WorkSessionArea({
 
     const activeId = active.id
     setLocalStreaming(true)
+    setOwnsStream(true)
     if (persistUserMessage)
     {
       setPendingUser(content)
@@ -1322,8 +1330,9 @@ export default function WorkSessionArea({
       }
     } finally {
       streamRef.current = null
-      workStreamRuns.unregister(activeId)
+      workStreamRuns.unregister(activeId, controller)
       setLocalStreaming(false)
+      setOwnsStream(false)
       // 冲刷合批器里积压的尾帧：流结束/中断时不能丢掉最后一截正文或内层过程
       flushDelta()
       coalescer.flush()

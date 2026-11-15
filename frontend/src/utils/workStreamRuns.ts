@@ -29,7 +29,10 @@ export const workStreamRuns = {
     notify()
   },
 
-  unregister: (sessionId: string) => {
+  unregister: (sessionId: string, controller?: AbortController) => {
+    // 只摘自己登记的那条：切走页面后重挂载的实例可能已 attach 了新的控制器，
+    // 旧流的收尾不能把新挂载的连接登记删掉
+    if (controller && runs.get(sessionId)?.controller !== controller) return
     runs.delete(sessionId)
     notify()
   },
