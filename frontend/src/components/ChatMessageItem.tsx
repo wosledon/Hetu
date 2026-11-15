@@ -3,11 +3,10 @@ import { Copy, Check, Coins, Pencil, Trash2, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import ThemedMarkdown from './ThemedMarkdown'
 import UserMessageContent from './UserMessageContent'
-import ChatToolCallRow from './ChatToolCallRow'
-import ToolCallGroup from './ToolCallGroup'
-import AgentThoughtBlock from './agent/AgentThoughtBlock'
+import AgentTimeline from './agent/AgentTimeline'
 import RetrievalResultCard from './RetrievalResultCard'
-import { foldConsecutiveToolCalls } from '../utils/toolRendering'
+import { fromChatHistorySegments } from '../utils/historyTimeline'
+import type { AgentTimelineItem } from '../utils/agentTimeline'
 import { uiLocale } from '../utils/locale'
 import { formatTokens } from '../utils/agentStream'
 import type { IChatMessage } from '../types'
@@ -112,21 +111,20 @@ export default memo(function ChatMessageItem({
     ? message.content.slice(timelineText.length)
     : ''
   const isLegacy = segments.length > 0 && !interleaved
-  // 仅以思考开启的过程折叠为一组；纯工具调用逐行显示，文本输出作为组分界
-  const foldedSegments = foldConsecutiveToolCalls(
-    segments,
-    (s) => s.kind === 'tool' || s.kind === 'thought',
-    (s) => s.kind === 'tool'
-      ? { kind: 'tool', name: s.name, args: s.arguments, result: s.result, isError: s.isError }
-      : { kind: 'thought', name: '', args: s.text, text: s.text },
-  )
-  const foldedLegacySegments = foldConsecutiveToolCalls(
-    segments.filter((s) => s.kind === 'tool'),
-    () => true,
-    (s) => s.kind === 'tool'
-      ? { kind: 'tool', name: s.name, args: s.arguments, result: s.result, isError: s.isError }
-      : { kind: 'tool', name: '', args: '{}' },
-  )
+  // 历史消息与流式共用同一套时间线：折叠、行样式与间距只在 AgentTimeline 里维护一份
+  const historyItems: AgentTimelineItem[] = []
+  if (message.role === 'assistant') {
+    if (message.thinkingContent && !segments.some((s) => s.kind === 'thought')) {
+      historyItems.push({ kind: 'thought', text: message.thinkingContent })
+    }
+    if (interleaved) {
+      historyItems.push(...fromChatHistorySegments(segments))
+      // 时间线未覆盖的正文尾部（见上方 tailText 注释）
+      if (tailText.trim().length > 0) historyItems.push({ kind: 'text', text: tailText })
+    } else if (isLegacy) {
+      historyItems.push(...fromChatHistorySegments(segments))
+    }
+  }
   return (
     <div className={`group relative flex ${isUser ? 'justify-end' : ''}`}>
       <div className={`flex min-w-0 flex-1 flex-col ${isUser ? 'items-end' : ''}`}>
@@ -161,81 +159,16 @@ export default memo(function ChatMessageItem({
             </div>
           ) : (
             <>
-              {message.role === 'assistant' && message.thinkingContent && !segments.some((s) => s.kind === 'thought') && (
+              {!isUser && historyItems.length > 0 && (
                 <div className="mb-3">
-                  <AgentThoughtBlock text={message.thinkingContent} />
-                </div>
-              )}
-              {/* 瀑布流时间线：思考/工具调用与文本按发生顺序穿插（新格式） */}
-              {!isUser && interleaved && (
-                <div className="space-y-2">
-                  {foldedSegments.map((entry, i) => {
-                    if (entry.kind === 'tool') {
-                      const only = entry.items[0]
-                      // 单条过程：工具调用或思考，都直接用统一的行样式
-                      if (entry.items.length === 1) {
-                        return only.kind === 'thought'
-                          ? <AgentThoughtBlock key={i} text={only.text ?? ''} />
-                          : (
-                            <ChatToolCallRow
-                              key={i}
-                              name={only.name}
-                              args={only.args}
-                              result={only.result}
-                              isError={only.isError}
-                            />
-                          )
-                      }
-                      return <ToolCallGroup key={i} items={entry.items} renderItem={(item, compact) => (item.kind === 'thought'
-                        ? <AgentThoughtBlock text={item.text ?? ''} compact={compact} />
-                        : (
-                          <ChatToolCallRow
-                            name={item.name}
-                            args={item.args}
-                            result={item.result}
-                            isError={item.isError}
-                            compact={compact}
-                          />
-                        ))} />
-                    }
-                    const seg = entry.item
-                    if (seg.kind === 'thought') {
-                      return (
-                        <AgentThoughtBlock key={i} text={seg.text} />
-                      )
-                    }
-                    return (
-                      <div key={i} className="prose prose-sm dark:prose-invert max-w-none">
-                        <ThemedMarkdown source={seg.kind === 'text' ? seg.text : ''} />
-                      </div>
-                    )
-                  })}
-                    {/* 时间线未覆盖的正文尾部（见上方 tailText 注释） */}
-                    {tailText.trim().length > 0 && (
+                  <AgentTimeline
+                    items={historyItems}
+                    renderText={(source) => (
                       <div className="prose prose-sm dark:prose-invert max-w-none">
-                        <ThemedMarkdown source={tailText} />
+                        <ThemedMarkdown source={source} />
                       </div>
                     )}
-                  </div>
-                )}
-              {/* 旧格式：工具组集中展示，正文在后 */}
-              {!isUser && isLegacy && (
-                <div className="mb-3 space-y-1">
-                  {foldedLegacySegments.map((entry, i) =>
-                    entry.kind === 'tool'
-                      ? entry.items.length > 1
-                        ? <ToolCallGroup key={i} items={entry.items} />
-                        : (
-                          <ChatToolCallRow
-                            key={i}
-                            name={entry.items[0].name}
-                            args={entry.items[0].args}
-                            result={entry.items[0].result}
-                            isError={entry.items[0].isError}
-                          />
-                        )
-                      : null
-                  )}
+                  />
                 </div>
               )}
               {!interleaved && (
