@@ -2108,7 +2108,8 @@ function AgentTextBlock({ message, onCodeAction, actions }: {
   )
 }
 
-const isProcessMessage = (m: IWorkMessage) => m.type === 'thought' || m.type === 'tool' || m.type === 'subagent'
+const isProcessMessage = (m: IWorkMessage) =>
+  m.type === 'thought' || m.type === 'tool' || m.type === 'subagent' || m.type === 'file_change' || m.type === 'checkpoint'
 
 /** 普通历史消息：用户气泡 / Agent 文本 / 系统提示 / 文件变更 / 检查点 */
 function MessageRow({ message, onOpenFilePath, onCodeAction, ...actions }: {

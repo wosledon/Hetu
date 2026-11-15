@@ -285,6 +285,8 @@ public class ChatMessagesController : ControllerBase
             McpServerIds = new List<Guid>(),
             MaxIterations = profile.MaxAgentIterations,
             MaxToolCallsPerTurn = profile.MaxToolCallsPerTurn,
+            // 长任务自动续跑两段，避免正常的多步工作频繁撞到单段迭代上限
+            MaxContinuations = 2,
             ReasoningEffort = options.ReasoningEffort,
             ReasoningBudgetTokens = options.ReasoningBudgetTokens,
             MaxTokens = options.MaxTokens,

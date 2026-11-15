@@ -53,13 +53,15 @@ export default function AgentTimeline({
   const folded = foldAgentTimeline(items)
 
   return (
-    <>
+    // 自成容器：AgentTimeline 若返回 Fragment，行会成为调用方 space-y-* 的直接子项，
+    // 导致同一时间线在不同页面出现不同间距
+    <div className="min-w-0">
       {folded.map((entry, i) => {
         if (entry.kind === 'tool') {
           if (entry.items.length === 1) {
             const only = entry.items[0]
             return (
-              <div key={`t${i}`} className={only.kind === 'thought' ? 'mb-0' : 'mb-2'}>
+              <div key={`t${i}`} className={only.kind === 'thought' ? 'mb-0' : 'mb-1'}>
                 {only.kind === 'thought'
                   ? <AgentThoughtBlock text={only.text ?? ''} streaming={streaming && i === folded.length - 1} />
                   : (
@@ -78,7 +80,7 @@ export default function AgentTimeline({
             )
           }
           return (
-            <div key={`t${i}`} className={entry.items[0]?.kind === 'thought' ? 'mb-0' : 'mb-2'}>
+            <div key={`t${i}`} className={entry.items[0]?.kind === 'thought' ? 'mb-0' : 'mb-1'}>
               <ToolCallGroup
                 items={entry.items}
                 renderItem={(item, compact) => (item.kind === 'thought'
@@ -138,13 +140,13 @@ export default function AgentTimeline({
             )
           case 'file':
             return (
-              <div key={`o${i}`} className="mb-2">
+              <div key={`o${i}`} className="mb-1">
                 <AgentFileChangeRow path={item.path} action={item.action} onOpenPath={onOpenPath} />
               </div>
             )
           case 'checkpoint':
             return (
-              <div key={`o${i}`} className="mb-2">
+              <div key={`o${i}`} className="mb-1">
                 <AgentCheckpointRow
                   label={item.label}
                   fileCount={item.fileCount}
@@ -172,6 +174,6 @@ export default function AgentTimeline({
             return null
         }
       })}
-    </>
+    </div>
   )
 }

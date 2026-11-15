@@ -106,7 +106,7 @@ export default function ChatToolCallRow({ name, args, result, isError, running, 
       <div
         onClick={canExpand ? () => setOpen(!open) : undefined}
         className={compact
-          ? `group flex min-h-8 items-center gap-1.5 rounded-md px-1 py-1 text-left transition-colors ${canExpand ? 'cursor-pointer hover:bg-gray-50/80 dark:hover:bg-white/[0.025]' : ''}`
+          ? `group flex min-h-6 items-center gap-1.5 rounded px-1 py-0.5 text-left transition-colors ${canExpand ? 'cursor-pointer hover:bg-gray-50/80 dark:hover:bg-white/[0.025]' : ''}`
           : `group flex min-h-11 items-center gap-2 px-2.5 py-2 text-left transition-colors ${canExpand ? 'cursor-pointer hover:bg-white/55 dark:hover:bg-white/[0.025]' : ''}`}
       >
         {canExpand ? (

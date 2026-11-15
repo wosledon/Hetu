@@ -65,7 +65,7 @@
         <li><strong>进入循环</strong>（默认最多 15 轮）：每轮开头先 <code>DrainSteering()</code> 把「运行中引导」并入上下文，再按配置触发历史压缩，然后调用模型。</li>
         <li><strong>处理模型输出</strong>：正文与思考通过事件流实时推出；工具调用交给调用方的判定器决定执行还是请求审批。</li>
         <li><strong>回填结果</strong>：工具结果写回上下文，同时通过事件出口推给前端；每轮的正文/思考/工具/用量累加进本轮结果。</li>
-        <li><strong>收尾</strong>：没有更多工具调用时结束；达到迭代上限则额外执行一次 <code>tools=none</code> 的进展总结并标记 <code>iteration_limit</code>。调用方负责落库消息、写用量、补 <code>done</code> 帧。</li>
+        <li><strong>收尾</strong>：没有更多工具调用时结束；迭代上限用尽时先按 <code>MaxContinuations</code> 自动续跑（上下文与进度保留），全部用尽后才执行一次 <code>tools=none</code> 的进展总结并标记 <code>iteration_limit</code>。调用方负责落库消息、写用量、补 <code>done</code> 帧。</li>
       </ol>
 
       <h2>关键参数</h2>
@@ -73,7 +73,8 @@
         <thead><tr><th>参数</th><th>默认</th><th>说明</th></tr></thead>
         <tbody>
           <tr><td><code>MaxIterations</code></td><td>15</td><td>最大迭代轮数；传 ≤ 0 时回落默认 15，避免死循环</td></tr>
-          <tr><td><code>MaxToolCallsPerTurn</code></td><td>5</td><td>单轮工具调用硬上限；超限整批拒绝执行并返回明确错误</td></tr>
+          <tr><td><code>MaxToolCallsPerTurn</code></td><td>5</td><td>单轮工具调用上限；超出部分跳过并回一条错误结果（不终止本轮，模型可拆小批次重试）</td></tr>
+          <tr><td><code>MaxContinuations</code></td><td>1（对话 / Code 为 2）</td><td>迭代上限用尽后自动续跑的段数；每段重新计 <code>MaxIterations</code></td></tr>
           <tr><td><code>CompressHistory</code></td><td>true</td><td>为 false 时跳过历史压缩（排查压缩引发的行为变化时用）</td></tr>
           <tr><td><code>EnableTools</code></td><td>true</td><td>关闭后不发工具 schema，纯对话模式</td></tr>
           <tr><td><code>CoreToolNames</code></td><td>null</td><td>给定时只暴露这些核心工具，其余按会话配置追加</td></tr>

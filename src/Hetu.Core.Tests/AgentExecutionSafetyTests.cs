@@ -192,7 +192,7 @@ public class AgentExecutionSafetyTests
     }
 
     [Fact]
-    public async Task RunAsync_工具调用超过单轮上限_全部拒绝执行()
+    public async Task RunAsync_工具调用超过单轮上限_执行前N个并为其余补错误结果()
     {
         var executor = CreateExecutor("test_tool");
         var executions = 0;
@@ -200,36 +200,49 @@ public class AgentExecutionSafetyTests
             .Returns(_ =>
             {
                 executions++;
-                return ToolExecutionResult.Success("unexpected");
+                return ToolExecutionResult.Success("ok");
             });
         var localizer = CreateLocalizer();
         var registry = new ToolRegistry([executor], localizer);
         using var services = CreateToolServices(registry);
         var provider = Substitute.For<ILLMProvider>();
+        var invocation = 0;
+        List<LlmChatMessage>? secondTurnMessages = null;
         provider.ChatStreamAsync(Arg.Any<IReadOnlyList<LlmChatMessage>>(), Arg.Any<ChatOptions>(), Arg.Any<CancellationToken>())
-            .Returns(_ => Frames(
-                JsonSerializer.Serialize(new
-                {
-                    type = "tool_calls",
-                    toolCalls = new[]
-                    {
-                        new { id = "call-1", name = "test_tool", arguments = "{}" },
-                        new { id = "call-2", name = "test_tool", arguments = "{}" },
-                    },
-                }),
-                FinishFrame("stop")));
+            .Returns(call =>
+            {
+                if (invocation++ == 0)
+                    return Frames(
+                        JsonSerializer.Serialize(new
+                        {
+                            type = "tool_calls",
+                            toolCalls = new[]
+                            {
+                                new { id = "call-1", name = "test_tool", arguments = "{}" },
+                                new { id = "call-2", name = "test_tool", arguments = "{}" },
+                            },
+                        }),
+                        FinishFrame("stop"));
+                secondTurnMessages = call.Arg<IReadOnlyList<LlmChatMessage>>().ToList();
+                return Frames(ContentFrame("done"), FinishFrame("stop"));
+            });
         var service = CreateAgentLoop(provider, registry, services, localizer);
 
         var result = await service.RunAsync(new AgentLoopRequest
         {
             ToolNames = ["test_tool"],
-            MaxIterations = 1,
+            MaxIterations = 2,
             MaxToolCallsPerTurn = 1,
             CompressHistory = false,
         }, CancellationToken.None);
 
-        Assert.False(string.IsNullOrWhiteSpace(result.Error));
-        Assert.Equal(0, executions);
+        Assert.Equal(1, executions);
+        Assert.Null(result.Error);
+        Assert.Equal("done", result.Content);
+        // 跳过的调用也必须有一条错误结果，否则 assistant.tool_calls 与 tool 结果不配对
+        Assert.Contains(secondTurnMessages ?? [], m => m.Role == "tool" && m.ToolCallId == "call-2");
+        var assistant = Assert.Single(secondTurnMessages ?? [], m => m.Role == "assistant" && m.ToolCalls != null);
+        Assert.Equal(2, assistant.ToolCalls!.Count);
     }
 
     [Fact]
@@ -257,6 +270,7 @@ public class AgentExecutionSafetyTests
         {
             ToolNames = ["test_tool"],
             MaxIterations = 1,
+            MaxContinuations = 0,
             CompressHistory = false,
         }, CancellationToken.None);
 
@@ -429,6 +443,46 @@ public class AgentExecutionSafetyTests
         Assert.Equal(1, service.ResolvePendingInteractions("session"));
         await execution;
         Assert.Empty(service.GetPendingInteractions("session"));
+    }
+
+    [Fact]
+    public async Task RunAsync_迭代上限用尽_自动续跑而不是收尾()
+    {
+        var executor = CreateExecutor("test_tool");
+        var executions = 0;
+        executor.ExecuteAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                executions++;
+                return ToolExecutionResult.Success("ok");
+            });
+        var localizer = CreateLocalizer();
+        var registry = new ToolRegistry([executor], localizer);
+        using var services = CreateToolServices(registry);
+        var provider = Substitute.For<ILLMProvider>();
+        var invocation = 0;
+        provider.ChatStreamAsync(Arg.Any<IReadOnlyList<LlmChatMessage>>(), Arg.Any<ChatOptions>(), Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                var turn = invocation++;
+                if (turn < 2) return Frames(ToolCallsFrame($"call-{turn + 1}", "{}"), FinishFrame("stop"));
+                return Frames(ContentFrame("done"), FinishFrame("stop"));
+            });
+        var service = CreateAgentLoop(provider, registry, services, localizer);
+
+        var result = await service.RunAsync(new AgentLoopRequest
+        {
+            ToolNames = ["test_tool"],
+            MaxIterations = 2,
+            MaxContinuations = 1,
+            CompressHistory = false,
+        }, CancellationToken.None);
+
+        Assert.Equal(1, result.ContinuationCount);
+        Assert.Equal(2, executions);
+        Assert.Equal(3, result.Iterations);
+        Assert.False(result.IterationLimitReached);
+        Assert.Equal("done", result.Content);
     }
 
     private static AgentLoopService CreateAgentLoop(
