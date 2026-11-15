@@ -31,6 +31,8 @@ public class AgentLoopResult
     public bool Cancelled { get; set; }
     /// <summary>达到迭代上限后已进行无工具收尾</summary>
     public bool IterationLimitReached { get; set; }
+    /// <summary>自动续跑的次数（迭代上限用尽后继续执行，而不是直接收尾）</summary>
+    public int ContinuationCount { get; set; }
     /// <summary>循环级错误信息（已通知 sink，可由调用方决定落库内容）</summary>
     public string? Error { get; set; }
 }
@@ -81,6 +83,9 @@ public class AgentLoopRequest
     public int MaxToolCallsPerTurn { get; set; } = 5;
     /// <summary>当前用户轮次新增上下文（助手与工具消息）的字符预算</summary>
     public int ActiveTurnBudgetChars { get; set; } = 60_000;
+
+    /// <summary>迭代上限用尽后允许自动续跑的次数（每段重新计 MaxIterations）</summary>
+    public int MaxContinuations { get; set; } = 1;
     public string? ReasoningEffort { get; set; }
     public int? ReasoningBudgetTokens { get; set; }
     public int? MaxTokens { get; set; }
@@ -323,12 +328,20 @@ public class AgentLoopService
         }
 
         var endedWithToolCalls = false;
+        var maxContinuations = Math.Max(0, request.MaxContinuations);
+        var continuation = 0;
+        var totalIterations = 0;
         try
         {
-            // 4. Agent Loop
+            // 4. Agent Loop：一段 = 最多 maxIter 次模型调用；用尽后按 MaxContinuations 自动续跑，
+            // 长任务不会因为一次硬上限半途而废（续跑仍受总轮数上限约束）
+            while (true)
+            {
+            endedWithToolCalls = false;
             for (int iter = 0; iter < maxIter; iter++)
             {
-                result.Iterations = iter + 1;
+                totalIterations++;
+                result.Iterations = totalIterations;
                 RefreshDeclaredTools();
                 await sink.OnDebugAsync($"Agent 迭代 {iter + 1}，工具数={options.Tools?.Count ?? 0}");
 
@@ -456,11 +469,19 @@ public class AgentLoopService
                     break;
                 }
                 var maxToolCalls = request.MaxToolCallsPerTurn > 0 ? request.MaxToolCallsPerTurn : DefaultMaxToolCallsPerTurn;
+                List<LlmToolCall>? overflowToolCalls = null;
                 if (pendingToolCalls is { Count: > 0 } && pendingToolCalls.Count > maxToolCalls)
                 {
-                    result.Error = _localizer.T("toolExec.tooManyCalls", pendingToolCalls.Count, maxToolCalls);
-                    await sink.OnErrorAsync(result.Error);
-                    break;
+                    // 超出单轮上限的调用不执行，但仍要回一条 tool 结果：
+                    // assistant.tool_calls 与 tool 结果必须一一配对，否则下一轮请求会被供应商拒绝
+                    overflowToolCalls = pendingToolCalls.Skip(maxToolCalls).ToList();
+                    pendingToolCalls = pendingToolCalls.Take(maxToolCalls).ToList();
+                    await sink.OnEventAsync(new
+                    {
+                        type = "notice",
+                        kind = "tool_limit",
+                        text = _localizer.T("toolExec.tooManyCallsNotice", overflowToolCalls.Count, maxToolCalls),
+                    });
                 }
 
                 if (pendingToolCalls == null || pendingToolCalls.Count == 0 || !request.EnableTools || allToolNames.Count == 0)
@@ -474,7 +495,8 @@ public class AgentLoopService
                 {
                     Role = "assistant",
                     Content = iterContent,
-                    ToolCalls = pendingToolCalls
+                    // 必须带上本轮模型请求的全部调用（含超出上限被跳过的），tool 结果才能一一配对
+                    ToolCalls = overflowToolCalls is null ? pendingToolCalls : [.. pendingToolCalls, .. overflowToolCalls]
                 });
 
                 await (hooks?.BeforeToolCallsAsync(pendingToolCalls) ?? Task.CompletedTask);
@@ -558,6 +580,46 @@ public class AgentLoopService
                 }
 
                 await (hooks?.AfterToolResultsAsync(executions) ?? Task.CompletedTask);
+
+                if (overflowToolCalls is { Count: > 0 })
+                {
+                    var droppedMessage = _localizer.T("toolExec.tooManyCallsDropped", maxToolCalls);
+                    foreach (var call in overflowToolCalls)
+                    {
+                        await sink.OnEventAsync(new
+                        {
+                            type = "tool_result",
+                            id = call.Id,
+                            name = call.Name,
+                            content = droppedMessage,
+                            isError = true,
+                            hidden = true,
+                        });
+                        chatMessages.Add(new LlmChatMessage { Role = "tool", ToolCallId = call.Id, Content = droppedMessage });
+                    }
+                }
+            }
+
+            if (!endedWithToolCalls || result.Cancelled || ct.IsCancellationRequested || result.Error != null)
+                break;
+
+            if (continuation >= maxContinuations)
+                break;
+
+            // 自动续跑：长任务用尽一段预算后接着做，而不是停下来让用户发「继续」
+            continuation++;
+            result.ContinuationCount = continuation;
+            await sink.OnEventAsync(new
+            {
+                type = "notice",
+                kind = "iteration_continue",
+                text = _localizer.T("agent.iterationContinue"),
+            });
+            chatMessages.Add(new LlmChatMessage
+            {
+                Role = "user",
+                Content = _localizer.T("agent.iterationContinuePrompt"),
+            });
             }
 
             if (endedWithToolCalls && !result.Cancelled && result.Error == null)

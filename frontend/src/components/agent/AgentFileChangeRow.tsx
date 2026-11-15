@@ -22,11 +22,11 @@ export default function AgentFileChangeRow({ path, action, onOpenPath }: AgentFi
   const { Icon } = meta
 
   return (
-    <div className="flex min-h-11 items-center gap-2.5 rounded-xl border border-gray-200/80 bg-white/65 px-3 py-2 shadow-[0_1px_2px_rgba(15,23,42,0.03)] dark:border-white/[0.07] dark:bg-slate-900/35">
-      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-gray-100 dark:bg-white/[0.06]">
+    <div className="flex min-h-6 items-center gap-1.5 rounded px-1 py-0.5">
+      <span className="flex h-4 w-4 shrink-0 items-center justify-center">
         <Icon size={13} className={meta.cls} />
       </span>
-      <span className={`shrink-0 text-[11px] font-semibold ${meta.cls}`}>{t(meta.labelKey)}</span>
+      <span className={`shrink-0 text-[11px] font-medium ${meta.cls}`}>{t(meta.labelKey)}</span>
       {onOpenPath ? (
         <button
           onClick={() => onOpenPath(path)}

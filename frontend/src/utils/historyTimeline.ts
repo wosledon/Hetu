@@ -82,6 +82,9 @@ export function fromWorkHistoryMessages(messages: readonly IWorkMessage[]): Agen
       }
       case 'file_change': {
         const meta = parseMetadata(message.metadata, { path: '', action: 'write' })
+        // 连续同一文件同一动作只保留一行：一轮里多次写同一文件时，卡片会连排重复
+        const last = items[items.length - 1]
+        if (last?.kind === 'file' && last.path === meta.path && last.action === meta.action) break
         items.push({ kind: 'file', path: meta.path, action: meta.action })
         break
       }
