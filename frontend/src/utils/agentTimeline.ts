@@ -61,7 +61,7 @@ export function subagentEntriesToTimeline(entries: readonly SubagentEntry[] | un
   return out
 }
 
-/** 折叠后的展示项：仅以思考开启的连续过程合并为一组，其他条目原样保留 */
+/** 折叠后的展示项：思考开启的连续过程合并为一组，其他条目原样保留 */
 export type FoldedAgentItem =
   | { kind: 'tool'; items: ToolCallEntry[] }
   | { kind: 'other'; item: AgentTimelineItem }
@@ -83,7 +83,8 @@ export function foldAgentTimeline(items: AgentTimelineItem[]): FoldedAgentItem[]
 
   for (const item of items) {
     if (item.kind === 'thought') {
-      flush()
+      // 同一轮可能多次「思考 → 工具 → 再思考」，都归入当前过程组；
+      // 只有正文、审批等可见输出才切断分组，避免每次工具调用都新增一张摘要卡。
       group.push({ kind: 'thought', text: item.text, name: '', args: '' })
       continue
     }

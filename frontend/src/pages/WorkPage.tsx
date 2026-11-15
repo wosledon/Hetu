@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react'
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -7,13 +7,14 @@ import { ArrowDownUp, FolderInput, FolderTree, Plus, SlidersHorizontal } from 'l
 import AppLayout from '../components/AppLayout'
 import WorkSidebar, { type WorkSidebarHandle } from '../components/work/WorkSidebar'
 import WorkSessionArea from '../components/work/WorkSessionArea'
-import WorkExplorer from '../components/work/WorkExplorer'
 import { workProjectService, workSessionService } from '../services/workService'
 import { onUiAction } from '../services/signalrService'
 import type { IWorkProject, IWorkSession } from '../types/work'
 import { ContextMenu, PageContainer, SearchInput } from '../components/ui'
 import { useUIStore } from '../stores/uiStore'
 import type { ProjectGroupBy, ProjectSortBy } from '../stores/uiStore'
+
+const WorkExplorer = lazy(() => import('../components/work/WorkExplorer'))
 
 /** Code 页：左栏项目树（项目下挂编码会话），右侧为会话区与工作面板；主对话与普通对话已各自成页 */
 const DEFAULT_RIGHT_WIDTH = 560
@@ -424,19 +425,21 @@ export default function WorkPage() {
                 <span className="absolute inset-y-0 -left-[3px] w-[7px]" />
               </div>
               <div className="flex shrink-0 flex-col border-l border-gray-200 dark:border-gray-800" style={{ width: rightWidth }}>
-                <WorkExplorer
-                  key={selectedProject?.id}
-                  projectId={selectedProject?.id}
-                  sessionId={selectedSession?.id}
-                  sessionTitle={selectedSession?.title}
-                  panelRequest={panelRequest}
-                  onActiveFileChange={setActiveFilePath}
-                  openFileRequest={openFileRequest}
-                  onAddSelectionContext={addSelectionContext}
-                  onHandoffToAgent={handoffToAgent}
-                  insertRequest={insertRequest}
-                  commandRequest={terminalCommandRequest}
-                />
+                <Suspense fallback={<div className="flex flex-1 items-center justify-center text-xs text-gray-400">{t('common:loading')}</div>}>
+                  <WorkExplorer
+                    key={selectedProject?.id}
+                    projectId={selectedProject?.id}
+                    sessionId={selectedSession?.id}
+                    sessionTitle={selectedSession?.title}
+                    panelRequest={panelRequest}
+                    onActiveFileChange={setActiveFilePath}
+                    openFileRequest={openFileRequest}
+                    onAddSelectionContext={addSelectionContext}
+                    onHandoffToAgent={handoffToAgent}
+                    insertRequest={insertRequest}
+                    commandRequest={terminalCommandRequest}
+                  />
+                </Suspense>
               </div>
             </>
           )}

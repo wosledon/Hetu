@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { memo, useMemo, type ReactNode } from 'react'
 import ThemedMarkdown from '../ThemedMarkdown'
 import ChatToolCallRow from '../ChatToolCallRow'
 import ToolCallGroup from '../ToolCallGroup'
@@ -37,7 +37,7 @@ export interface AgentTimelineProps {
  * 回调表达——编码会话传 onOpenPath / onRunCommand / onRestoreCheckpoint，
  * 对话页与任务看板只读展示。
  */
-export default function AgentTimeline({
+function AgentTimeline({
   items,
   streaming = false,
   onOpenPath,
@@ -48,9 +48,10 @@ export default function AgentTimeline({
   emptyHint,
   renderText,
 }: AgentTimelineProps) {
-  if (items.length === 0) return <>{emptyHint ?? null}</>
+  // 流式期间每来一段增量都会重渲染：折叠只跟 items 走，未变化时不再重算
+  const folded = useMemo(() => foldAgentTimeline(items), [items])
 
-  const folded = foldAgentTimeline(items)
+  if (items.length === 0) return <>{emptyHint ?? null}</>
 
   return (
     // 自成容器：AgentTimeline 若返回 Fragment，行会成为调用方 space-y-* 的直接子项，
@@ -83,6 +84,7 @@ export default function AgentTimeline({
             <div key={`t${i}`} className={entry.items[0]?.kind === 'thought' ? 'mb-0' : 'mb-1'}>
               <ToolCallGroup
                 items={entry.items}
+                streaming={streaming && i === folded.length - 1}
                 renderItem={(item, compact) => (item.kind === 'thought'
                   ? <AgentThoughtBlock text={item.text ?? ''} compact={compact} />
                   : (
@@ -177,3 +179,5 @@ export default function AgentTimeline({
     </div>
   )
 }
+
+export default memo(AgentTimeline)

@@ -12,9 +12,6 @@ import { ACCENT_PRESETS, BACKGROUND_PRESETS, FONT_FAMILY_PRESETS } from './utils
 import { sanitizeNavPaths } from './utils/navItems'
 import { TooltipProvider } from './components/ui'
 import DesktopTitlebar from './components/DesktopTitlebar'
-// 高频入口随主包加载，避免 WebView 缓存动态 import 失败后只能整页刷新。
-import SettingsPage from './pages/SettingsPage'
-import WikiPage from './pages/WikiPage'
 import { isTauri } from './utils/tauri'
 
 function lazyRoute(load: () => Promise<{ default: ComponentType }>) {
@@ -60,6 +57,8 @@ class RouteErrorBoundary extends Component<{ children: ReactNode; resetKey: stri
 
 const NotesPage = lazyRoute(() => import('./pages/NotesPage'))
 const MainChatPage = lazyRoute(() => import('./pages/MainChatPage'))
+const SettingsPage = lazyRoute(() => import('./pages/SettingsPage'))
+const WikiPage = lazyRoute(() => import('./pages/WikiPage'))
 const TagsPage = lazyRoute(() => import('./pages/TagsPage'))
 const TrashPage = lazyRoute(() => import('./pages/TrashPage'))
 const GraphPage = lazyRoute(() => import('./pages/GraphPage'))

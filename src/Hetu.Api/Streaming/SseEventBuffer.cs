@@ -12,11 +12,16 @@ namespace Hetu.Api.Streaming;
 /// </summary>
 public sealed class SseEventBuffer
 {
-    /// <summary>单运行保留的事件上限：够覆盖一次长回合的过程帧，又不至于无界增长</summary>
+    /// <summary>单运行保留的事件条数上限：够覆盖一次长回合的过程帧，又不至于无界增长</summary>
     private const int MaxEvents = 5000;
 
+    /// <summary>单运行保留的事件总字符上限（UTF-16，约 8 MB）：大工具结果先截断，再靠它兜住长流</summary>
+    private const int MaxChars = 4_000_000;
+
     private readonly List<string> _events = new();
+    private int _chars;
     private readonly Dictionary<int, Channel<string>> _subscribers = new();
+    private readonly SemaphoreSlim _publishLock = new(1, 1);
     private int _nextSubscriberId;
     private readonly object _lock = new();
     private bool _completed;
@@ -32,20 +37,41 @@ public sealed class SseEventBuffer
         get { lock (_lock) { return _completed; } }
     }
 
-    /// <summary>发布一条事件：入缓冲区，并转手给所有已挂载的实时通道</summary>
-    public void Publish(string data)
+    /// <summary>发布一条事件：入缓冲区，并按顺序推给所有已挂载的实时通道</summary>
+    public async Task PublishAsync(string data)
     {
-        lock (_lock)
+        // 串行化发布，避免并发生产者让实时通道与重放快照的顺序不一致。
+        await _publishLock.WaitAsync();
+        try
         {
-            if (_completed) return;
-            if (_events.Count >= MaxEvents)
+            Channel<string>[] subscribers;
+            lock (_lock)
             {
+                if (_completed) return;
                 // 长流优先丢弃普通增量，保留交互事件，避免早期 plan/question 被正文帧挤掉
-                var removeIndex = _events.FindIndex(e => !IsInteractionEvent(e));
-                _events.RemoveAt(removeIndex >= 0 ? removeIndex : 0);
+                while (_events.Count > 0 && (_events.Count >= MaxEvents || _chars + data.Length > MaxChars))
+                {
+                    var removeIndex = _events.FindIndex(e => !IsInteractionEvent(e));
+                    if (removeIndex < 0) removeIndex = 0;
+                    _chars -= _events[removeIndex].Length;
+                    _events.RemoveAt(removeIndex);
+                }
+                _events.Add(data);
+                _chars += data.Length;
+                subscribers = _subscribers.Count == 0 ? [] : [.. _subscribers.Values];
             }
-            _events.Add(data);
-            foreach (var subscriber in _subscribers.Values) subscriber.Writer.TryWrite(data);
+
+            // 有界通道 + 背压：慢客户端会拖慢发布方，但工具、审批和 done 不会被静默丢弃。
+            // 不在 _lock 内 await；断开会关闭对应通道，解除这里可能挂起的写入。
+            foreach (var subscriber in subscribers)
+            {
+                try { await subscriber.Writer.WriteAsync(data); }
+                catch (ChannelClosedException) { /* 客户端在发布期间断开 */ }
+            }
+        }
+        finally
+        {
+            _publishLock.Release();
         }
     }
 
@@ -77,7 +103,12 @@ public sealed class SseEventBuffer
             if (!_completed)
             {
                 subscriberId = _nextSubscriberId++;
-                live = Channel.CreateUnbounded<string>();
+                live = Channel.CreateBounded<string>(new BoundedChannelOptions(2048)
+                {
+                    SingleReader = true,
+                    SingleWriter = false,
+                    FullMode = BoundedChannelFullMode.Wait,
+                });
                 _subscribers.Add(subscriberId, live);
             }
         }
@@ -110,6 +141,8 @@ public sealed class SseEventBuffer
             if (subscriberId >= 0)
             {
                 lock (_lock) { _subscribers.Remove(subscriberId); }
+                // 解除 PublishAsync 中等待这个慢/断开的消费者的写入。
+                live?.Writer.TryComplete();
             }
         }
     }
@@ -121,9 +154,6 @@ public sealed class SseEventBuffer
         {
             if (_completed) return;
             _completed = true;
-        }
-        lock (_lock)
-        {
             foreach (var subscriber in _subscribers.Values) subscriber.Writer.TryComplete();
             _subscribers.Clear();
         }

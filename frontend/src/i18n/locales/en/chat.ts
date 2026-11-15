@@ -58,8 +58,9 @@ export default {
     openInEditor: 'Open in editor',
     runInTerminal: 'Run in terminal',
     running: 'Running...',
+    processSummary: 'Execution · {{count}} items',
+    processRunning: 'Running · {{count}} items',
     nodeLabel: 'Node · {{name}}',
-    summaryMixed: '{{first}} and {{count}} more',
   },
   approval: {
     confirm: 'Run <strong>{{name}}</strong>?',

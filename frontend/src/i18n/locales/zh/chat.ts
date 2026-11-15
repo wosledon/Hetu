@@ -58,8 +58,9 @@ export default {
     openInEditor: '在编辑器中打开',
     runInTerminal: '在终端运行',
     running: '执行中...',
+    processSummary: '执行过程 · {{count}} 项',
+    processRunning: '正在执行 · {{count}} 项',
     nodeLabel: '节点 · {{name}}',
-    summaryMixed: '{{first}} 等 {{count}} 项',
   },
   approval: {
     confirm: '确认执行 <strong>{{name}}</strong>？',
