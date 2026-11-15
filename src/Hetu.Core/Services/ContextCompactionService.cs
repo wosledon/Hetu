@@ -288,6 +288,13 @@ public class ContextCompactionService
         return result.Success ? result.Data?.Summary : null;
     }
 
+    /// <summary>
+    /// 把 Agent 当前轮的消息压成一段交接摘要（续跑锚点）。与历史摘要共用提示词与用量口径。
+    /// 失败返回 null，由调用方回退到算法头尾摘录。
+    /// </summary>
+    public Task<string?> SummarizeTurnAsync(IReadOnlyList<LlmChatMessage> messages, Guid? modelId, CancellationToken ct = default)
+        => SummarizeAsync(messages.Select(m => (Guid.Empty, m.Role, m.Content ?? string.Empty)).ToList(), null, modelId, ct);
+
     private async Task<string?> SummarizeAsync(
         List<(Guid Id, string Role, string Text)> messages,
         string? previousSummary,
@@ -303,7 +310,7 @@ public class ContextCompactionService
         }
         foreach (var m in messages)
         {
-            transcript.Append(m.Role == "user" ? "用户: " : "助手: ");
+            transcript.Append(m.Role == "user" ? "用户: " : m.Role == "tool" ? "工具: " : "助手: ");
             transcript.AppendLine(m.Text);
         }
 

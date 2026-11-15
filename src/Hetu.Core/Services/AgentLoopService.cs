@@ -82,8 +82,11 @@ public class AgentLoopRequest
     public List<Guid> McpServerIds { get; set; } = new();
     public int MaxIterations { get; set; } = 15;
     public int MaxToolCallsPerTurn { get; set; } = 5;
-    /// <summary>当前用户轮次新增上下文（助手与工具消息）的字符预算</summary>
-    public int ActiveTurnBudgetChars { get; set; } = 60_000;
+    /// <summary>
+    /// 模型上下文窗口（token）。上下文硬上限与续跑锚点阈值都由它推导；
+    /// 为空时用 <see cref="DefaultContextWindowTokens"/> 兜底。
+    /// </summary>
+    public int? ContextWindowTokens { get; set; }
 
     /// <summary>迭代上限用尽后允许自动续跑的次数（每段重新计 MaxIterations）</summary>
     public int MaxContinuations { get; set; } = 1;
@@ -192,18 +195,16 @@ public class AgentLoopService
 {
     private const int DefaultMaxIterations = 15;
     private const int DefaultMaxToolCallsPerTurn = 5;
-    private const int DefaultActiveTurnBudgetChars = 60_000;
     private const int MaxToolResultCharsForModel = 8_000;
     private const int MaxToolErrorCharsForModel = 16_000;
     /// <summary>历史压缩的并发上限：过高会触发供应商限流，过低会让首轮等待变长</summary>
     private const int MaxConcurrentCompressions = 3;
-    /// <summary>
-    /// 被压缩的旧工具结果保留的字符数。压得太狠（曾经 1000）模型会「忘了」自己读过什么，
-    /// 于是换个行号把同一个文件再读一遍，省下的输入远不及多出来的整轮请求。
-    /// </summary>
-    private const int CompactedToolResultChars = 3_000;
-    /// <summary>始终保留完整内容的最近工具结果条数</summary>
-    private const int RecentToolResultsKept = 4;
+    /// <summary>调用方未提供模型窗口时的兜底窗口（token）</summary>
+    private const int DefaultContextWindowTokens = 128_000;
+    /// <summary>上下文硬上限占窗口比例：触顶即收尾，绝不改写已发送前缀</summary>
+    private const int HardCapPercent = 80;
+    /// <summary>续跑锚点阈值占窗口比例：当前轮超过它才在段边界做交接摘要</summary>
+    private const int AnchorPercent = 40;
     /// <summary>连续多少轮「全部调用被跳过」判定为原地打转并收尾</summary>
     private const int MaxStalledIterations = 2;
 
@@ -214,6 +215,7 @@ public class AgentLoopService
     private readonly ToolRegistry _toolRegistry;
     private readonly ToolExecutionService _toolExecution;
     private readonly CompressionPipelineService _compressionPipeline;
+    private readonly ContextCompactionService _contextCompaction;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILlmUsageRecorder _usageRecorder;
     private readonly ILogger<AgentLoopService> _logger;
@@ -224,6 +226,7 @@ public class AgentLoopService
         ToolRegistry toolRegistry,
         ToolExecutionService toolExecution,
         CompressionPipelineService compressionPipeline,
+        ContextCompactionService contextCompaction,
         IUnitOfWork unitOfWork,
         ILlmUsageRecorder usageRecorder,
         ILogger<AgentLoopService> logger,
@@ -233,6 +236,7 @@ public class AgentLoopService
         _toolRegistry = toolRegistry;
         _toolExecution = toolExecution;
         _compressionPipeline = compressionPipeline;
+        _contextCompaction = contextCompaction;
         _unitOfWork = unitOfWork;
         _usageRecorder = usageRecorder;
         _logger = logger;
@@ -335,13 +339,40 @@ public class AgentLoopService
             LlmTokenEstimator.EstimateChars(systemPromptChars + toolSchemaChars));
 
         var chatMessages = new List<LlmChatMessage>(request.Messages);
-        // 历史压缩只处理本轮之前的内容：当前用户消息（初始列表最后一条）及其后新产生的助手/工具消息
-        // 不压缩，否则用户原话会被摘要掉、模型拿到的请求与用户输入不一致
+        // 段边界锚点 / 当前轮统计的分界：初始列表最后一条是本轮用户消息
         var historyCompressBoundary = Math.Max(0, chatMessages.Count - 1);
         var sessionTodos = new List<SessionTodo>();
         var maxIter = request.MaxIterations > 0 ? request.MaxIterations : DefaultMaxIterations;
-        // 已压缩过的消息下标：长会话反复迭代时不再重复压缩（LLM 摘要模式尤其重要）
-        var compressedIndexes = new HashSet<int>();
+
+        // 入口压缩：内容进上下文之前就变小（重复日志去重 / 结构折叠），而不是事后对历史散文做有损 NLP。
+        // 历史与当前用户消息走同一条「确定性 + 内容哈希缓存」路径，跨轮重建逐字一致 → 请求前缀稳定。
+        // 只在循环开始前做一次；段内只追加，不再改写任何已发送消息。
+        if (request.CompressHistory && chatMessages.Count > 0)
+        {
+            _logger.LogInformation("[Compression] {Pipeline}", await _compressionPipeline.DescribeAsync(ct));
+            var beforeChars = chatMessages.Sum(m => (long)(m.Content?.Length ?? 0));
+            // 并行压缩：LLM 摘要每条一次模型调用；限制并发数，避免一次甩出十几路请求触发限流
+            using var compressionGate = new SemaphoreSlim(MaxConcurrentCompressions, MaxConcurrentCompressions);
+            var prepared = await Task.WhenAll(chatMessages.Select(async m =>
+            {
+                await compressionGate.WaitAsync(ct);
+                try { return await _compressionPipeline.PrepareForContextAsync(m.Content ?? string.Empty, ct); }
+                finally { compressionGate.Release(); }
+            }));
+            var changedCount = 0;
+            for (var i = 0; i < chatMessages.Count; i++)
+            {
+                if (prepared[i] == (chatMessages[i].Content ?? string.Empty)) continue;
+                var msg = chatMessages[i];
+                chatMessages[i] = new LlmChatMessage { Role = msg.Role, Content = prepared[i], ContentParts = msg.ContentParts, ToolCallId = msg.ToolCallId, ToolCalls = msg.ToolCalls, ThinkingBlocks = msg.ThinkingBlocks };
+                changedCount++;
+            }
+            var afterChars = chatMessages.Sum(m => (long)(m.Content?.Length ?? 0));
+            result.FirstIterationInputChars = (int)beforeChars;
+            result.FirstIterationCompressedChars = (int)afterChars;
+            _logger.LogInformation("[Compression] 入口压缩：{Count} 条消息 字符 {Before} → {After}（实际改写 {Changed} 条）",
+                chatMessages.Count, beforeChars, afterChars, changedCount);
+        }
 
         // 声明 = 常驻核心 + 本轮已按需加载；系统提示里的可加载清单随之收缩
         void RefreshDeclaredTools()
@@ -363,6 +394,15 @@ public class AgentLoopService
         // 连续「整轮调用全被跳过」的次数：模型在原地打转，达到上限就收尾而不是烧完迭代
         var stalledIterations = 0;
         var stalled = false;
+        // 上下文触顶：收尾本轮而不是改写前缀换空间
+        var contextFull = false;
+        List<string>? previousRequestContents = null;
+
+        // 上下文预算统一由模型窗口推导：硬上限触顶收尾，续跑锚点阈值决定段边界是否做交接摘要
+        var windowTokens = request.ContextWindowTokens is > 0 ? request.ContextWindowTokens.Value : DefaultContextWindowTokens;
+        var windowChars = (long)windowTokens * LlmTokenEstimator.CharsPerToken;
+        var hardCapChars = windowChars * HardCapPercent / 100;
+        var anchorChars = windowChars * AnchorPercent / 100;
         // 同一轮里的只读调用复用结果；同一调用连续失败两次后拦下，避免原地打转烧迭代
         var readResultCache = new Dictionary<string, string>(StringComparer.Ordinal);
         var failureCounts = new Dictionary<string, int>(StringComparer.Ordinal);
@@ -383,13 +423,17 @@ public class AgentLoopService
             AccumulateUsage(result.Usage, usage);
             if (usage != null) await sink.OnUsageAsync(result.Usage);
 
-            // 首次请求带上压缩管道的实际规模（压缩前 / 压缩后），其余迭代没有压缩可言，两值都记请求估算
+            // 只有每轮首次请求会走历史压缩：记管道的压缩前 / 压缩后。
+            // 其余迭代没有压缩可言，压缩后留空（明细里压缩率显示「—」），
+            // 填成与输入相等的估算会让整张表看起来像「从没压缩过」。
             var inputEstimate = requestIndex == 1 && result.FirstIterationInputChars > 0
                 ? LlmTokenEstimator.EstimateChars(result.FirstIterationInputChars)
                 : estimate;
-            var compressedEstimate = requestIndex == 1 && result.FirstIterationCompressedChars > 0
-                ? LlmTokenEstimator.EstimateChars(result.FirstIterationCompressedChars)
-                : estimate;
+            int? compressedEstimate = requestIndex == 1
+                ? (result.FirstIterationCompressedChars > 0
+                    ? LlmTokenEstimator.EstimateChars(result.FirstIterationCompressedChars)
+                    : estimate)
+                : null;
 
             await _usageRecorder.RecordAsync(
                 request.UsageSource,
@@ -408,6 +452,26 @@ public class AgentLoopService
                 ct: CancellationToken.None);
 
             return (content, thinking, thinkingBlocks, toolCalls, usage, cancelled, finishReason);
+        }
+
+        // 提示缓存不变量诊断：段内请求必须纯追加。一旦发现已发送消息被改写，
+        // 说明有代码违反了不变量（缓存会从该处全部 miss），记 Warning 便于定位。
+        void LogPrefixStability(int iter, List<LlmChatMessage> messages)
+        {
+            var current = messages.Select(m => m.Content ?? string.Empty).ToList();
+            if (previousRequestContents != null)
+            {
+                var stable = 0;
+                var max = Math.Min(previousRequestContents.Count, current.Count);
+                while (stable < max && string.Equals(previousRequestContents[stable], current[stable], StringComparison.Ordinal)) stable++;
+                if (stable < previousRequestContents.Count)
+                {
+                    _logger.LogWarning(
+                        "[AgentLoop] iter={Iter} 违反段内 append-only 不变量：第 {Index} 条已发送消息被改写（稳定 {Stable}/{Total} 条），提示缓存将从该处失效",
+                        iter + 1, stable, stable, current.Count);
+                }
+            }
+            previousRequestContents = current;
         }
 
         try
@@ -436,76 +500,18 @@ public class AgentLoopService
                 }
 
                 // 每轮前压缩历史：算法节点对任意长度生效，LLM 摘要由管道内部按阈值决定
-                if (request.CompressHistory)
+                // 段内只追加、永不改写：改写已发送消息会打断供应商提示缓存（实测命中率 98% → 20%），
+                // 也会让模型「忘了」读过的内容而重复读取。总量触顶时收尾本轮，把压缩留给入口 / 段边界锚点。
+                var totalChars = chatMessages.Sum(m => (long)(m.Content?.Length ?? 0));
+                if (totalChars > hardCapChars)
                 {
-                    if (iter == 0)
-                        _logger.LogInformation("[Compression] {Pipeline}", await _compressionPipeline.DescribeAsync(ct));
-
-                    var candidates = 0;
-                    var compressedCount = 0;
-                    var beforeChars = 0;
-                    var afterChars = 0;
-                    var pending = new List<(int Index, string Text)>();
-                    for (int i = 0; i < chatMessages.Count; i++)
-                    {
-                        if (i >= historyCompressBoundary) break; // 本轮新增内容不压缩（见上）
-                        var msg = chatMessages[i];
-                        if (string.IsNullOrWhiteSpace(msg.Content)) continue;
-                        if (!compressedIndexes.Add(i)) continue;
-                        candidates++;
-                        beforeChars += msg.Content.Length;
-                        pending.Add((i, msg.Content));
-                    }
-
-                    if (pending.Count > 0)
-                    {
-                        // 并行压缩：LLM 摘要每条一次模型调用；限制并发数，避免一次甩出十几路请求触发限流
-                        using var compressionGate = new SemaphoreSlim(MaxConcurrentCompressions, MaxConcurrentCompressions);
-                        var compressedTexts = await Task.WhenAll(pending.Select(async p =>
-                        {
-                            await compressionGate.WaitAsync(ct);
-                            try { return await _compressionPipeline.CompressAsync(p.Text, ct); }
-                            finally { compressionGate.Release(); }
-                        }));
-                        for (var k = 0; k < pending.Count; k++)
-                        {
-                            var (index, original) = pending[k];
-                            var compressed = compressedTexts[k];
-                            if (compressed != original && !string.IsNullOrWhiteSpace(compressed))
-                            {
-                                var msg = chatMessages[index];
-                                chatMessages[index] = new LlmChatMessage { Role = msg.Role, Content = compressed, ContentParts = msg.ContentParts, ToolCallId = msg.ToolCallId, ToolCalls = msg.ToolCalls, ThinkingBlocks = msg.ThinkingBlocks };
-                                compressedCount++;
-                                afterChars += compressed.Length;
-                            }
-                            else
-                            {
-                                afterChars += original.Length;
-                            }
-                        }
-                    }
-
-                    if (candidates > 0)
-                    {
-                        _logger.LogInformation(
-                            "[Compression] iter={Iter} 候选={Candidates} 条 实际压缩={Compressed} 条 字符 {Before} → {After}",
-                            iter + 1, candidates, compressedCount, beforeChars, afterChars);
-                    }
-
-                    // 用量日志的「输入 / 压缩后」：记首轮请求压缩管道的实际规模（有压缩时才记）
-                    if (iter == 0 && beforeChars > 0)
-                    {
-                        result.FirstIterationInputChars = beforeChars;
-                        result.FirstIterationCompressedChars = afterChars;
-                    }
-                }
-                else if (iter == 0)
-                {
-                    _logger.LogInformation("[Compression] 本轮未启用历史压缩（CompressHistory=false）");
+                    contextFull = true;
+                    _logger.LogInformation("[AgentLoop] iter={Iter} 上下文 {Chars} 字符触顶（硬上限 {Cap}），收尾本轮",
+                        iter + 1, totalChars, hardCapChars);
+                    break;
                 }
 
-                CompactActiveTurn(chatMessages, historyCompressBoundary,
-                    request.ActiveTurnBudgetChars > 0 ? request.ActiveTurnBudgetChars : DefaultActiveTurnBudgetChars);
+                LogPrefixStability(iter, chatMessages);
 
                 var (content, thinking, thinkingBlocks, pendingToolCalls, usage, streamCancelled, finishReason) = await CallModelAsync(totalIterations);
 
@@ -668,7 +674,10 @@ public class AgentLoopService
                     {
                         Role = "tool",
                         ToolCallId = toolCallId,
-                        Content = CompactToolResult(toolContent, isError ? MaxToolErrorCharsForModel : MaxToolResultCharsForModel),
+                        // 先去重/折叠再套上限：重复日志被压掉后，上限保留的是更多有效信息而非头尾重复样本
+                        Content = CompactToolResult(
+                            await _compressionPipeline.PrepareForContextAsync(toolContent, ct),
+                            isError ? MaxToolErrorCharsForModel : MaxToolResultCharsForModel),
                     });
 
                     if (call == null) continue;
@@ -702,7 +711,9 @@ public class AgentLoopService
                     {
                         Role = "tool",
                         ToolCallId = skipId,
-                        Content = CompactToolResult(skip.content, skip.isError ? MaxToolErrorCharsForModel : MaxToolResultCharsForModel),
+                        Content = CompactToolResult(
+                            await _compressionPipeline.PrepareForContextAsync(skip.content, ct),
+                            skip.isError ? MaxToolErrorCharsForModel : MaxToolResultCharsForModel),
                     });
                 }
 
@@ -748,7 +759,7 @@ public class AgentLoopService
                 }
             }
 
-            if (!endedWithToolCalls || stalled || result.Cancelled || ct.IsCancellationRequested || result.Error != null)
+            if (!endedWithToolCalls || stalled || contextFull || result.Cancelled || ct.IsCancellationRequested || result.Error != null)
                 break;
 
             // 无进展（本轮所有工具都失败 / 全部被跳过）时不再续跑，避免空转烧预算
@@ -757,6 +768,31 @@ public class AgentLoopService
 
             if (continuation >= maxContinuations)
                 break;
+
+            // 续跑锚点：当前轮内容已超阈值时，在段边界把它压成一条交接摘要（一次可控改写），
+            // 否则下一段会带着几乎满的上下文起步、立刻触顶。轮内仍然只追加。
+            var activeStart = historyCompressBoundary + 1;
+            var activeChars = chatMessages.Skip(activeStart).Sum(m => (long)(m.Content?.Length ?? 0));
+            if (activeChars > anchorChars)
+            {
+                var activeMessages = chatMessages.Skip(activeStart).ToList();
+                var summary = await _contextCompaction.SummarizeTurnAsync(activeMessages, request.ModelId, ct);
+                summary ??= BuildAlgorithmicHandoff(activeMessages);
+                // 本轮的用户任务消息在边界之前、仍留在上下文里，交接摘要只覆盖段内进展
+                var handoff = $"【进展交接】\n{summary}";
+                chatMessages.RemoveRange(activeStart, chatMessages.Count - activeStart);
+                chatMessages.Add(new LlmChatMessage { Role = "user", Content = handoff });
+                // 锚点是有意的一次改写：重置前缀基线，避免诊断误报
+                previousRequestContents = null;
+                _logger.LogInformation("[AgentLoop] 续跑锚点：当前轮 {Before} 字符压成交接摘要 {After} 字符",
+                    activeChars, handoff.Length);
+                await sink.OnEventAsync(new
+                {
+                    type = "notice",
+                    kind = "context_anchor",
+                    text = _localizer.T("agent.contextAnchorNotice"),
+                });
+            }
 
             // 自动续跑：长任务用尽一段预算后接着做，而不是停下来让用户发「继续」
             continuation++;
@@ -776,13 +812,20 @@ public class AgentLoopService
 
             if (endedWithToolCalls && !result.Cancelled && result.Error == null)
             {
-                if (!stalled) result.IterationLimitReached = true;
-                var notice = _localizer.T(stalled ? "agent.stalledNotice" : "agent.iterationLimitNotice");
-                await sink.OnEventAsync(new { type = "notice", kind = stalled ? "agent_stalled" : "iteration_limit", text = notice });
+                if (!stalled && !contextFull) result.IterationLimitReached = true;
+                var noticeKey = contextFull ? "agent.contextFullNotice"
+                    : stalled ? "agent.stalledNotice"
+                    : "agent.iterationLimitNotice";
+                var promptKey = contextFull ? "agent.contextFullPrompt"
+                    : stalled ? "agent.stalledPrompt"
+                    : "agent.iterationLimitPrompt";
+                var noticeKind = contextFull ? "context_full" : stalled ? "agent_stalled" : "iteration_limit";
+                var notice = _localizer.T(noticeKey);
+                await sink.OnEventAsync(new { type = "notice", kind = noticeKind, text = notice });
                 chatMessages.Add(new LlmChatMessage
                 {
                     Role = "user",
-                    Content = _localizer.T(stalled ? "agent.stalledPrompt" : "agent.iterationLimitPrompt"),
+                    Content = _localizer.T(promptKey),
                 });
                 options.Tools = null;
                 options.ToolChoice = "none";
@@ -830,23 +873,25 @@ public class AgentLoopService
         return result;
     }
 
-    private void CompactActiveTurn(List<LlmChatMessage> messages, int boundary, int budgetChars)
+    /// <summary>
+    /// 交接摘要的算法回退：LLM 摘要失败时按消息逐条取头尾摘录，保证锚点总能成型。
+    /// 只在段边界调用一次，不属于轮内改写。
+    /// </summary>
+    private static string BuildAlgorithmicHandoff(List<LlmChatMessage> messages)
     {
-        var total = messages.Skip(boundary + 1).Sum(m => (long)(m.Content?.Length ?? 0));
-        if (total <= budgetChars) return;
-
-        var toolIndexes = messages.Select((message, index) => (message, index))
-            .Where(x => x.index > boundary && x.message.Role == "tool")
-            .Select(x => x.index)
-            .ToList();
-        // 一次压完「最近若干条之外」的全部工具结果，而不是每轮往下多压一条：
-        // 渐进压缩会不断改写已经发送过的前缀，让供应商侧的提示缓存每轮都失效。
-        foreach (var index in toolIndexes.Take(Math.Max(0, toolIndexes.Count - RecentToolResultsKept)))
+        var sb = new StringBuilder();
+        foreach (var message in messages)
         {
-            var message = messages[index];
-            if (message.Content.StartsWith("[tool-output-compacted]", StringComparison.Ordinal)) continue;
-            message.Content = CompactToolResult(message.Content, CompactedToolResultChars);
+            var content = message.Content ?? string.Empty;
+            if (content.Length == 0) continue;
+            var excerpt = content.Length <= 600
+                ? content
+                : content[..400] + "\n...\n" + content[^200..];
+            sb.Append(message.Role == "user" ? "用户: " : message.Role == "tool" ? "工具: " : "助手: ");
+            sb.AppendLine(excerpt);
         }
+        var text = sb.ToString();
+        return text.Length <= 20_000 ? text : text[^20_000..];
     }
 
     private static string CompactToolResult(string content, int targetChars)

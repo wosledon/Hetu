@@ -28,7 +28,9 @@ public static class CompressionDefaults
 {
     public static CompressionPipelineDto GetDefault() => new()
     {
-        Enabled = false,
+        // 默认开启：管道的目的是减少进上下文的重复内容（粘贴日志 / 工具输出）。
+        // 有损节点只作用于日志行、散文逐字保留，因此默认开启不会损坏用户指令语义。
+        Enabled = true,
         Mode = "algorithmic",
         LlmThreshold = 500,
         Nodes = new List<CompressionNodeDto>

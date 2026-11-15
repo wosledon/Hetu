@@ -130,6 +130,29 @@ public class CompressionPipelineService
     public async Task<string> CompressAsync(string input, CancellationToken ct = default)
         => await CompressCoreAsync(input, await GetConfigAsync(ct), allowLlm: true, ct);
 
+    /// <summary>进入上下文前的尺寸闸门：短文本没有压缩收益，原样通过</summary>
+    private const int MinContextCompressChars = 1500;
+    private const int ContextCacheCapacity = 1024;
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, string> ContextCompressionCache = new();
+
+    /// <summary>
+    /// 内容进入上下文前的统一压缩入口：当前用户消息、工具结果、历史重建共用同一条路径。
+    /// 按内容哈希缓存结果——同一段原文在任何轮次都得到逐字相同的压缩结果，
+    /// 跨轮请求前缀才稳定（供应商提示缓存按最长公共前缀命中）。
+    /// </summary>
+    public async Task<string> PrepareForContextAsync(string content, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(content) || content.Length < MinContextCompressChars) return content;
+
+        var key = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(content)));
+        if (ContextCompressionCache.TryGetValue(key, out var cached)) return cached;
+
+        var compressed = await CompressAsync(content, ct);
+        if (ContextCompressionCache.Count >= ContextCacheCapacity) ContextCompressionCache.Clear();
+        ContextCompressionCache[key] = compressed;
+        return compressed;
+    }
+
     /// <summary>
     /// 单轮任务压缩（wiki 生成、知识图谱提取等）：只执行算法节点，
     /// 即使配置为 llm/hybrid 也不触发 LLM 摘要——单轮输入不值得额外再花一次模型调用。
@@ -338,31 +361,37 @@ public class CompressionPipelineService
         return string.Join("\n", result);
     }
 
-    /// <summary>行级去重：重复行只保留首次，并在保留行后标注重复次数</summary>
+    /// <summary>
+    /// 行级去重：重复行只保留首次，并在保留行后标注重复次数。
+    /// 日志行允许忽略数字/时间戳差异（同模式即重复）；散文行必须逐字相同才算重复——
+    /// "如果第 1 步失败" 与 "如果第 2 步失败" 是两条不同的指令，归一化后合并会丢信息。
+    /// </summary>
     private static string DeduplicateLines(string text)
     {
         var lines = text.Split('\n');
+        var log = ClassifyLogLines(lines);
+        var keys = new string[lines.Length];
         var totals = new Dictionary<string, int>(StringComparer.Ordinal);
-        foreach (var line in lines)
+        for (var i = 0; i < lines.Length; i++)
         {
-            var trimmed = line.Trim();
+            var trimmed = lines[i].Trim();
             if (trimmed.Length == 0) continue;
-            var key = NormalizeForDedup(trimmed);
-            totals[key] = totals.TryGetValue(key, out var count) ? count + 1 : 1;
+            keys[i] = log[i] ? NormalizeForDedup(trimmed) : trimmed;
+            totals[keys[i]] = totals.TryGetValue(keys[i], out var count) ? count + 1 : 1;
         }
 
         var emitted = new HashSet<string>(StringComparer.Ordinal);
         var result = new List<string>();
-        foreach (var line in lines)
+        for (var i = 0; i < lines.Length; i++)
         {
-            var trimmed = line.Trim();
+            var trimmed = lines[i].Trim();
             if (trimmed.Length == 0)
             {
-                result.Add(line);
+                result.Add(lines[i]);
                 continue;
             }
 
-            var key = NormalizeForDedup(trimmed);
+            var key = keys[i];
             if (!emitted.Add(key)) continue;
             if (totals[key] > 1)
             {
@@ -370,11 +399,11 @@ public class CompressionPipelineService
                 // 标注只在确实缩短时才加：短行（如单独的 } ）重复时加标注反而更长
                 if (trimmed.Length * (totals[key] - 1) > note.Length)
                 {
-                    result.Add(line.TrimEnd() + note);
+                    result.Add(lines[i].TrimEnd() + note);
                     continue;
                 }
             }
-            result.Add(line);
+            result.Add(lines[i]);
         }
 
         return string.Join("\n", result);
@@ -405,6 +434,28 @@ public class CompressionPipelineService
         if (trimmed.StartsWith("```") || trimmed.StartsWith('|')) return true;
         if (trimmed.Contains("=>") || trimmed.Contains("::") || trimmed.Contains("</") || trimmed.Contains("{\"") || trimmed.Contains("};")) return true;
         return Regex.IsMatch(trimmed, @"^(public|private|protected|internal|class|interface|struct|def |func |function |import |export |from |const |let |var |SELECT|INSERT|UPDATE|DELETE|CREATE|#include|#define)\b", RegexOptions.IgnoreCase);
+    }
+
+    /// <summary>
+    /// 日志行信号：时间戳 / 级别 / 堆栈 / 路径:行号 / 构建诊断编号 / 进度噪声。
+    /// 有损节点（数字归一化、日志去重、停用词、关键行抽取、近重）只允许作用于这类行；
+    /// 散文行（用户指令、助手结论）一律原样通过，否则删连接词/丢行会直接坏语义。
+    /// </summary>
+    private static readonly Regex LogLineSignals = new(
+        @"^\s*(?:\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}|\d{2}:\d{2}:\d{2}(?:\.\d+)?|\[?(?:DEBUG|INFO|INF|WARN|WARNING|ERROR|ERR|TRACE|FATAL|DBG)\]?[:\s]|at\s+[\w.<>$/]+|在\s+|File\s+""|Traceback|System\.[\w.]+Exception|[\w./\\-]+\.\w{1,5}:\d+|(?:file|文件)\s+\S+\s+line\s+\d+|warning\s+[A-Z]+\d+|error\s+[A-Z]+\d+|\d+>)",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    private static bool IsLogLine(string line)
+        => LogLineSignals.IsMatch(line) || NoiseSignals.IsMatch(line);
+
+    /// <summary>逐行判定日志行；夹在两条日志行之间的续行（换行的日志消息）也算日志</summary>
+    private static bool[] ClassifyLogLines(string[] lines)
+    {
+        var log = new bool[lines.Length];
+        for (var i = 0; i < lines.Length; i++) log[i] = IsLogLine(lines[i]);
+        for (var i = 1; i < lines.Length - 1; i++)
+            if (!log[i] && log[i - 1] && log[i + 1]) log[i] = true;
+        return log;
     }
 
     private static string NormalizeForDedup(string line)
@@ -443,17 +494,16 @@ public class CompressionPipelineService
     }
 
     /// <summary>
-    /// 数字归一化：用占位符替换数字。
+    /// 数字归一化：用占位符替换日志行里的数字（版本号/端口/行号在散文里是命题的一部分，不能动）。
     /// 跳过压缩管道自己写的标注行（"← 重复 N 次"），否则 `重复 12 次` 会被改成 `重复 [N] 次`，
     /// 前一个节点辛苦统计出来的次数当场失去意义。
     /// </summary>
     private static string NormalizeNumbers(string text)
     {
-        if (!text.Contains('←')) return NormalizeNumbersCore(text);
-
         var lines = text.Split('\n');
+        var log = ClassifyLogLines(lines);
         for (var i = 0; i < lines.Length; i++)
-            if (!lines[i].Contains("← 重复") && !lines[i].Contains("← 近似重复"))
+            if (log[i] && !lines[i].Contains("← 重复") && !lines[i].Contains("← 近似重复"))
                 lines[i] = NormalizeNumbersCore(lines[i]);
         return string.Join("\n", lines);
     }
@@ -468,45 +518,41 @@ public class CompressionPipelineService
         });
     }
 
-    /// <summary>日志去重：识别日志行模式并折叠</summary>
+    /// <summary>
+    /// 日志去重：只折叠日志行（同模式保留首次出现并标注重复次数），保持原始行序；
+    /// 散文行原样通过——两句数字不同的话（"step 1 done"/"step 2 done"）不是重复，不能合并。
+    /// </summary>
     private static string DeduplicateLogs(string text)
     {
         var lines = text.Split('\n');
-        var patterns = new Dictionary<string, (int Count, string FirstLine)>();
+        var log = ClassifyLogLines(lines);
+        var firstSlot = new Dictionary<string, int>();
+        var counts = new Dictionary<string, int>();
+        var output = new List<string>(lines.Length);
 
-        foreach (var line in lines)
+        for (var i = 0; i < lines.Length; i++)
         {
-            if (string.IsNullOrWhiteSpace(line))
+            if (!log[i] || string.IsNullOrWhiteSpace(lines[i]))
             {
-                patterns.TryAdd("[EMPTY]", (1, line));
-                var (c, f) = patterns["[EMPTY]"];
-                patterns["[EMPTY]"] = (c + 1, f);
+                output.Add(lines[i]);
                 continue;
             }
-
-            var pattern = ExtractLogPattern(line);
-            if (!patterns.ContainsKey(pattern))
+            var pattern = ExtractLogPattern(lines[i]);
+            if (firstSlot.TryGetValue(pattern, out var slot))
             {
-                patterns[pattern] = (1, line);
+                counts[pattern] = counts.GetValueOrDefault(pattern, 1) + 1;
+                continue;
             }
-            else
-            {
-                var (count, _) = patterns[pattern];
-                patterns[pattern] = (count + 1, line);
-            }
+            firstSlot[pattern] = output.Count;
+            counts[pattern] = 1;
+            output.Add(lines[i]);
         }
 
-        var result = new List<string>();
-        foreach (var (pattern, (count, firstLine)) in patterns)
-        {
-            if (pattern == "[EMPTY]") continue;
-            if (count == 1)
-                result.Add(firstLine);
-            else
-                result.Add($"{firstLine}    ← 重复 {count} 次");
-        }
+        foreach (var (pattern, slot) in firstSlot)
+            if (counts[pattern] > 1)
+                output[slot] += $"    ← 重复 {counts[pattern]} 次";
 
-        return string.Join("\n", result);
+        return string.Join("\n", output);
     }
 
     private static string ExtractLogPattern(string line)
@@ -528,8 +574,22 @@ public class CompressionPipelineService
     /// </summary>
     private static string RemoveStopWords(string text)
     {
-        var cnStopWords = new HashSet<string> { "的", "了", "着", "地", "得", "之", "而已", "的话", "一个", "我们", "你们", "他们", "以及", "然后", "因此", "其实", "就是" };
-        var enStopWords = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "the", "a", "an", "is", "are", "was", "were", "be", "been", "being", "have", "has", "had", "do", "does", "did", "will", "would", "could", "should", "may", "might", "can", "shall", "to", "of", "in", "for", "on", "with", "at", "by", "from", "as", "into", "through", "during", "before", "after", "above", "below", "between", "and", "but", "or", "so", "yet", "both", "either", "each", "every", "all", "any", "few", "more", "most", "other", "some", "such", "same", "than", "too", "very", "just", "about", "also", "if", "then", "now", "here", "there", "when", "where", "why", "how", "it", "its", "this", "that", "these", "those" };
+        var lines = text.Split('\n');
+        var log = ClassifyLogLines(lines);
+        for (var i = 0; i < lines.Length; i++)
+            if (log[i]) lines[i] = RemoveStopWordsCore(lines[i]);
+        return string.Join("\n", lines);
+    }
+
+    /// <summary>
+    /// 只删冠词/介词/代词/结构助词这类不承载命题的词。
+    /// 连接词（and/but/or/if/以及/然后/因此）、情态词（can/should/will）、否定词一律保留——
+    /// 删了会把语义反过来，这类"压缩"对下游模型是投毒。
+    /// </summary>
+    private static string RemoveStopWordsCore(string text)
+    {
+        var cnStopWords = new HashSet<string> { "的", "了", "着", "地", "得", "之", "而已", "的话" };
+        var enStopWords = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "the", "a", "an", "of", "in", "on", "at", "by", "from", "to", "into", "through", "during", "with", "as", "it", "its", "this", "that", "these", "those", "there", "here" };
 
         var words = Regex.Split(text, @"(\s+|[，。！？；：""（）\r\n])");
         var sb = new StringBuilder();
@@ -795,11 +855,14 @@ public class CompressionPipelineService
         var bands = new Dictionary<(int Band, ulong Key), List<int>>();
 
         var result = new List<string>();
+        var log = ClassifyLogLines(lines);
 
-        foreach (var line in lines)
+        for (var i = 0; i < lines.Length; i++)
         {
+            var line = lines[i];
             var trimmed = line.Trim();
-            if (trimmed.Length < 40 || trimmed.Length > 4000 || LooksLikeCode(trimmed))
+            // 近重合并只针对日志行：相似但不同的散文句子（"改 A"/"改 B"）不是重复
+            if (trimmed.Length < 40 || trimmed.Length > 4000 || LooksLikeCode(trimmed) || !log[i])
             {
                 result.Add(line);
                 continue;
@@ -997,22 +1060,23 @@ public class CompressionPipelineService
 
         var scores = new int[lines.Length];
         for (var i = 0; i < lines.Length; i++) scores[i] = ScoreKeyLine(lines[i]);
+        var log = ClassifyLogLines(lines);
 
         var keep = new bool[lines.Length];
         var used = 0;
         for (var i = 0; i < lines.Length; i++)
         {
-            // 首尾各 3 行通常是背景与结论，固定保留
-            keep[i] = i < 3 || i >= lines.Length - 3 || scores[i] > 0;
+            // 首尾各 3 行通常是背景与结论，固定保留；散文行一律保留，只裁日志流水行
+            keep[i] = i < 3 || i >= lines.Length - 3 || !log[i] || scores[i] > 0;
             if (keep[i]) used += lines[i].Length + 1;
         }
 
         var budget = Math.Max(1500, text.Length / 3);
         if (used > budget)
         {
-            // 优先丢分数最低、最长的流水行
+            // 优先丢分数最低、最长的日志流水行
             var droppable = Enumerable.Range(3, Math.Max(0, lines.Length - 6))
-                .Where(i => keep[i] && scores[i] < 4)
+                .Where(i => keep[i] && log[i] && scores[i] < 4)
                 .OrderBy(i => scores[i])
                 .ThenByDescending(i => lines[i].Length)
                 .ToList();

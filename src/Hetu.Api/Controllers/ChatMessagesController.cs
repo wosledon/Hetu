@@ -292,6 +292,7 @@ public class ChatMessagesController : ControllerBase
             SessionId = topicId.ToString(),
             UsageSource = LlmUsageSources.Chat,
             UsageRefId = topicId,
+            ContextWindowTokens = request.ContextWindow,
             Sink = sink,
             DrainSteering = () => _steering.Drain(steeringKey),
             EnableTools = useToolCalling,

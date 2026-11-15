@@ -405,7 +405,7 @@ export default {
     model: '模型',
     input: '输入',
     compressionRatio: '压缩率',
-    ratioHint: '压缩率 = 1 - 压缩后 / 压缩前，越大压得越多；0% 表示这条没有重复内容可压',
+    ratioHint: '压缩率 = 1 - 压缩后 / 压缩前，越大压得越多；历史压缩只在每轮首次请求执行，其余请求显示 —；0% 表示首次请求没有可压内容',
     ratioTooltip: '压缩前 {{before}} → 压缩后 {{after}} 字符（压掉 {{percent}}%）',
     output: '输出',
     total: '总计',

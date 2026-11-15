@@ -94,8 +94,11 @@ public class UsageService
         result.Overview.CacheHitRate = result.Overview.TotalPromptTokens > 0
             ? (double)result.Overview.TotalCachedTokens / result.Overview.TotalPromptTokens
             : null;
-        result.Overview.TotalInputTokens = logs.Sum(l => (long)(l.InputTokens ?? 0));
-        result.Overview.TotalCompressedTokens = logs.Sum(l => (long)(l.CompressedTokens ?? l.InputTokens ?? 0));
+        // 输入 / 压缩后只统计真正走过压缩管道的请求（每轮首次）：
+        // 逐次请求行里其余迭代没有压缩，把它们的估算加进来会把压缩率稀释成接近 0
+        var compressedLogs = logs.Where(l => l.CompressedTokens.HasValue).ToList();
+        result.Overview.TotalInputTokens = compressedLogs.Sum(l => (long)(l.InputTokens ?? 0));
+        result.Overview.TotalCompressedTokens = compressedLogs.Sum(l => (long)(l.CompressedTokens ?? 0));
         result.Overview.TotalOutputTokens = logs.Sum(l => (long)(l.OutputTokens ?? 0));
         var latencies = logs.Where(l => l.LatencyMs.HasValue).Select(l => (double)l.LatencyMs!.Value).ToList();
         result.Overview.AvgLatencyMs = latencies.Count > 0 ? latencies.Average() : 0;

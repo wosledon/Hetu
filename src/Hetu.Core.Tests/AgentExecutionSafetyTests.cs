@@ -3,6 +3,8 @@ using System.Text.Json;
 using Hetu.Core.Interfaces;
 using Hetu.Core.Services;
 using Hetu.Core.Services.Tools;
+using Hetu.Shared.Common;
+using Hetu.Shared.Settings;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
@@ -280,54 +282,252 @@ public class AgentExecutionSafetyTests
         Assert.Null(finalOptions?.Tools);
     }
 
+    /// <summary>互不相同的散文行：压缩管道应原样保留（非日志行、无重复、无结构化载荷）</summary>
+    private static string UniqueProse(int lines = 60)
+        => string.Join("\n", Enumerable.Range(0, lines).Select(i => $"line {i} unique prose content padding padding padding"));
+
     [Fact]
-    public async Task RunAsync_当前轮工具输出过多_压缩旧输出且保留调用关联()
+    public async Task RunAsync_段内请求_消息纯追加不改写已发送前缀()
     {
+        var payload = UniqueProse(100);
         var executor = CreateExecutor("test_tool");
         executor.ExecuteAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(_ => ToolExecutionResult.Success(new string('x', 5000)));
+            .Returns(_ => ToolExecutionResult.Success(payload));
         var localizer = CreateLocalizer();
         var registry = new ToolRegistry([executor], localizer);
         using var services = CreateToolServices(registry);
         var provider = Substitute.For<ILLMProvider>();
         var invocation = 0;
-        List<LlmChatMessage>? finalMessages = null;
+        var snapshots = new List<List<string>>();
         provider.ChatStreamAsync(Arg.Any<IReadOnlyList<LlmChatMessage>>(), Arg.Any<ChatOptions>(), Arg.Any<CancellationToken>())
             .Returns(call =>
             {
+                snapshots.Add(call.Arg<IReadOnlyList<LlmChatMessage>>().Select(m => m.Content ?? "").ToList());
                 var current = invocation++;
-                if (current < 6) return Frames(ToolCallsFrame($"call-{current + 1}", "{}"), FinishFrame("stop"));
-                finalMessages = call.Arg<IReadOnlyList<LlmChatMessage>>().Select(m => new LlmChatMessage
-                {
-                    Role = m.Role,
-                    Content = m.Content,
-                    ToolCallId = m.ToolCallId,
-                }).ToList();
-                return Frames(ContentFrame("done"), FinishFrame("stop"));
+                return current < 4
+                    ? Frames(ToolCallsFrame($"call-{current + 1}", "{}"), FinishFrame("stop"))
+                    : Frames(ContentFrame("done"), FinishFrame("stop"));
             });
         var service = CreateAgentLoop(provider, registry, services, localizer);
 
         await service.RunAsync(new AgentLoopRequest
         {
             ToolNames = ["test_tool"],
-            MaxIterations = 8,
-            ActiveTurnBudgetChars = 1000,
+            MaxIterations = 6,
             CompressHistory = false,
         }, CancellationToken.None);
 
-        var toolMessages = finalMessages?.Where(m => m.Role == "tool").ToList();
-        Assert.Equal(6, toolMessages?.Count);
-        Assert.Equal("call-1", toolMessages?[0].ToolCallId);
-        // 旧输出被压缩，但压缩是一次性的：已压过的前缀不再逐轮改写，供应商侧缓存才能命中
-        Assert.StartsWith("[tool-output-compacted", toolMessages?[0].Content);
-        Assert.StartsWith("[tool-output-compacted", toolMessages?[1].Content);
-        Assert.True(toolMessages?[0].Content.Length < 4000);
-        // 最近 4 条保留完整内容，避免模型「忘了」刚读过什么又去重读
-        for (var i = 2; i < 6; i++)
+        Assert.Equal(5, snapshots.Count);
+        for (var i = 1; i < snapshots.Count; i++)
         {
-            Assert.DoesNotMatch("^\\[tool-output-compacted", toolMessages?[i].Content ?? "");
-            Assert.Equal(5000, toolMessages?[i].Content.Length);
+            var prev = snapshots[i - 1];
+            var cur = snapshots[i];
+            Assert.True(cur.Count >= prev.Count);
+            // 不变量：已发送的消息内容逐条保持不变，只允许尾部追加
+            for (var k = 0; k < prev.Count; k++) Assert.Equal(prev[k], cur[k]);
         }
+        // 工具结果保持完整（单条上限内），模型不会因「忘了」而重读
+        Assert.All(snapshots[^1].Where(c => c.Length == payload.Length), c => Assert.DoesNotMatch("^\\[tool-output-compacted", c));
+        Assert.Contains(snapshots[^1], c => c == payload);
+    }
+
+    [Fact]
+    public async Task RunAsync_上下文触顶_收尾本轮且不改写前缀()
+    {
+        var payload = UniqueProse();
+        var executor = CreateExecutor("test_tool");
+        executor.ExecuteAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(_ => ToolExecutionResult.Success(payload));
+        var localizer = CreateLocalizer();
+        var registry = new ToolRegistry([executor], localizer);
+        using var services = CreateToolServices(registry);
+        var provider = Substitute.For<ILLMProvider>();
+        var invocation = 0;
+        var snapshots = new List<List<string>>();
+        provider.ChatStreamAsync(Arg.Any<IReadOnlyList<LlmChatMessage>>(), Arg.Any<ChatOptions>(), Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                snapshots.Add(call.Arg<IReadOnlyList<LlmChatMessage>>().Select(m => m.Content ?? "").ToList());
+                var current = invocation++;
+                return current < 2
+                    ? Frames(ToolCallsFrame($"call-{current + 1}", "{}"), FinishFrame("stop"))
+                    : Frames(ContentFrame("done"), FinishFrame("stop"));
+            });
+        var service = CreateAgentLoop(provider, registry, services, localizer);
+
+        var result = await service.RunAsync(new AgentLoopRequest
+        {
+            ToolNames = ["test_tool"],
+            MaxIterations = 10,
+            // 硬上限 = 2000 * 3 * 80% = 4800 字符：两条 3000 字符结果后即触顶
+            ContextWindowTokens = 2000,
+            CompressHistory = false,
+        }, CancellationToken.None);
+
+        // 触顶后不再继续迭代，直接收尾（第 3 次请求是无工具收尾）
+        Assert.Equal(3, invocation);
+        Assert.Equal("done", result.Content);
+        Assert.False(result.IterationLimitReached);
+        // 收尾请求里早期工具结果仍是原文：触顶靠收尾解决，而不是改写前缀
+        Assert.Contains(snapshots[^1], c => c.Length == payload.Length);
+        Assert.All(snapshots[^1], c => Assert.DoesNotMatch("^\\[tool-output-compacted", c));
+    }
+
+    [Fact]
+    public async Task RunAsync_续跑锚点_当前轮压成交接摘要后继续()
+    {
+        var payload = UniqueProse();
+        var executor = CreateExecutor("test_tool");
+        executor.ExecuteAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(_ => ToolExecutionResult.Success(payload));
+        var localizer = CreateLocalizer();
+        var registry = new ToolRegistry([executor], localizer);
+        using var services = CreateToolServices(registry);
+        var provider = Substitute.For<ILLMProvider>();
+        var invocation = 0;
+        var snapshots = new List<List<string>>();
+        provider.ChatStreamAsync(Arg.Any<IReadOnlyList<LlmChatMessage>>(), Arg.Any<ChatOptions>(), Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                snapshots.Add(call.Arg<IReadOnlyList<LlmChatMessage>>().Select(m => m.Content ?? "").ToList());
+                var current = invocation++;
+                return current < 2
+                    ? Frames(ToolCallsFrame($"call-{current + 1}", "{}"), FinishFrame("stop"))
+                    : Frames(ContentFrame("done"), FinishFrame("stop"));
+            });
+        var service = CreateAgentLoop(provider, registry, services, localizer);
+
+        await service.RunAsync(new AgentLoopRequest
+        {
+            ToolNames = ["test_tool"],
+            MaxIterations = 2,
+            MaxContinuations = 1,
+            // 锚点阈值 = 4000 * 3 * 40% = 4800 字符：段末两条散文结果超过它
+            ContextWindowTokens = 4000,
+            CompressHistory = false,
+            Messages = [new LlmChatMessage { Role = "user", Content = "task" }],
+        }, CancellationToken.None);
+
+        Assert.Equal(3, invocation);
+        var afterAnchor = snapshots[2];
+        // 段边界一次改写：当前轮原文被交接摘要替换；本轮任务消息在边界之前仍保留
+        Assert.Contains(afterAnchor, c => c.Contains("【进展交接】", StringComparison.Ordinal));
+        Assert.Contains(afterAnchor, c => c == "task");
+        Assert.DoesNotContain(afterAnchor, c => c.Length == payload.Length);
+    }
+
+    [Fact]
+    public async Task RunAsync_用户粘贴重复日志_进上下文前已被压缩()
+    {
+        var executor = CreateExecutor("test_tool");
+        var localizer = CreateLocalizer();
+        var registry = new ToolRegistry([executor], localizer);
+        using var services = CreateToolServices(registry);
+        var provider = Substitute.For<ILLMProvider>();
+        List<string>? firstRequest = null;
+        provider.ChatStreamAsync(Arg.Any<IReadOnlyList<LlmChatMessage>>(), Arg.Any<ChatOptions>(), Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                firstRequest ??= call.Arg<IReadOnlyList<LlmChatMessage>>().Select(m => m.Content ?? "").ToList();
+                return Frames(ContentFrame("done"), FinishFrame("stop"));
+            });
+        var service = CreateAgentLoop(provider, registry, services, localizer, appSettings: EnabledCompressionSettings());
+        var paste = string.Join("\n", Enumerable.Range(0, 200).Select(i =>
+            $"2026-11-15 10:00:{i % 60:00} INFO  heartbeat seq={i}"));
+
+        await service.RunAsync(new AgentLoopRequest
+        {
+            ToolNames = ["test_tool"],
+            Messages = [new LlmChatMessage { Role = "user", Content = paste }],
+        }, CancellationToken.None);
+
+        Assert.NotNull(firstRequest);
+        Assert.Contains(firstRequest!, c => c.Contains("← 重复 200 次", StringComparison.Ordinal));
+        Assert.All(firstRequest!, c => Assert.True(c.Length < paste.Length));
+    }
+
+    [Fact]
+    public async Task RunAsync_工具重复日志_进上下文前已被压缩()
+    {
+        var logs = string.Join("\n", Enumerable.Range(0, 200).Select(i =>
+            $"2026-11-15 10:00:{i % 60:00} INFO  heartbeat seq={i}"));
+        var executor = CreateExecutor("test_tool");
+        executor.ExecuteAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(_ => ToolExecutionResult.Success(logs));
+        var localizer = CreateLocalizer();
+        var registry = new ToolRegistry([executor], localizer);
+        using var services = CreateToolServices(registry);
+        var provider = Substitute.For<ILLMProvider>();
+        var invocation = 0;
+        List<string>? secondRequest = null;
+        provider.ChatStreamAsync(Arg.Any<IReadOnlyList<LlmChatMessage>>(), Arg.Any<ChatOptions>(), Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                var current = invocation++;
+                if (current == 1) secondRequest = call.Arg<IReadOnlyList<LlmChatMessage>>().Select(m => m.Content ?? "").ToList();
+                return current == 0
+                    ? Frames(ToolCallsFrame("call-1", "{}"), FinishFrame("stop"))
+                    : Frames(ContentFrame("done"), FinishFrame("stop"));
+            });
+        var service = CreateAgentLoop(provider, registry, services, localizer, appSettings: EnabledCompressionSettings());
+
+        await service.RunAsync(new AgentLoopRequest
+        {
+            ToolNames = ["test_tool"],
+            MaxIterations = 4,
+            Messages = [new LlmChatMessage { Role = "user", Content = "run it" }],
+        }, CancellationToken.None);
+
+        Assert.NotNull(secondRequest);
+        Assert.Contains(secondRequest!, c => c.Contains("← 重复 200 次", StringComparison.Ordinal));
+        Assert.DoesNotContain(secondRequest!, c => c == logs);
+    }
+
+    [Fact]
+    public async Task RunAsync_相同历史两次运行_首次请求逐字一致()
+    {
+        var history = string.Join("\n", Enumerable.Range(0, 120).Select(i =>
+            $"2026-11-15 09:00:{i % 60:00} INFO  build step={i} ok"));
+        var localizer = CreateLocalizer();
+        var registry = new ToolRegistry([CreateExecutor("test_tool")], localizer);
+        using var services = CreateToolServices(registry);
+        var snapshots = new List<List<string>>();
+        var provider = Substitute.For<ILLMProvider>();
+        provider.ChatStreamAsync(Arg.Any<IReadOnlyList<LlmChatMessage>>(), Arg.Any<ChatOptions>(), Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                snapshots.Add(call.Arg<IReadOnlyList<LlmChatMessage>>().Select(m => m.Content ?? "").ToList());
+                return Frames(ContentFrame("done"), FinishFrame("stop"));
+            });
+        var service = CreateAgentLoop(provider, registry, services, localizer, appSettings: EnabledCompressionSettings());
+        var request = new AgentLoopRequest
+        {
+            ToolNames = ["test_tool"],
+            Messages =
+            [
+                new LlmChatMessage { Role = "user", Content = history },
+                new LlmChatMessage { Role = "assistant", Content = "previous answer" },
+                new LlmChatMessage { Role = "user", Content = "next question" },
+            ],
+        };
+
+        await service.RunAsync(request, CancellationToken.None);
+        await service.RunAsync(request, CancellationToken.None);
+
+        Assert.Equal(2, snapshots.Count);
+        Assert.Equal(snapshots[0], snapshots[1]);
+    }
+
+    private static IAppSettingService EnabledCompressionSettings()
+    {
+        var settings = Substitute.For<IAppSettingService>();
+        settings.GetAsync("CompressionConfig", Arg.Any<CancellationToken>())
+            .Returns(ApiResponse<AppSettingDto?>.Ok(new AppSettingDto
+            {
+                Key = "CompressionConfig",
+                Value = JsonSerializer.Serialize(new CompressionPipelineDto { Enabled = true, Mode = "algorithmic" }),
+            }));
+        return settings;
     }
 
     [Fact]
@@ -369,6 +569,63 @@ public class AgentExecutionSafetyTests
         Assert.Equal(4, invocation);
         Assert.Equal(1, executions);
         Assert.Equal("done", result.Content);
+    }
+
+    [Fact]
+    public async Task RunAsync_逐次用量_仅每轮首次请求带压缩前后规模()
+    {
+        var executor = CreateExecutor("test_tool");
+        executor.ExecuteAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(_ => ToolExecutionResult.Success("ok"));
+        var localizer = CreateLocalizer();
+        var registry = new ToolRegistry([executor], localizer);
+        using var services = CreateToolServices(registry);
+        var provider = Substitute.For<ILLMProvider>();
+        var invocation = 0;
+        provider.ChatStreamAsync(Arg.Any<IReadOnlyList<LlmChatMessage>>(), Arg.Any<ChatOptions>(), Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                invocation++;
+                return invocation <= 2
+                    ? Frames(ToolCallsFrame($"call-{invocation}", "{}"), FinishFrame("stop"))
+                    : Frames(ContentFrame("done"), FinishFrame("stop"));
+            });
+        var recorder = new CapturingUsageRecorder();
+        // 内置默认 Enabled=false：测试里显式开启压缩管道，否则首轮也不会产生压缩规模
+        var appSettings = Substitute.For<IAppSettingService>();
+        appSettings.GetAsync("CompressionConfig", Arg.Any<CancellationToken>())
+            .Returns(ApiResponse<AppSettingDto?>.Ok(new AppSettingDto
+            {
+                Key = "CompressionConfig",
+                Value = JsonSerializer.Serialize(new CompressionPipelineDto { Enabled = true, Mode = "algorithmic" }),
+            }));
+        var service = CreateAgentLoop(provider, registry, services, localizer, recorder, appSettings);
+        // 重复长历史：算法压缩能明显压短，首轮请求才会记下压缩前 / 压缩后
+        var history = string.Join("\n", Enumerable.Repeat("the quick brown fox jumps over the lazy dog", 200));
+
+        await service.RunAsync(new AgentLoopRequest
+        {
+            ToolNames = ["test_tool"],
+            MaxIterations = 4,
+            Messages =
+            [
+                new LlmChatMessage { Role = "user", Content = history },
+                new LlmChatMessage { Role = "user", Content = "current question" },
+            ],
+        }, CancellationToken.None);
+
+        Assert.Equal(3, recorder.Records.Count);
+        Assert.All(recorder.Records, r => Assert.Equal(recorder.Records[0].TurnId, r.TurnId));
+        var first = recorder.Records[0];
+        Assert.Equal(1, first.Iteration);
+        Assert.NotNull(first.CompressedTokens);
+        Assert.True(first.CompressedTokens < first.InputTokens);
+        // 后续迭代没有走压缩：压缩后必须留空，否则明细里整轮都显示 0% 像没压缩过
+        foreach (var later in recorder.Records.Skip(1))
+        {
+            Assert.Null(later.CompressedTokens);
+            Assert.NotNull(later.InputTokens);
+        }
     }
 
     [Fact]
@@ -704,7 +961,10 @@ public class AgentExecutionSafetyTests
         ILLMProvider provider,
         ToolRegistry registry,
         ServiceProvider services,
-        ILocalizer localizer)
+        ILocalizer localizer,
+        ILlmUsageRecorder? usageRecorder = null,
+        IAppSettingService? appSettings = null,
+        ContextCompactionService? contextCompaction = null)
     {
         var factory = Substitute.For<ILLMProviderFactory>();
         factory.CreateChatProviderAsync(Arg.Any<CancellationToken>()).Returns(provider);
@@ -713,14 +973,56 @@ public class AgentExecutionSafetyTests
             registry,
             CreateToolExecution(services, localizer),
             new CompressionPipelineService(
-                Substitute.For<IAppSettingService>(),
+                appSettings ?? Substitute.For<IAppSettingService>(),
                 Substitute.For<ILogger<CompressionPipelineService>>(),
                 factory,
                 Substitute.For<ILlmUsageRecorder>()),
+            contextCompaction ?? new ContextCompactionService(
+                Substitute.For<IUnitOfWork>(),
+                factory,
+                Substitute.For<ILlmUsageRecorder>(),
+                Substitute.For<ILogger<ContextCompactionService>>(),
+                localizer),
             Substitute.For<IUnitOfWork>(),
-            Substitute.For<ILlmUsageRecorder>(),
+            usageRecorder ?? Substitute.For<ILlmUsageRecorder>(),
             Substitute.For<ILogger<AgentLoopService>>(),
             localizer);
+    }
+
+    /// <summary>记录每次落库的用量行，供断言逐次请求的口径</summary>
+    private sealed class CapturingUsageRecorder : ILlmUsageRecorder
+    {
+        public List<LlmUsageRecord> Records { get; } = [];
+
+        public Task RecordAsync(LlmUsageRecord record, CancellationToken ct = default)
+        {
+            Records.Add(record);
+            return Task.CompletedTask;
+        }
+
+        public Task RecordAsync(
+            string source,
+            LlmUsage? usage,
+            Guid? refId = null,
+            Guid? modelId = null,
+            int? inputTokens = null,
+            int? compressedTokens = null,
+            int? latencyMs = null,
+            string? contentPreview = null,
+            Guid? turnId = null,
+            int? iteration = null,
+            string requestKind = LlmUsageRequestKinds.Agent,
+            string? finishReason = null,
+            int? toolCallCount = null,
+            CancellationToken ct = default)
+            => RecordAsync(new LlmUsageRecord
+            {
+                Source = source,
+                InputTokens = inputTokens,
+                CompressedTokens = compressedTokens,
+                TurnId = turnId,
+                Iteration = iteration,
+            }, ct);
     }
 
     private static IToolExecutor CreateExecutor(string name)

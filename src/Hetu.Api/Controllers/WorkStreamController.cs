@@ -492,6 +492,7 @@ public class WorkStreamController : ControllerBase
             SessionId = sessionId.ToString(),
             UsageSource = LlmUsageSources.Work,
             UsageRefId = sessionId,
+            ContextWindowTokens = request.ContextWindow,
             Sink = sink,
             Hooks = hooks,
             DrainSteering = () => _steering.Drain(steeringKey),

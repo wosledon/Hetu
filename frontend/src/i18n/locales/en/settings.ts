@@ -405,7 +405,7 @@ export default {
     model: 'Model',
     input: 'Input',
     compressionRatio: 'Ratio',
-    ratioHint: 'Compression ratio = 1 - compressed / original; higher means more was removed. 0% means this request had no duplicate content to compress',
+    ratioHint: 'Compression ratio = 1 - compressed / original; higher means more was removed. History compression runs only on the first request of each turn (others show —); 0% means that first request had nothing to compress',
     ratioTooltip: 'Before {{before}} → after {{after}} chars ({{percent}}% removed)',
     output: 'Output',
     total: 'Total',
