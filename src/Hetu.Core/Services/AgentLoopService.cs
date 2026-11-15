@@ -116,6 +116,12 @@ public class AgentLoopRequest
     /// 由各端的 <see cref="AgentSteeringHub"/> 提供，没有引导时返回空集合。
     /// </summary>
     public Func<IReadOnlyList<string>>? DrainSteering { get; set; }
+
+    /// <summary>
+    /// 退出时保留运行时工具（MCP 适配器）。嵌套运行（如 work_task 子 Agent）必须置 true：
+    /// ToolRegistry 是作用域实例，清空会把外层同批次后续调用还要用的工具一起清掉。
+    /// </summary>
+    public bool PreserveRuntimeTools { get; set; }
 }
 
 /// <summary>
@@ -605,8 +611,8 @@ public class AgentLoopService
         }
         finally
         {
-            // 5. 清理运行时 MCP 工具
-            _toolRegistry.ClearRuntimeTools();
+            // 5. 清理运行时 MCP 工具（嵌套运行由调用方保留，见 PreserveRuntimeTools）
+            if (!request.PreserveRuntimeTools) _toolRegistry.ClearRuntimeTools();
         }
 
         return result;

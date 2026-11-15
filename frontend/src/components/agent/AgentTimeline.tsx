@@ -25,6 +25,8 @@ export interface AgentTimelineProps {
   onRestoreCheckpoint?: (id: string, label: string) => void | Promise<void>
   /** 时间线为空时的占位（如「思考中...」） */
   emptyHint?: ReactNode
+  /** 自定义正文渲染（历史消息用各自页面的 Markdown 样式）；不传则用默认 Markdown */
+  renderText?: (text: string) => ReactNode
 }
 
 /**
@@ -44,6 +46,7 @@ export default function AgentTimeline({
   onApprove,
   onRestoreCheckpoint,
   emptyHint,
+  renderText,
 }: AgentTimelineProps) {
   if (items.length === 0) return <>{emptyHint ?? null}</>
 
@@ -101,13 +104,17 @@ export default function AgentTimeline({
         switch (item.kind) {
           case 'text':
             return (
-              <div key={`o${i}`} className="mb-2 text-sm leading-relaxed text-gray-800 dark:text-gray-100">
-                <ThemedMarkdown
-                  source={item.text}
-                  onCodeAction={(code, action) => {
-                    if (action === 'insert') onInsertCode?.(code)
-                  }}
-                />
+              <div key={`o${i}`} className={renderText ? 'mb-2' : 'mb-2 text-sm leading-relaxed text-gray-800 dark:text-gray-100'}>
+                {renderText
+                  ? renderText(item.text)
+                  : (
+                    <ThemedMarkdown
+                      source={item.text}
+                      onCodeAction={(code, action) => {
+                        if (action === 'insert') onInsertCode?.(code)
+                      }}
+                    />
+                  )}
                 {streaming && i === folded.length - 1 && (
                   <span className="ml-0.5 inline-block h-3.5 w-[2px] translate-y-0.5 animate-pulse bg-blue-500" aria-hidden />
                 )}

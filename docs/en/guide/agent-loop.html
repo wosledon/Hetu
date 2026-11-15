@@ -132,6 +132,7 @@
         <li>Steering is injected only at iteration boundaries; several clicks within one iteration are drained as one instruction.</li>
         <li>Chat and code sessions differ in their <strong>permission decider and tool set</strong>, not in the kernel (code sessions bring <code>work_*</code> tools and a workspace scope).</li>
         <li>Kanban and workflows reuse the same kernel, swapping the event outlet for run-step / node-event recording.</li>
+        <li>The <code>work_task</code> sub-agent also runs on the same kernel: read-only tool whitelist with a 12-iteration / 3-minute cap, so textual tool-call parsing, argument validation and truncation protection match the main session.</li>
       </ul>
 
       <h2>Debugging hints</h2>

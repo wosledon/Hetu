@@ -20,21 +20,16 @@ import UserMessageContent from '../UserMessageContent'
 import { wrapLongTextBlock } from '../../utils/longText'
 import { uiLocale } from '../../utils/locale'
 import { scrollToBottom } from '../../utils/scrollToBottom'
-import ToolCallGroup from '../ToolCallGroup'
-import { foldConsecutiveToolCalls, type FoldedToolEntry, type ToolCallEntry } from '../../utils/toolRendering'
 import { consumeSseStream, SSE_ERROR_PREFIX } from '../../utils/sse'
 import { createSubagentCoalescer, formatTokens, mergeSubagentEntries, parseAgentFrame, subagentStage, type AgentUsage, type SubagentEntry, type SubagentFrame } from '../../utils/agentStream'
-import ChatToolCallRow from '../ChatToolCallRow'
 import ConversationRail from '../ConversationRail'
 
 import AgentUsageBadge from '../agent/AgentUsageBadge'
 import AgentTimeline from '../agent/AgentTimeline'
 import AgentWorkingIndicator from '../agent/AgentWorkingIndicator'
 import RunningIndicator from './RunningIndicator'
-import AgentThoughtBlock from '../agent/AgentThoughtBlock'
 import AgentFileChangeRow from '../agent/AgentFileChangeRow'
 import AgentCheckpointRow from '../agent/AgentCheckpointRow'
-import AgentSubAgentPanel from '../agent/AgentSubAgentPanel'
 import AgentInputBox from '../agent/AgentInputBox'
 import AgentModelPicker from '../agent/AgentModelPicker'
 import AgentPicker from '../agent/AgentPicker'
@@ -51,7 +46,8 @@ import type { IContextUsage } from '../../types/context'
 import AgentReasoningSelect from '../agent/AgentReasoningSelect'
 import { parsePermissionMode } from '../../utils/agentPermission'
 import { POPOVER_PANEL_CLASS, popoverItemClass } from '../../utils/styles'
-import { fromWorkStreamItems, subagentEntriesToTimeline } from '../../utils/agentTimeline'
+import { fromWorkStreamItems } from '../../utils/agentTimeline'
+import { fromWorkHistoryMessages } from '../../utils/historyTimeline'
 import { loadInputHistory, pushInputHistory } from '../../utils/inputHistory'
 import { workStreamRuns } from '../../utils/workStreamRuns'
 import { loadPendingQueue, savePendingQueue } from '../../utils/pendingQueue'
@@ -819,33 +815,25 @@ export default function WorkSessionArea({
     () => visibleMessages.filter((m) => m.role === 'user').map((m) => ({ id: m.id, content: m.content })),
     [visibleMessages],
   )
-  // 历史消息同样折叠：仅以思考开启的过程合并为一组，纯工具调用逐行显示（与流式渲染、任务详情页一致）
-  const foldedHistory = useMemo(
-    () => foldConsecutiveToolCalls(visibleMessages, isFoldableProcessMessage, toProcessEntry),
-    [visibleMessages],
-  )
-  // 连续的过程条目合成一个紧凑块：消息容器是 space-y-6，若每条过程都作为直接子项，
+  // 连续的过程消息合成一个紧凑块：消息容器是 space-y-6，若每条过程都作为直接子项，
   // 切页回来（读历史）时间距会变成 24px，与流式时的紧凑排列不一致
   const historyBlocks = useMemo(() => {
     const blocks: Array<
-      | { kind: 'process'; entries: FoldedToolEntry<IWorkMessage>[] }
+      | { kind: 'process'; messages: IWorkMessage[] }
       | { kind: 'message'; item: IWorkMessage }
     > = []
-    for (const entry of foldedHistory) {
-      if (entry.kind === 'other' && !isProcessMessage(entry.item)) {
-        blocks.push({ kind: 'message', item: entry.item })
+    for (const message of visibleMessages) {
+      if (!isProcessMessage(message)) {
+        blocks.push({ kind: 'message', item: message })
         continue
       }
       const last = blocks[blocks.length - 1]
-      if (last?.kind === 'process') last.entries.push(entry)
-      else blocks.push({ kind: 'process', entries: [entry] })
+      if (last?.kind === 'process') last.messages.push(message)
+      else blocks.push({ kind: 'process', messages: [message] })
     }
     return blocks
-  }, [foldedHistory])
-  const renderProcessEntry = (item: ToolCallEntry, compact = true) =>
-    item.kind === 'thought'
-      ? <AgentThoughtBlock text={item.text ?? ''} compact={compact} />
-      : <ChatToolCallRow name={item.name} args={item.args} result={item.result} isError={item.isError} onOpenPath={onOpenFilePath} onRunCommand={onRunCommand} compact={compact} />
+  }, [visibleMessages])
+
   // 刚发出且后端尚未在历史中持久化的消息 → 派生展示（持久化后自动让位）
   // 判据必须同时满足「内容与待发消息一致 + 时间不早于发送时刻」：只用内容相等会把上一轮
   // 相同内容的消息算成已落库，重发相同内容时乐观气泡被误撤，而新消息尚未刷新出来，两头都看不到
@@ -1526,25 +1514,13 @@ export default function WorkSessionArea({
                 }
                 return (
                   <div key={`process-${i}`} className={gap}>
-                    {block.entries.map((entry, j) => {
-                      if (entry.kind === 'tool') {
-                        const only = entry.items[0]
-                        const thoughtLed = only.kind === 'thought'
-                        return (
-                          <div key={only.id ?? j} className={`${thoughtLed ? 'mb-0' : 'mb-2'} last:mb-0 [content-visibility:auto] [contain-intrinsic-size:auto_80px]`}>
-                            {entry.items.length === 1
-                              ? renderProcessEntry(only)
-                              : <ToolCallGroup items={entry.items} renderItem={renderProcessEntry} />}
-                          </div>
-                        )
-                      }
-                      const msg = entry.item
-                      return (
-                        <div key={msg.id} className="mb-2 last:mb-0 [content-visibility:auto] [contain-intrinsic-size:auto_80px]">
-                          <ProcessMessageRow message={msg} onOpenFilePath={onOpenFilePath} onRunCommand={onRunCommand} />
-                        </div>
-                      )
-                    })}
+                    <AgentTimeline
+                      items={fromWorkHistoryMessages(block.messages)}
+                      onOpenPath={onOpenFilePath}
+                      onRunCommand={onRunCommand}
+                      onInsertCode={(code) => onInsertCode?.(code)}
+                      onRestoreCheckpoint={restoreCheckpoint}
+                    />
                   </div>
                 )
               })}
@@ -2132,55 +2108,7 @@ function AgentTextBlock({ message, onCodeAction, actions }: {
   )
 }
 
-/** 历史消息中的过程事件（思考 / 工具调用 / 子 Agent）：与流式时间线共用同一套行组件 */
-function ProcessMessageRow({ message, onOpenFilePath, onRunCommand }: {
-  message: IWorkMessage
-  onOpenFilePath?: (path: string) => void
-  onRunCommand?: (command: string) => void
-}) {
-  if (message.type === 'thought') return <AgentThoughtBlock text={message.content} />
-  if (message.type === 'tool') {
-    let meta: { name: string; arguments: string } = { name: '', arguments: '{}' }
-    try { meta = { ...meta, ...JSON.parse(message.metadata ?? '{}') } } catch { /* 使用默认值 */ }
-    return (
-      <ChatToolCallRow
-        name={meta.name}
-        args={meta.arguments}
-        result={message.content}
-        onOpenPath={onOpenFilePath}
-        onRunCommand={onRunCommand}
-      />
-    )
-  }
-  let meta: { stage: string; tool?: string; steps?: number; message?: string; entries?: SubagentEntry[] } = { stage: 'done' }
-  try { meta = { ...meta, ...JSON.parse(message.metadata ?? '{}') } } catch { /* 使用默认值 */ }
-  return (
-    <AgentSubAgentPanel
-      description={message.content}
-      stage={meta.stage}
-      tool={meta.tool}
-      steps={meta.steps}
-      message={meta.message}
-      entries={subagentEntriesToTimeline(meta.entries)}
-      onOpenPath={onOpenFilePath}
-      onRunCommand={onRunCommand}
-    />
-  )
-}
-
 const isProcessMessage = (m: IWorkMessage) => m.type === 'thought' || m.type === 'tool' || m.type === 'subagent'
-
-/** 可折叠的过程消息：思考与工具调用（子 Agent、文件变更等保持独立行） */
-const isFoldableProcessMessage = (m: IWorkMessage) => m.type === 'thought' || m.type === 'tool'
-
-/** 过程消息 → 折叠条目（展示内容与 ProcessMessageRow 一致） */
-function toProcessEntry(message: IWorkMessage): ToolCallEntry {
-  if (message.type === 'thought')
-    return { id: message.id, kind: 'thought', name: '', args: message.content, text: message.content }
-  let meta: { name: string; arguments: string; isError?: boolean } = { name: '', arguments: '{}' }
-  try { meta = { ...meta, ...JSON.parse(message.metadata ?? '{}') } } catch { /* 使用默认值 */ }
-  return { id: message.id, name: meta.name, args: meta.arguments, result: message.content, isError: meta.isError }
-}
 
 /** 普通历史消息：用户气泡 / Agent 文本 / 系统提示 / 文件变更 / 检查点 */
 function MessageRow({ message, onOpenFilePath, onCodeAction, ...actions }: {

@@ -51,44 +51,6 @@ export interface ToolCallEntry {
   text?: string
 }
 
-export type FoldedToolEntry<T> =
-  | { kind: 'tool'; items: ToolCallEntry[] }
-  | { kind: 'other'; item: T }
-
-/**
- * 把有序序列折叠成展示项：思考块开启一组，紧随其后的工具归入该组（组内保序）；
- * 没有思考打头的工具调用各自独立成行。文本输出原样穿插保留，并作为组的边界。
- */
-export function foldConsecutiveToolCalls<T>(
-  items: T[],
-  isProcess: (item: T) => boolean,
-  toEntry: (item: T) => ToolCallEntry,
-): FoldedToolEntry<T>[] {
-  const folded: FoldedToolEntry<T>[] = []
-  let thoughtLed = false
-  for (const item of items) {
-    if (!isProcess(item)) {
-      folded.push({ kind: 'other', item })
-      thoughtLed = false
-      continue
-    }
-    const entry = toEntry(item)
-    if (entry.kind === 'thought') {
-      folded.push({ kind: 'tool', items: [entry] })
-      thoughtLed = true
-      continue
-    }
-    const last = folded[folded.length - 1]
-    if (thoughtLed && last && last.kind === 'tool') {
-      last.items.push(entry)
-      continue
-    }
-    folded.push({ kind: 'tool', items: [entry] })
-    thoughtLed = false
-  }
-  return folded
-}
-
 export function renderToolResult(_name: string, content: string, isError?: boolean): React.ReactNode {
   if (isError) {
     return <span className="text-[11px]">{content}</span>

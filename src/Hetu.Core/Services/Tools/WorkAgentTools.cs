@@ -21,25 +21,20 @@ public class WorkTaskTool : IToolExecutor
     ];
 
     private const int MaxIterations = 12;
+    private const int MaxToolCallsPerTurn = 5;
     private const int MaxResultChars = 8000;
 
     /// <summary>子 Agent 整体超时时间，避免内层循环卡住主 Agent</summary>
     private static readonly TimeSpan OverallTimeout = TimeSpan.FromMinutes(3);
 
     private readonly WorkToolContext _context;
-    private readonly ILLMProviderFactory _llmProviderFactory;
     private readonly IServiceProvider _services;
-    private ToolRegistry? _toolRegistry;
 
-    public WorkTaskTool(WorkToolContext context, ILLMProviderFactory llmProviderFactory, IServiceProvider services)
+    public WorkTaskTool(WorkToolContext context, IServiceProvider services)
     {
         _context = context;
-        _llmProviderFactory = llmProviderFactory;
         _services = services;
     }
-
-    // 延迟解析，避免 ToolRegistry -> IToolExecutor -> 本工具 -> ToolRegistry 的循环依赖
-    private ToolRegistry Registry => _toolRegistry ??= _services.GetRequiredService<ToolRegistry>();
 
     public string Name => "work_task";
     public string Description => "派出一个只读的子 Agent 在项目内独立调研（可读文件、搜索代码），返回结论摘要。适合需要翻阅大量文件但主流程只需结论的场景";
@@ -104,16 +99,16 @@ public class WorkTaskTool : IToolExecutor
 
         try
         {
-            var provider = _context.ModelId.HasValue
-                ? await _llmProviderFactory.CreateProviderAsync(_context.ModelId.Value, cancellationToken)
-                : await _llmProviderFactory.CreateChatProviderAsync(cancellationToken);
-            if (provider == null)
-                return ToolExecutionResult.Error("子 Agent 启动失败：未配置可用的对话模型");
+            // 复用共享 Agent 循环：解析、参数校验、截断保护、工具执行与主会话完全一致
+            var agentLoop = _services.GetRequiredService<AgentLoopService>();
+            var sink = new SubAgentSink(EmitAsync, subAgentId, description);
 
-            var options = new ChatOptions
+            using var subCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            subCts.CancelAfter(OverallTimeout);
+
+            var result = await agentLoop.RunAsync(new AgentLoopRequest
             {
-                ModelId = "",
-                Stream = true,
+                ModelId = _context.ModelId,
                 SystemPrompt = $"""
                 你是 Hetu 工作区内的子 Agent，负责只读调研，禁止做任何修改。
                 项目根目录：{root}
@@ -121,113 +116,43 @@ public class WorkTaskTool : IToolExecutor
                 然后用简洁的 Markdown 汇报：结论、关键证据（文件:行）、以及尚未确认的疑点。
                 不要复述大段源码，只引用必要的片段。
                 """,
-                Tools = Registry.ToToolDefinitions(toolNames),
-                ToolChoice = toolNames.Count > 0 ? "auto" : "none"
-            };
-
-            var messages = new List<LlmChatMessage> { new() { Role = "user", Content = prompt } };
-            var answer = new StringBuilder();
-            var steps = 0;
-            var exhaustedIterations = true;
-            var timedOut = false;
-
-            // 内层时间线（思考 / 正文 / 工具调用）：边跑边推给界面，结束后随 done 事件回传供历史回放
-            var entries = new List<SubagentEntry>();
-            var entriesBudget = 24000;
-
-            void AppendText(string kind, string text)
-            {
-                if (string.IsNullOrEmpty(text) || entriesBudget <= 0) return;
-                var last = entries.Count > 0 ? entries[^1] : null;
-                if (last != null && last.Kind == kind && last.Name.Length == 0)
+                Messages = [new LlmChatMessage { Role = "user", Content = prompt }],
+                ToolNames = toolNames,
+                // 只读白名单直接声明，不暴露 load_tools；子 Agent 不需要按需加载
+                CoreToolNames = toolNames,
+                MaxIterations = MaxIterations,
+                MaxToolCallsPerTurn = MaxToolCallsPerTurn,
+                CompressHistory = false,
+                SessionId = $"subagent-{subAgentId}",
+                Sink = sink,
+                // 只读白名单硬约束：模型即便请求白名单外的工具，也只回一条拒绝结果，不会真正执行
+                DecideToolCall = (call, _) => Task.FromResult(
+                    toolNames.Contains(call.Name, StringComparer.OrdinalIgnoreCase)
+                        ? new WorkToolDecision(true, ToolApprovalMode.Bypass)
+                        : new WorkToolDecision(false, ToolApprovalMode.Bypass, $"子 Agent 不允许调用工具 {call.Name}")),
+                // 嵌套运行：不能清掉外层工具执行作用域里的运行时工具
+                PreserveRuntimeTools = true,
+                WorkScope = new WorkToolScope
                 {
-                    var room = Math.Min(text.Length, entriesBudget);
-                    last.Text += text[..room];
-                    entriesBudget -= room;
-                    return;
-                }
-                var entry = new SubagentEntry { Kind = kind, Text = text[..Math.Min(text.Length, entriesBudget)] };
-                entriesBudget -= entry.Text.Length;
-                entries.Add(entry);
-            }
+                    ProjectRoot = _context.ProjectRoot,
+                    ProjectId = _context.ProjectId,
+                    ModelId = _context.ModelId,
+                    DiagnosticsCommand = _context.DiagnosticsCommand,
+                    Runner = _context.Runner,
+                },
+            }, subCts.Token);
 
-            // 内层循环使用独立超时，超时后仍把已得到的部分结论交回主 Agent
-            using var subCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            subCts.CancelAfter(OverallTimeout);
-            var subToken = subCts.Token;
-
-            try
+            var timedOut = result.Cancelled && subCts.IsCancellationRequested && !cancellationToken.IsCancellationRequested;
+            if (!string.IsNullOrWhiteSpace(result.Error) && !timedOut)
             {
-                for (var iter = 0; iter < MaxIterations; iter++)
-                {
-                    var (content, toolCalls) = await ConsumeStreamAsync(
-                        provider, messages, options, subToken,
-                        (kind, text) =>
-                        {
-                            AppendText(kind, text);
-                            return EmitAsync(new { type = "subagent", stage = "delta", id = subAgentId, kind, text });
-                        });
-                    answer.Append(content);
-
-                    if (toolCalls == null || toolCalls.Count == 0)
-                    {
-                        exhaustedIterations = false;
-                        break;
-                    }
-
-                    messages.Add(new LlmChatMessage { Role = "assistant", Content = content, ToolCalls = toolCalls });
-
-                    foreach (var call in toolCalls)
-                    {
-                        steps++;
-                        var toolEntry = new SubagentEntry { Kind = "tool", Name = call.Name, Arguments = Truncate(call.Arguments, 600) };
-                        entries.Add(toolEntry);
-                        await EmitAsync(new { type = "subagent", stage = "tool", id = subAgentId, description, tool = call.Name, arguments = toolEntry.Arguments, state = "running" });
-
-                        var executor = Registry.GetExecutor(call.Name);
-                        ToolExecutionResult result;
-                        if (executor == null || !toolNames.Contains(executor.Name, StringComparer.OrdinalIgnoreCase))
-                        {
-                            result = ToolExecutionResult.Error($"子 Agent 不允许调用工具 {call.Name}");
-                        }
-                        else
-                        {
-                            try
-                            {
-                                result = await executor.ExecuteAsync(call.Arguments, subToken);
-                            }
-                            catch (OperationCanceledException) { throw; }
-                            catch (Exception ex)
-                            {
-                                result = ToolExecutionResult.Error($"工具执行失败：{ex.Message}");
-                            }
-                        }
-
-                        var payload = result.IsError ? $"Error: {result.Content}" : Truncate(result.Content, 6000);
-                        toolEntry.Result = result.Content;
-                        toolEntry.IsError = result.IsError;
-                        await EmitAsync(new
-                        {
-                            type = "subagent",
-                            stage = "tool_result",
-                            id = subAgentId,
-                            tool = call.Name,
-                            result = result.IsError ? $"Error: {result.Content}" : Truncate(result.Content, 6000),
-                            isError = result.IsError,
-                        });
-
-                        messages.Add(new LlmChatMessage { Role = "tool", ToolCallId = call.Id, Content = payload });
-                    }
-                }
-            }
-            catch (OperationCanceledException) when (subCts.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
-            {
-                timedOut = true;
+                await sink.EmitErrorAsync(result.Error);
+                return ToolExecutionResult.Error($"子 Agent 执行失败：{result.Error}");
             }
 
-            await EmitAsync(new { type = "subagent", stage = "done", id = subAgentId, description, steps, entries });
+            await sink.EmitDoneAsync();
 
-            var summary = answer.ToString().Trim();
+            var steps = sink.Steps;
+            var summary = result.Content.Trim();
             if (string.IsNullOrWhiteSpace(summary))
             {
                 summary = steps == 0
@@ -237,7 +162,7 @@ public class WorkTaskTool : IToolExecutor
 
             var notes = new List<string>();
             if (timedOut) notes.Add($"已达时间上限（{OverallTimeout.TotalSeconds:0}s），以下为已完成部分的结论");
-            if (exhaustedIterations) notes.Add($"已达步数上限（{MaxIterations} 轮），结论可能不完整，可拆成更小的子任务重试");
+            if (result.IterationLimitReached) notes.Add($"已达步数上限（{MaxIterations} 轮），结论可能不完整，可拆成更小的子任务重试");
             if (steps == 0) notes.Add("本次未使用任何只读工具，结论仅基于模型已有知识");
             var noteText = notes.Count == 0 ? "" : "\n\n" + string.Join("\n", notes.Select(n => $"> 提示：{n}"));
 
@@ -255,84 +180,11 @@ public class WorkTaskTool : IToolExecutor
         }
     }
 
-    /// <summary>子 Agent 内层时间线条目（推给界面 + 随 done 事件回传供历史回放）</summary>
-    private sealed class SubagentEntry
-    {
-        [System.Text.Json.Serialization.JsonPropertyName("kind")]
-        public string Kind { get; set; } = "text";
-
-        [System.Text.Json.Serialization.JsonPropertyName("text")]
-        public string Text { get; set; } = string.Empty;
-
-        [System.Text.Json.Serialization.JsonPropertyName("name")]
-        public string Name { get; set; } = string.Empty;
-
-        [System.Text.Json.Serialization.JsonPropertyName("args")]
-        public string Arguments { get; set; } = string.Empty;
-
-        [System.Text.Json.Serialization.JsonPropertyName("result")]
-        public string? Result { get; set; }
-
-        [System.Text.Json.Serialization.JsonPropertyName("isError")]
-        public bool IsError { get; set; }
-    }
-
     private Task EmitAsync(object payload)
         => _context.WriteEventAsync?.Invoke(payload) ?? Task.CompletedTask;
 
     private static string Truncate(string text, int max)
         => text.Length <= max ? text : text[..max] + $"\n…（已截断，共 {text.Length} 字符）";
-
-    /// <summary>消费 LLM 流：结构化 content 增量取 text，tool_calls 单独取出，其余结构化事件忽略；
-    /// <paramref name="onDelta"/> 收到思考 / 正文增量（用于把内层过程实时推给界面）。</summary>
-    private static async Task<(string content, List<LlmToolCall>? toolCalls)> ConsumeStreamAsync(
-        ILLMProvider provider,
-        List<LlmChatMessage> messages,
-        ChatOptions options,
-        CancellationToken ct,
-        Func<string, string, Task>? onDelta = null)
-    {
-        var sb = new StringBuilder();
-        List<LlmToolCall>? toolCalls = null;
-
-        await foreach (var delta in provider.ChatStreamAsync(messages, options, ct))
-        {
-            try
-            {
-                using var doc = JsonDocument.Parse(delta);
-                var root = doc.RootElement;
-                if (root.ValueKind == JsonValueKind.Object
-                    && root.TryGetProperty("type", out var typeEl)
-                    && typeEl.ValueKind == JsonValueKind.String)
-                {
-                    var frameType = typeEl.GetString();
-                    if (frameType == "tool_calls")
-                    {
-                        if (root.TryGetProperty("toolCalls", out var arr))
-                            toolCalls = JsonSerializer.Deserialize<List<LlmToolCall>>(arr.GetRawText(), JsonDefaults.CamelCase);
-                    }
-                    else if (frameType == "content" && root.TryGetProperty("text", out var textEl))
-                    {
-                        var text = textEl.GetString() ?? string.Empty;
-                        sb.Append(text);
-                        if (onDelta != null && text.Length > 0) await onDelta("text", text);
-                    }
-                    else if (frameType == "thinking" && root.TryGetProperty("text", out var thinkEl))
-                    {
-                        var text = thinkEl.GetString() ?? string.Empty;
-                        if (onDelta != null && text.Length > 0) await onDelta("thinking", text);
-                    }
-                    continue;
-                }
-            }
-            catch (JsonException) { /* 非 JSON 增量，按正文处理 */ }
-
-            sb.Append(delta);
-            if (onDelta != null && delta.Length > 0) await onDelta("text", delta);
-        }
-
-        return (sb.ToString(), toolCalls);
-    }
 }
 
 /// <summary>诊断工具：运行项目自带的构建/静态检查命令，把编译错误直接反馈给模型</summary>
