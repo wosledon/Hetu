@@ -201,9 +201,10 @@ public class ToolExecutionService
         WorkToolScope? workScope = null,
         Func<LlmToolCall, Task<string>>? questionHandler = null,
         Func<LlmToolCall, Task<PlanDecision>>? planHandler = null,
-        Func<(string toolCallId, string content, bool isError), Task>? onToolResult = null)
+        Func<(string toolCallId, string content, bool isError), Task>? onToolResult = null,
+        TimeSpan? defaultToolTimeout = null)
     {
-        var results = new List<(string toolCallId, string content, bool isError)>();
+        var results = new List<(string toolCallId, string content, bool isError)>(toolCalls.Count);
         var state = _sessions.GetOrCreate(sessionId);
 
         await using var scope = _scopeFactory.CreateAsyncScope();
@@ -224,6 +225,8 @@ public class ToolExecutionService
                 toolRegistry.AddRuntimeTool(runtimeTool);
         }
 
+        // 阶段 1：发 tool_call 帧并解析审批，把拒绝 / 未找到的调用先固定为结果
+        var prepared = new List<PreparedToolCall>(toolCalls.Count);
         foreach (var toolCall in toolCalls)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -257,57 +260,104 @@ public class ToolExecutionService
                 if (!decision.Allowed)
                 {
                     var denyMessage = decision.DenyMessage ?? _localizer.T("toolExec.denied", toolCall.Name);
-                    await writeJsonAsync(new
-                    {
-                        type = "tool_result",
-                        id = toolCall.Id,
-                        name = toolCall.Name,
-                        content = denyMessage,
-                        isError = true,
-                        collapsed = false,
-                        hidden = isSilentTool
-                    });
-                    results.Add((toolCall.Id, denyMessage, true));
-                    if (onToolResult != null) await onToolResult(results[^1]);
+                    prepared.Add(new PreparedToolCall(toolCall, executor, approval, isSilentTool, (denyMessage, true)));
                     continue;
                 }
                 approval = explicitOverride ?? decision.Mode;
             }
 
-            string resultContent;
-            bool isError = false;
-
-            if (approval == ToolApprovalMode.Ask && !InteractiveTools.IsInteractive(toolCall.Name))
+            if (executor == null && !InteractiveTools.IsInteractive(toolCall.Name))
             {
-                (resultContent, isError) = await ExecuteWithApprovalAsync(state, toolCall, executor, sessionTodos, writeJsonAsync, cancellationToken);
-            }
-            else if (executor != null)
-            {
-                (resultContent, isError) = await ExecuteSingleToolAsync(state, toolCall, executor, sessionTodos, writeJsonAsync, cancellationToken, questionHandler, planHandler);
-            }
-            else
-            {
-                resultContent = _localizer.T("toolExec.notFound", toolCall.Name);
-                isError = true;
+                prepared.Add(new PreparedToolCall(toolCall, null, approval, isSilentTool,
+                    (_localizer.T("toolExec.notFound", toolCall.Name), true)));
+                continue;
             }
 
+            prepared.Add(new PreparedToolCall(toolCall, executor, approval, isSilentTool, null));
+        }
+
+        // 阶段 2：执行并按原顺序回结果。平行批次的回调在整批完成后按顺序触发，
+        // 串行调用则在各自执行完立即回调（plan/question 等待前，前面的结果已经落库）
+        async Task EmitResultAsync(PreparedToolCall item, (string content, bool isError) result)
+        {
             await writeJsonAsync(new
             {
                 type = "tool_result",
-                id = toolCall.Id,
-                name = toolCall.Name,
-                content = resultContent,
-                isError,
-                collapsed = approval == ToolApprovalMode.Bypass,
-                hidden = isSilentTool
+                id = item.Call.Id,
+                name = item.Call.Name,
+                content = result.content,
+                isError = result.isError,
+                collapsed = item.Approval == ToolApprovalMode.Bypass,
+                hidden = item.IsSilentTool
             });
 
-            results.Add((toolCall.Id, resultContent, isError));
+            results.Add((item.Call.Id, result.content, result.isError));
             if (onToolResult != null) await onToolResult(results[^1]);
+        }
+
+        var allowParallelReads = workScope?.Runner is not { IsRemote: true };
+        for (var index = 0; index < prepared.Count;)
+        {
+            var item = prepared[index];
+            if (item.ImmediateResult is { } immediate)
+            {
+                await EmitResultAsync(item, immediate);
+                index++;
+                continue;
+            }
+
+            var call = item.Call;
+            if (item.Approval == ToolApprovalMode.Ask && !InteractiveTools.IsInteractive(call.Name))
+            {
+                await EmitResultAsync(item, await ExecuteWithApprovalAsync(state, call, item.Executor, sessionTodos, writeJsonAsync, cancellationToken, defaultToolTimeout));
+                index++;
+                continue;
+            }
+
+            if (allowParallelReads && CanRunReadInParallel(item))
+            {
+                var batch = new List<PreparedToolCall> { item };
+                var next = index + 1;
+                while (next < prepared.Count && CanRunReadInParallel(prepared[next]))
+                {
+                    batch.Add(prepared[next]);
+                    next++;
+                }
+                if (batch.Count > 1)
+                {
+                    var batchResults = await Task.WhenAll(batch.Select(b =>
+                        ExecuteSingleToolAsync(state, b.Call, b.Executor!, sessionTodos, writeJsonAsync, cancellationToken, questionHandler, planHandler, defaultToolTimeout)));
+                    for (var k = 0; k < batch.Count; k++) await EmitResultAsync(batch[k], batchResults[k]);
+                    index = next;
+                    continue;
+                }
+            }
+
+            await EmitResultAsync(item, await ExecuteSingleToolAsync(state, call, item.Executor!, sessionTodos, writeJsonAsync, cancellationToken, questionHandler, planHandler, defaultToolTimeout));
+            index++;
         }
 
         return results;
     }
+
+    /// <summary>可并行执行的只读文件工具：只用文件系统，不共享 EF 上下文 / 交互状态</summary>
+    private static readonly HashSet<string> ParallelReadTools = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "work_list_dir", "work_read_file", "work_glob", "work_grep",
+    };
+
+    private static bool CanRunReadInParallel(PreparedToolCall item)
+        => item.ImmediateResult == null
+           && item.Approval != ToolApprovalMode.Ask
+           && item.Executor is { Risk: ToolRisk.Read }
+           && ParallelReadTools.Contains(item.Call.Name);
+
+    private sealed record PreparedToolCall(
+        LlmToolCall Call,
+        IToolExecutor? Executor,
+        ToolApprovalMode Approval,
+        bool IsSilentTool,
+        (string content, bool isError)? ImmediateResult);
 
     private async Task<(string content, bool isError)> ExecuteWithApprovalAsync(
         SessionPendingState state,
@@ -315,7 +365,8 @@ public class ToolExecutionService
         IToolExecutor? executor,
         List<SessionTodo> sessionTodos,
         Func<object, Task> writeJsonAsync,
-        CancellationToken ct)
+        CancellationToken ct,
+        TimeSpan? defaultToolTimeout = null)
     {
         var approvalTcs = new TaskCompletionSource<bool>();
         state.Approvals[toolCall.Id] = approvalTcs;
@@ -339,7 +390,7 @@ public class ToolExecutionService
             return (_localizer.T("toolExec.userDenied", toolCall.Name), true);
 
         if (executor != null)
-            return await ExecuteSingleToolAsync(state, toolCall, executor, sessionTodos, writeJsonAsync, ct);
+            return await ExecuteSingleToolAsync(state, toolCall, executor, sessionTodos, writeJsonAsync, ct, defaultToolTimeout: defaultToolTimeout);
 
         return (_localizer.T("toolExec.notFound", toolCall.Name), true);
     }
@@ -352,7 +403,8 @@ public class ToolExecutionService
         Func<object, Task> writeJsonAsync,
         CancellationToken ct,
         Func<LlmToolCall, Task<string>>? questionHandler = null,
-        Func<LlmToolCall, Task<PlanDecision>>? planHandler = null)
+        Func<LlmToolCall, Task<PlanDecision>>? planHandler = null,
+        TimeSpan? defaultToolTimeout = null)
     {
         // 提问处理器的裁决异常（如后台任务阻塞等待用户回答）必须中断执行，
         // 不能被下面的通用 catch 降级为一条工具错误结果
@@ -369,6 +421,22 @@ public class ToolExecutionService
 
             if (toolCall.Name == InteractiveTools.Plan)
                 return await HandlePlanAsync(state, toolCall, writeJsonAsync, ct, planHandler);
+
+            var timeout = executor.Timeout ?? defaultToolTimeout;
+            if (timeout is { } limit && limit > TimeSpan.Zero)
+            {
+                using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                timeoutCts.CancelAfter(limit);
+                try
+                {
+                    var timed = await executor.ExecuteAsync(toolCall.Arguments, timeoutCts.Token);
+                    return (timed.Content, timed.IsError);
+                }
+                catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested && !ct.IsCancellationRequested)
+                {
+                    return (_localizer.T("toolExec.timeout", toolCall.Name, limit.TotalSeconds), true);
+                }
+            }
 
             var result = await executor.ExecuteAsync(toolCall.Arguments, ct);
             return (result.Content, result.IsError);

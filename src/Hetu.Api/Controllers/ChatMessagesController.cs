@@ -389,9 +389,9 @@ public class ChatMessagesController : ControllerBase
 
         public SseAgentSink(SseStreamWriter writer, ILocalizer localizer) => (_writer, _localizer) = (writer, localizer);
 
-        public Task OnContentAsync(string text) => _writer.WriteJsonAsync(new { type = "content", text });
+        public Task OnContentAsync(string text) => _writer.WriteDeltaAsync("content", text);
 
-        public Task OnThinkingAsync(string text) => _writer.WriteJsonAsync(new { type = "thinking", text });
+        public Task OnThinkingAsync(string text) => _writer.WriteDeltaAsync("thinking", text);
 
         public Task OnDebugAsync(string text) => _writer.WriteDebugAsync(text);
 

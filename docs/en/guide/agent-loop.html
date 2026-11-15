@@ -74,7 +74,9 @@
         <tbody>
           <tr><td><code>MaxIterations</code></td><td>15</td><td>Iteration cap; a value ≤ 0 falls back to 15 to prevent infinite loops</td></tr>
           <tr><td><code>MaxToolCallsPerTurn</code></td><td>5</td><td>Per-turn tool budget; excess calls are skipped with an error result (the run continues and the model can retry in smaller batches)</td></tr>
-          <tr><td><code>MaxContinuations</code></td><td>1 (2 for chat / Code)</td><td>Auto-continued segments after the iteration cap; each segment gets a fresh <code>MaxIterations</code> budget</td></tr>
+          <tr><td><code>MaxContinuations</code></td><td>1 (2 for chat / Code)</td><td>Auto-continued segments after the iteration cap; each segment gets a fresh <code>MaxIterations</code> budget and stops early when it produced no successful tool call</td></tr>
+          <tr><td><code>ProviderMaxRetries</code></td><td>2</td><td>Retries for transient provider failures (connection / 429 / 5xx) before any output is produced, with linear backoff</td></tr>
+          <tr><td><code>ToolTimeout</code></td><td>10 minutes</td><td>Default per-tool execution cap; the shorter of this and the tool's own <code>Timeout</code> wins, and it cancels the tool's own token</td></tr>
           <tr><td><code>CompressHistory</code></td><td>true</td><td>Set false to skip history compression when debugging compression side effects</td></tr>
           <tr><td><code>EnableTools</code></td><td>true</td><td>When off, no tool schemas are sent — plain conversation mode</td></tr>
           <tr><td><code>CoreToolNames</code></td><td>null</td><td>When set, only these core tools are exposed; the rest follow session configuration</td></tr>
@@ -133,6 +135,9 @@
         <li>Steering is injected only at iteration boundaries; several clicks within one iteration are drained as one instruction.</li>
         <li>Chat and code sessions differ in their <strong>permission decider and tool set</strong>, not in the kernel (code sessions bring <code>work_*</code> tools and a workspace scope).</li>
         <li>Kanban and workflows reuse the same kernel, swapping the event outlet for run-step / node-event recording.</li>
+        <li>Identical read-only calls within one turn reuse the previous result; the same call failing twice in a row is skipped the third time to stop loops burning the iteration budget.</li>
+        <li>Consecutive read-only file tools (list dir / read file / glob / grep) run in parallel within a batch; remote SSH projects stay sequential to avoid sharing a runner.</li>
+        <li>MCP clients are pooled per connection config and handshake once per process; SSE content/thinking deltas are coalesced to ~60ms or 512 characters.</li>
         <li>The <code>work_task</code> sub-agent also runs on the same kernel: read-only tool whitelist with a 12-iteration / 3-minute cap, so textual tool-call parsing, argument validation and truncation protection match the main session.</li>
       </ul>
 

@@ -485,6 +485,172 @@ public class AgentExecutionSafetyTests
         Assert.Equal("done", result.Content);
     }
 
+    [Fact]
+    public async Task RunAsync_Provider瞬时失败_重试后成功()
+    {
+        var executor = CreateExecutor("test_tool");
+        var localizer = CreateLocalizer();
+        var registry = new ToolRegistry([executor], localizer);
+        using var services = CreateToolServices(registry);
+        var provider = Substitute.For<ILLMProvider>();
+        var calls = 0;
+        provider.ChatStreamAsync(Arg.Any<IReadOnlyList<LlmChatMessage>>(), Arg.Any<ChatOptions>(), Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                if (calls++ < 2) throw new HttpRequestException("503");
+                return Frames(ContentFrame("恢复成功"), FinishFrame("stop"));
+            });
+        var service = CreateAgentLoop(provider, registry, services, localizer);
+
+        var result = await service.RunAsync(new AgentLoopRequest
+        {
+            ToolNames = ["test_tool"],
+            MaxIterations = 1,
+            ProviderRetryDelayMs = 0,
+            CompressHistory = false,
+        }, CancellationToken.None);
+
+        Assert.Equal(3, calls);
+        Assert.Equal("恢复成功", result.Content);
+        Assert.Null(result.Error);
+    }
+
+    [Fact]
+    public async Task RunAsync_模型返回空回合_重试一次()
+    {
+        var executor = CreateExecutor("test_tool");
+        var localizer = CreateLocalizer();
+        var registry = new ToolRegistry([executor], localizer);
+        using var services = CreateToolServices(registry);
+        var provider = Substitute.For<ILLMProvider>();
+        var calls = 0;
+        provider.ChatStreamAsync(Arg.Any<IReadOnlyList<LlmChatMessage>>(), Arg.Any<ChatOptions>(), Arg.Any<CancellationToken>())
+            .Returns(_ => calls++ == 0
+                ? Frames(FinishFrame("stop"))
+                : Frames(ContentFrame("第二次有内容"), FinishFrame("stop")));
+        var service = CreateAgentLoop(provider, registry, services, localizer);
+
+        var result = await service.RunAsync(new AgentLoopRequest
+        {
+            ToolNames = ["test_tool"],
+            MaxIterations = 1,
+            ProviderRetryDelayMs = 0,
+            CompressHistory = false,
+        }, CancellationToken.None);
+
+        Assert.Equal(2, calls);
+        Assert.Equal("第二次有内容", result.Content);
+    }
+
+    [Fact]
+    public async Task RunAsync_只读调用重复_复用结果不再执行()
+    {
+        var executor = CreateExecutor("test_tool");
+        executor.Risk.Returns(ToolRisk.Read);
+        var executions = 0;
+        executor.ExecuteAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                executions++;
+                return ToolExecutionResult.Success("cached-body");
+            });
+        var localizer = CreateLocalizer();
+        var registry = new ToolRegistry([executor], localizer);
+        using var services = CreateToolServices(registry);
+        var provider = Substitute.For<ILLMProvider>();
+        var invocation = 0;
+        List<LlmChatMessage>? thirdTurn = null;
+        provider.ChatStreamAsync(Arg.Any<IReadOnlyList<LlmChatMessage>>(), Arg.Any<ChatOptions>(), Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                var turn = invocation++;
+                if (turn == 0) return Frames(ToolCallsFrame("call-1", "{}"), FinishFrame("stop"));
+                if (turn == 1) return Frames(ToolCallsFrame("call-2", "{}"), FinishFrame("stop"));
+                thirdTurn = call.Arg<IReadOnlyList<LlmChatMessage>>().ToList();
+                return Frames(ContentFrame("done"), FinishFrame("stop"));
+            });
+        var service = CreateAgentLoop(provider, registry, services, localizer);
+
+        await service.RunAsync(new AgentLoopRequest
+        {
+            ToolNames = ["test_tool"],
+            MaxIterations = 3,
+            CompressHistory = false,
+        }, CancellationToken.None);
+
+        Assert.Equal(1, executions);
+        Assert.Contains(thirdTurn ?? [], m => m.Role == "tool" && m.ToolCallId == "call-2" && m.Content.Contains("toolExec.reusedResult"));
+    }
+
+    [Fact]
+    public async Task RunAsync_同一调用连续失败两次_第三次被拦下()
+    {
+        var executor = CreateExecutor("test_tool");
+        var executions = 0;
+        executor.ExecuteAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                executions++;
+                return ToolExecutionResult.Error("broken");
+            });
+        var localizer = CreateLocalizer();
+        var registry = new ToolRegistry([executor], localizer);
+        using var services = CreateToolServices(registry);
+        var provider = Substitute.For<ILLMProvider>();
+        var invocation = 0;
+        provider.ChatStreamAsync(Arg.Any<IReadOnlyList<LlmChatMessage>>(), Arg.Any<ChatOptions>(), Arg.Any<CancellationToken>())
+            .Returns(_ => invocation++ < 3
+                ? Frames(ToolCallsFrame("call-" + invocation, "{}"), FinishFrame("stop"))
+                : Frames(ContentFrame("ended"), FinishFrame("stop")));
+        var service = CreateAgentLoop(provider, registry, services, localizer);
+
+        var result = await service.RunAsync(new AgentLoopRequest
+        {
+            ToolNames = ["test_tool"],
+            MaxIterations = 4,
+            MaxContinuations = 0,
+            CompressHistory = false,
+        }, CancellationToken.None);
+
+        Assert.Equal(2, executions);
+        Assert.Equal("ended", result.Content);
+    }
+
+    [Fact]
+    public async Task RunAsync_工具执行超过超时_返回超时结果()
+    {
+        var executor = CreateExecutor("test_tool");
+        executor.ExecuteAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(async call =>
+            {
+                await Task.Delay(Timeout.InfiniteTimeSpan, call.Arg<CancellationToken>());
+                return ToolExecutionResult.Success("unreachable");
+            });
+        var localizer = CreateLocalizer();
+        var registry = new ToolRegistry([executor], localizer);
+        using var services = CreateToolServices(registry);
+        var provider = Substitute.For<ILLMProvider>();
+        var invocation = 0;
+        List<(string id, string content, bool isError)>? captured = null;
+        provider.ChatStreamAsync(Arg.Any<IReadOnlyList<LlmChatMessage>>(), Arg.Any<ChatOptions>(), Arg.Any<CancellationToken>())
+            .Returns(_ => invocation++ == 0
+                ? Frames(ToolCallsFrame("call-1", "{}"), FinishFrame("stop"))
+                : Frames(ContentFrame("timeout-handled"), FinishFrame("stop")));
+        var service = CreateAgentLoop(provider, registry, services, localizer);
+
+        var result = await service.RunAsync(new AgentLoopRequest
+        {
+            ToolNames = ["test_tool"],
+            MaxIterations = 2,
+            ToolTimeout = TimeSpan.FromMilliseconds(50),
+            CompressHistory = false,
+        }, CancellationToken.None);
+
+        captured = result.ToolCalls.Select(t => (t.Id, t.Result ?? "", t.IsError)).ToList();
+        Assert.Contains(captured, t => t.isError && t.content.Contains("toolExec.timeout"));
+        Assert.Equal("timeout-handled", result.Content);
+    }
+
     private static AgentLoopService CreateAgentLoop(
         ILLMProvider provider,
         ToolRegistry registry,
@@ -513,6 +679,7 @@ public class AgentExecutionSafetyTests
         executor.Description.Returns("test tool");
         executor.ParametersSchema.Returns(ToolSchema);
         executor.DefaultApproval.Returns(ToolApprovalMode.Auto);
+        executor.Risk.Returns(ToolRisk.Write);
         return executor;
     }
 
