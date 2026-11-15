@@ -15,6 +15,7 @@ export default {
     selectTopic: 'Select a conversation to start chatting',
     messagesCount: '{{count}} messages',
     loadEarlier: 'Load {{count}} earlier messages',
+    jumpToBottom: 'Jump to latest',
     railLabel: 'Conversation navigation',
     railJumpTo: 'Jump to this message',
     railYou: 'You',
