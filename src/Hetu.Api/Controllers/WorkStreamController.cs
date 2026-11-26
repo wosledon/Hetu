@@ -331,11 +331,13 @@ public class WorkStreamController : ControllerBase
         // 图片附件（视觉模型多模态输入）：与对话会话共用同一挂载规则
         ChatContextInjector.AttachImages(request.Images, modelInfo.ProviderType, chatMessages);
 
-        // 网络搜索 / 知识库 / 记忆：与对话会话共用同一套 RAG 注入与 SSE 事件
+        // 网络搜索 / 知识库 / 记忆：与对话会话共用同一套 RAG 注入与 SSE 事件；
+        // 作为 MAF AIContextProvider 在本轮首次模型调用前执行一次。
         // 记忆作用域：Code 会话按关联的受管项目注入「全局 ∪ 该项目」记忆（未关联项目则只有全局）
-        await _contextInjector.InjectRagAsync(
-            request.WebSearch, request.KnowledgeBase, request.Memory, request.Content ?? string.Empty, chatMessages, writer, modelInfo.ModelId,
-            topicId: null, projectId: project.ManagedProjectId, ct);
+        var ragProvider = new RagContextProvider(
+            _contextInjector, request.WebSearch, request.KnowledgeBase, request.Memory,
+            request.Content ?? string.Empty, writer, modelInfo.ModelId,
+            topicId: null, projectId: project.ManagedProjectId);
 
         var profile = BuiltinProfiles.Work;
         var allowedTools = profile.AllowedTools.Concat(mcpToolNames).ToList();
@@ -493,6 +495,7 @@ public class WorkStreamController : ControllerBase
             UsageRefId = sessionId,
             ContextWindowTokens = request.ContextWindow,
             Sink = sink,
+            ContextProviders = [ragProvider],
             Hooks = hooks,
             DrainSteering = () => _steering.Drain(steeringKey),
             EnableTools = request.EnableTools,

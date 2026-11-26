@@ -1,5 +1,6 @@
 using Hetu.Core.Interfaces;
 using Hetu.Core.Services.Tools;
+using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 
 namespace Hetu.Core.Services;
@@ -70,6 +71,8 @@ public class AgentLoopRequest
     public List<string> ToolNames { get; set; } = new();
     /// <summary>调用方预加载的运行中函数（如 MCP 工具），避免 Runner 重复建连。</summary>
     public IReadOnlyList<AIFunction>? RuntimeFunctions { get; set; }
+    /// <summary>本轮附加的 MAF 上下文提供者（RAG / 记忆 / 引用注入等），在每次模型调用前合并。</summary>
+    public IReadOnlyList<AIContextProvider>? ContextProviders { get; set; }
     public List<Guid> McpServerIds { get; set; } = new();
     public int MaxIterations { get; set; } = 15;
     public int MaxToolCallsPerTurn { get; set; } = 5;
