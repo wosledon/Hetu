@@ -56,13 +56,13 @@
     <aside class="docs-toc" data-docs-toc aria-label="本页目录"></aside>
     <div class="docs-body">
       <h1>Agent 循环</h1>
-<p class="lede">对话页、编码会话、任务看板、工作流四条入口共用同一个内核：<code>HetuAgentRunner.RunAsync</code>。它直接组合 Microsoft Agent Framework 的 <code>ChatClientAgent</code>、<code>FunctionInvokingChatClient</code> 与 <code>ToolApprovalAgent</code>，只负责业务事件转发、历史压缩与结果汇总。</p>
+<p class="lede">对话页、编码会话、任务看板、工作流四条入口共用同一个内核：<code>HetuAgentRunner.RunAsync</code>。它直接组合 Microsoft Agent Framework 的 <code>ChatClientAgent</code>、<code>FunctionInvokingChatClient</code> 与 <code>ToolApprovalAgent</code>，只负责业务事件转发、历史提供者接入与结果汇总。</p>
 
       <h2>一次运行的完整顺序</h2>
       <ol>
         <li><strong>解析模型</strong>：请求里带 <code>ModelId</code> 就按它创建 provider，否则用默认对话模型；两者都拿不到直接抛错（不静默降级）。</li>
               <li><strong>装载工具</strong>：先取内置 / 会话工具，再按会话绑定的 MCP 服务器加载 <code>tools/list</code> 结果，合并为 <code>AIFunction</code>。</li>
-        <li><strong>进入循环</strong>（默认最多 15 轮）：每轮开头先 <code>DrainSteering()</code> 把「运行中引导」并入上下文，再按配置触发历史压缩，然后调用模型。</li>
+        <li><strong>进入循环</strong>（默认最多 15 轮）：每轮开头先 <code>DrainSteering()</code> 把「运行中引导」并入上下文，历史由 <code>InMemoryChatHistoryProvider</code> 加载，并在取用前经 <code>HetuChatReducer</code> 压缩，然后调用模型。</li>
         <li><strong>处理模型输出</strong>：正文与思考通过事件流实时推出；工具调用交给调用方的判定器决定执行还是请求审批。</li>
         <li><strong>回填结果</strong>：工具结果写回上下文，同时通过事件出口推给前端；每轮的正文/思考/工具/用量累加进本轮结果。</li>
         <li><strong>收尾</strong>：没有更多工具调用时结束；到达迭代上限时 MAF 自动执行一次不带工具的收尾请求并标记 <code>iteration_limit</code>。调用方负责落库消息、写用量、补 <code>done</code> 帧。</li>
@@ -93,8 +93,8 @@
       <div class="table-wrap"><table>
         <thead><tr><th>行为</th><th>实现</th></tr></thead>
         <tbody>
-          <tr><td>压缩范围</td><td>历史压缩边界停在「当前用户消息」之前，避免用户原话被摘要；本轮新增工具输出另按当前轮预算做确定性截断，保留 ToolCallId 与最近结果</td></tr>
-          <tr><td>去重</td><td>已压缩过的历史片段会记入 <code>compressedIndexes</code>，长会话多轮迭代不会对同一段反复压缩</td></tr>
+          <tr><td>压缩范围</td><td>当前用户消息作为本轮 input 直接发送，不进入历史压缩；<code>InMemoryChatHistoryProvider</code> 只加载并压缩此前消息，避免用户原话被摘要。本轮新增工具输出另按当前轮预算做确定性截断，保留 ToolCallId 与最近结果</td></tr>
+          <tr><td>去重</td><td><code>CompressionPipelineService.PrepareForContextAsync</code> 用 SHA-256 缓存已压缩内容，多轮迭代不会对同一段反复调用压缩管道</td></tr>
           <tr><td>压缩方式</td><td>调用压缩管道的完整入口（允许 LLM 摘要，取决于管道模式与阈值）</td></tr>
           <tr><td>开销观测</td><td>首轮会单独估算系统提示与工具 schema 的字符开销并写日志，便于区分「提示太重」还是「历史太长」</td></tr>
         </tbody>
@@ -102,9 +102,9 @@
 
       <h2>工具装载与 MCP</h2>
       <ul>
-        <li>MCP 服务器在 <strong>不存在 / 已禁用 / 非 stdio 传输</strong> 时直接跳过并记 warning；单个服务器加载失败只记 error 并继续本轮，不让一个坏配置拖垮整轮对话。</li>
-        <li>加载成功的工具会与内置工具合并，名称冲突以内置为准；工具 schema 会参与后续的权限判定。</li>
-        <li>MCP 工具只在运行时注册，不落库；服务器配置在设置里维护。</li>
+        <li>MCP 服务器在 <strong>不存在 / 已禁用</strong> 时直接跳过并记 warning；单个服务器加载失败只记 error 并继续本轮，不让一个坏配置拖垮整轮对话。</li>
+        <li>支持的传输为 stdio 与 HTTP/SSE；加载成功的工具以 <code>McpClientTool</code> 直接作为 <code>AIFunction</code> 交给 MAF，与内置工具合并，名称冲突以内置为准。</li>
+        <li>MCP 工具不落库；服务器配置在设置里维护。</li>
       </ul>
 
       <h2>事件出口</h2>
@@ -143,7 +143,7 @@
       <ul>
         <li>行为异常先看日志里的 <code>[AgentLoop]</code> 与 <code>[Compression]</code>：前者能看到迭代次数与工具装载结果，后者能看到历史压缩的前后长度。</li>
         <li>怀疑压缩影响输出时，把 <code>CompressHistory</code> 关掉复现一次即可确认。</li>
-        <li>工具莫名不可用：检查 MCP 服务器是否被禁用、是否非 stdio，以及工具是否在权限模式或规则里被 deny。</li>
+        <li>工具莫名不可用：检查 MCP 服务器是否被禁用、连接配置是否可解析（支持 stdio 与 HTTP/SSE），以及工具是否在权限模式或规则里被 deny。</li>
       </ul>
     <div class="docs-pager"><a href="index.html">← 文档索引</a><a href="architecture.html">架构与实现 →</a></div>
     </div>
