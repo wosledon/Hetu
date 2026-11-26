@@ -164,18 +164,18 @@ public class WikiKnowledgeSyncServiceTests
         embeddingFactory.CreateEmbeddingProviderAsync(Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(embedding ? Substitute.For<IEmbeddingProvider>() : null));
 
-        var llmFactory = Substitute.For<ILLMProviderFactory>();
-        llmFactory.CreateScenarioProviderAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(graph ? Substitute.For<ILLMProvider>() : null));
-        llmFactory.CreateChatProviderAsync(Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(graph ? Substitute.For<ILLMProvider>() : null));
+        var text = Substitute.For<ITextGenerationClient>();
+        text.ResolveScenarioModelAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Guid?>(graph ? Guid.NewGuid() : null));
+        text.IsAvailableAsync(Arg.Any<Guid?>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(graph));
 
         var graphService = Substitute.For<IGraphService>();
         var service = new WikiKnowledgeSyncService(
             unitOfWork,
             coordinator,
             embeddingFactory,
-            llmFactory,
+            text,
             graphService,
             Substitute.For<ILogger<WikiKnowledgeSyncService>>());
 

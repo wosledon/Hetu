@@ -11,6 +11,7 @@ using Hetu.Shared.Workflow;
 using Microsoft.Agents.AI.Workflows;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using ExecutionContext = Hetu.Core.Services.Workflows.ExecutionContext;
 
@@ -372,12 +373,9 @@ public class WorkflowExecutionTests
         return unitOfWork;
     }
 
-    private static ServiceProvider CreateServices(ILLMProvider provider, IUnitOfWork unitOfWork)
+    private static ServiceProvider CreateServices(IScriptedModel provider, IUnitOfWork unitOfWork)
     {
         var localizer = CreateLocalizer();
-        var factory = Substitute.For<ILLMProviderFactory>();
-        factory.CreateChatProviderAsync(Arg.Any<CancellationToken>()).Returns(provider);
-        factory.CreateProviderAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(provider);
 
         var services = new ServiceCollection();
         services.AddLogging();
@@ -387,13 +385,14 @@ public class WorkflowExecutionTests
         services.AddScoped<ToolRegistry>();
         services.AddSingleton(localizer);
         services.AddSingleton(unitOfWork);
-        services.AddSingleton(factory);
         services.AddSingleton(Substitute.For<IAppSettingService>());
         services.AddSingleton(Substitute.For<ILogger<ToolExecutionService>>());
         services.AddSingleton(Substitute.For<ILogger<AgentNodeExecutor>>());
         services.AddSingleton(Substitute.For<ILogger<CompressionPipelineService>>());
         services.AddSingleton(Substitute.For<ILogger<ContextCompactionService>>());
         services.AddSingleton(Substitute.For<ILlmUsageRecorder>());
+        services.AddSingleton(Substitute.For<ITextGenerationClient>());
+        services.AddSingleton(new McpClientProvider(NullLoggerFactory.Instance));
         services.AddSingleton<ToolExecutionService>();
         services.AddSingleton<CompressionPipelineService>();
         services.AddSingleton<ContextCompactionService>();
@@ -473,7 +472,7 @@ public class WorkflowExecutionTests
         }
     }
 
-    private sealed class ScriptedProvider(IEnumerable<string[]> turns) : ILLMProvider
+    private sealed class ScriptedProvider(IEnumerable<string[]> turns) : IScriptedModel
     {
         private readonly Queue<string[]> _turns = new(turns);
 

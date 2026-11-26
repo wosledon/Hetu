@@ -41,8 +41,6 @@ public class WorkToolScope
     public string? DiagnosticsCommand { get; set; }
     /// <summary>项目命令执行器（SSH 项目为远端执行）</summary>
     public IWorkCommandRunner? Runner { get; set; }
-    /// <summary>运行时工具（如 MCP 适配器），需注册到执行作用域</summary>
-    public IReadOnlyList<IToolExecutor>? RuntimeTools { get; set; }
 }
 
 /// <summary>项目内安全路径解析（防目录穿越）</summary>

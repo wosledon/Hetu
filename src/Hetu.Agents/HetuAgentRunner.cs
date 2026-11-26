@@ -6,6 +6,7 @@ using Hetu.Core.Services.Tools;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
+using ModelContextProtocol.Client;
 using AiChatOptions = Microsoft.Extensions.AI.ChatOptions;
 
 namespace Hetu.Agents;
@@ -24,6 +25,7 @@ internal sealed class HetuAgentRunner : IAgentRunner
     private readonly ToolRegistry _toolRegistry;
     private readonly ToolExecutionService _toolExecution;
     private readonly CompressionPipelineService _compression;
+    private readonly McpClientProvider _mcpClients;
     private readonly ILocalizer _localizer;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<HetuAgentRunner> _logger;
@@ -33,6 +35,7 @@ internal sealed class HetuAgentRunner : IAgentRunner
         ToolRegistry toolRegistry,
         ToolExecutionService toolExecution,
         CompressionPipelineService compression,
+        McpClientProvider mcpClients,
         ILocalizer localizer,
         IUnitOfWork unitOfWork,
         ILogger<HetuAgentRunner> logger)
@@ -41,6 +44,7 @@ internal sealed class HetuAgentRunner : IAgentRunner
         _toolRegistry = toolRegistry;
         _toolExecution = toolExecution;
         _compression = compression;
+        _mcpClients = mcpClients;
         _localizer = localizer;
         _unitOfWork = unitOfWork;
         _logger = logger;
@@ -55,41 +59,36 @@ internal sealed class HetuAgentRunner : IAgentRunner
             : new AgentModelInfo(resolved.Model.Id, resolved.ProviderType, resolved.Model.SupportsVision);
     }
 
-    public async Task<List<string>> LoadMcpToolsAsync(List<Guid> mcpServerIds, CancellationToken ct)
+    public async Task<IReadOnlyList<AIFunction>> LoadMcpToolsAsync(List<Guid> mcpServerIds, CancellationToken ct)
     {
-        var names = new List<string>();
-        if (mcpServerIds is null || mcpServerIds.Count == 0) return names;
+        var functions = new List<AIFunction>();
+        if (mcpServerIds is null || mcpServerIds.Count == 0) return functions;
 
         var servers = (await _unitOfWork.McpServers.FindAsync(s => mcpServerIds.Contains(s.Id), ct))
             .ToDictionary(s => s.Id);
         foreach (var serverId in mcpServerIds)
         {
             var server = servers.GetValueOrDefault(serverId);
-            if (server == null || !server.IsEnabled || server.Type != "stdio")
+            if (server == null || !server.IsEnabled)
             {
-                _logger.LogWarning("跳过 MCP 服务器 {ServerId}：不存在/已禁用/非 stdio", serverId);
+                _logger.LogWarning("跳过 MCP 服务器 {ServerId}：不存在/已禁用", serverId);
                 continue;
             }
 
             try
             {
-                var client = await McpClientPool.Shared.GetAsync(server.ConnectionConfig, _localizer, ct);
-                var tools = await client.ListToolsAsync(ct);
-                foreach (var tool in tools)
-                {
-                    var adapter = new McpToolAdapter(server.Name, server.ConnectionConfig, tool, _localizer);
-                    _toolRegistry.AddRuntimeTool(adapter);
-                    names.Add(adapter.Name);
-                }
+                var client = await _mcpClients.GetAsync(server.ConnectionConfig, ct);
+                var tools = await client.ListToolsAsync(cancellationToken: ct);
+                functions.AddRange(tools.Select(tool => (AIFunction)tool.WithName(BuildMcpToolName(server.Name, tool.Name))));
                 _logger.LogInformation("从 MCP 服务器 {ServerName} 加载 {Count} 个工具", server.Name, tools.Count);
             }
             catch (Exception ex)
             {
-                McpClientPool.Shared.Invalidate(server.ConnectionConfig);
+                _mcpClients.Invalidate(server.ConnectionConfig);
                 _logger.LogError(ex, "加载 MCP 服务器 {ServerName} 工具失败", server.Name);
             }
         }
-        return names;
+        return functions;
     }
 
     public async Task<AgentLoopResult> RunAsync(AgentLoopRequest request, CancellationToken ct)
@@ -97,14 +96,14 @@ internal sealed class HetuAgentRunner : IAgentRunner
         var resolved = await _agentFactory.ResolveAsync(request.ModelId, ct)
                        ?? throw new InvalidOperationException(_localizer.T("model.noModelConfigured"));
         request.ModelId ??= resolved.Model.Id;
-        var mcpToolNames = await LoadMcpToolsAsync(request.McpServerIds, ct);
+        var mcpTools = request.RuntimeFunctions ?? await LoadMcpToolsAsync(request.McpServerIds, ct);
         var state = new AgentRunState(request);
         state.Result.ModelId = resolved.Model.Id.ToString();
 
         try
         {
             await PrepareHistoryAsync(state, ct);
-            BuildTools(state, mcpToolNames);
+            BuildTools(state, mcpTools);
 
             var options = BuildAgentOptions(state, resolved);
             var agent = _agentFactory.Create(resolved, options, state, request.MaxIterations > 0 ? request.MaxIterations : DefaultMaxIterations);
@@ -140,17 +139,32 @@ internal sealed class HetuAgentRunner : IAgentRunner
                             case ToolApprovalRequestContent approval:
                                 approvals.Add(approval);
                                 break;
+                            case FunctionCallContent call:
+                                state.ApprovalToolNames[call.CallId] = call.Name;
+                                state.ToolCallArguments[call.CallId] = JsonSerializer.Serialize(call.Arguments);
+                                break;
                             case FunctionResultContent result when !state.RecordedToolCallIds.Contains(result.CallId):
                                 {
-                                    // 审批被拒绝等未进入工具函数的结果，由 MAF 直接生成；补一条 SSE tool_result，避免前端卡片悬挂。
+                                    // 审批被拒绝或原生 MCP 工具等未进入 HetuAIFunction 的结果，由 MAF 直接生成；
+                                    // 补 tool_call/tool_result，避免前端卡片悬挂或缺参数。
                                     var resultText = AgentMessageMapper.ConvertResult(result.Result);
                                     var name = state.ApprovalToolNames.GetValueOrDefault(result.CallId) ?? "tool";
+                                    var arguments = state.ToolCallArguments.GetValueOrDefault(result.CallId) ?? "{}";
+                                    var isError = result.Exception is not null;
                                     state.AppendToolCall(new AgentToolCallRecord
                                     {
                                         Id = result.CallId,
                                         Name = name,
+                                        Arguments = arguments,
                                         Result = resultText,
-                                        IsError = true,
+                                        IsError = isError,
+                                    });
+                                    await state.Sink.OnEventAsync(new
+                                    {
+                                        type = "tool_call",
+                                        id = result.CallId,
+                                        name,
+                                        arguments,
                                     });
                                     await state.Sink.OnEventAsync(new
                                     {
@@ -158,8 +172,10 @@ internal sealed class HetuAgentRunner : IAgentRunner
                                         id = result.CallId,
                                         name,
                                         content = resultText,
-                                        isError = true,
+                                        isError,
                                     });
+                                    await state.Sink.OnToolCallAsync(new LlmToolCall { Id = result.CallId, Name = name, Arguments = arguments });
+                                    await state.Sink.OnToolResultAsync(result.CallId, resultText, isError);
                                     break;
                                 }
                         }
@@ -193,10 +209,6 @@ internal sealed class HetuAgentRunner : IAgentRunner
             state.Result.Error = ex.Message;
             _logger.LogError(ex, "[Agent] 运行异常 session={SessionId}", request.SessionId);
             try { await state.Sink.OnErrorAsync(ex.Message); } catch { }
-        }
-        finally
-        {
-            if (!request.PreserveRuntimeTools) _toolRegistry.ClearRuntimeTools();
         }
 
         return state.Result;
@@ -236,15 +248,16 @@ internal sealed class HetuAgentRunner : IAgentRunner
         state.Result.FirstIterationCompressedChars = (int)afterChars;
     }
 
-    private void BuildTools(AgentRunState state, IReadOnlyList<string> mcpToolNames)
+    private void BuildTools(AgentRunState state, IReadOnlyList<AIFunction> runtimeFunctions)
     {
         var request = state.Request;
-        var allNames = request.ToolNames.Concat(mcpToolNames)
+        var runtimeByName = runtimeFunctions.ToDictionary(function => function.Name, StringComparer.OrdinalIgnoreCase);
+        var allNames = request.ToolNames.Concat(runtimeByName.Keys)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
         state.CoreToolNames = request.CoreToolNames is { Count: > 0 }
-            ? allNames.Where(name => mcpToolNames.Contains(name, StringComparer.OrdinalIgnoreCase)
+            ? allNames.Where(name => runtimeByName.ContainsKey(name)
                                      || request.CoreToolNames.Contains(name, StringComparer.OrdinalIgnoreCase))
                 .ToList()
             : allNames;
@@ -259,28 +272,43 @@ internal sealed class HetuAgentRunner : IAgentRunner
 
         foreach (var name in allNames)
         {
-            var executor = _toolRegistry.GetExecutor(name);
-            if (executor == null) continue;
+            AIFunction? function = null;
+            var interactive = false;
 
-            var description = _toolRegistry.Describe(executor);
-            var guideline = _toolRegistry.Guideline(executor);
-            if (!string.IsNullOrWhiteSpace(guideline)) description = $"{description}｜{guideline}";
-            var schemaText = _toolRegistry.LocalizeParameters(executor.Name, executor.ParametersSchema.GetRawText())
-                             ?? executor.ParametersSchema.GetRawText();
-            using var schemaDoc = JsonDocument.Parse(schemaText);
-            var schema = schemaDoc.RootElement.Clone();
+            if (runtimeByName.TryGetValue(name, out var runtimeFunction))
+            {
+                function = runtimeFunction;
+            }
+            else
+            {
+                var executor = _toolRegistry.GetExecutor(name);
+                if (executor == null) continue;
 
-            AIFunction function = new HetuAIFunction(
-                executor, _toolExecution, _compression, _localizer, state, _logger,
-                description, schema);
+                var description = _toolRegistry.Describe(executor);
+                var guideline = _toolRegistry.Guideline(executor);
+                if (!string.IsNullOrWhiteSpace(guideline)) description = $"{description}｜{guideline}";
+                var schemaText = _toolRegistry.LocalizeParameters(executor.Name, executor.ParametersSchema.GetRawText())
+                                 ?? executor.ParametersSchema.GetRawText();
+                using var schemaDoc = JsonDocument.Parse(schemaText);
+                function = new HetuAIFunction(
+                    executor, _toolExecution, _compression, _localizer, state, _logger,
+                    description, schemaDoc.RootElement.Clone());
+                interactive = InteractiveTools.IsInteractive(executor.Name);
+            }
 
-            // 交互工具自己等待用户输入；其余工具都交给 MAF 审批管道，由 ToolApprovalAgent 按当前权限模式自动放行或询问。
-            if (!InteractiveTools.IsInteractive(executor.Name))
+            // 交互工具自己等待用户输入；其余工具（含 MCP）都交给 MAF 审批管道。
+            if (!interactive)
                 function = new ApprovalRequiredAIFunction(function);
 
             state.Functions[name] = function;
         }
     }
+
+    private static string BuildMcpToolName(string serverName, string toolName)
+        => $"mcp_{Sanitize(serverName)}_{Sanitize(toolName)}";
+
+    private static string Sanitize(string input)
+        => string.Concat(input.Where(c => char.IsLetterOrDigit(c) || c is '_' or '-'));
 
     private ChatClientAgentOptions BuildAgentOptions(
         AgentRunState state,
@@ -330,6 +358,18 @@ internal sealed class HetuAgentRunner : IAgentRunner
         var arguments = functionCall != null ? JsonSerializer.Serialize(functionCall.Arguments) : "{}";
         state.ApprovalToolNames[callId] = name;
 
+        var decision = state.PendingToolDecisions.Remove(callId, out var cached)
+            ? cached
+            : await EvaluatePermissionAsync(state, callId, name, arguments);
+        if (!decision.Allowed)
+        {
+            var denyMessage = decision.DenyMessage ?? _localizer.T("toolExec.denied", name);
+            await EmitDeniedToolAsync(state, callId, name, arguments, denyMessage);
+            return request.CreateResponse(false, denyMessage);
+        }
+        if (decision.Mode != ToolApprovalMode.Ask)
+            return request.CreateResponse(true);
+
         var pending = _toolExecution.RegisterApproval(state.Request.SessionId, callId);
         await state.Sink.OnEventAsync(new
         {
@@ -353,7 +393,13 @@ internal sealed class HetuAgentRunner : IAgentRunner
             _toolExecution.RemoveApproval(state.Request.SessionId, callId);
         }
 
-        return request.CreateResponse(approved, approved ? null : _localizer.T("toolExec.userDenied", name));
+        if (!approved)
+        {
+            var denyMessage = _localizer.T("toolExec.userDenied", name);
+            await EmitDeniedToolAsync(state, callId, name, arguments, denyMessage);
+            return request.CreateResponse(false, denyMessage);
+        }
+        return request.CreateResponse(true);
     }
 
     private async Task<bool> ShouldAutoApproveAsync(AgentRunState state, ToolAutoApprovalRuleContext context)
@@ -368,18 +414,71 @@ internal sealed class HetuAgentRunner : IAgentRunner
                 ? byWildcard
                 : (ToolApprovalMode?)null;
         var approval = explicitOverride ?? executor?.DefaultApproval ?? ToolApprovalMode.Auto;
-
         if (state.Request.DecideToolCall == null)
             return approval != ToolApprovalMode.Ask;
 
-        var call = new LlmToolCall
-        {
-            Id = functionCall.CallId,
-            Name = functionCall.Name,
-            Arguments = JsonSerializer.Serialize(functionCall.Arguments),
-        };
+        var decision = await EvaluatePermissionAsync(
+            state,
+            functionCall.CallId,
+            functionCall.Name,
+            JsonSerializer.Serialize(functionCall.Arguments));
+        state.PendingToolDecisions[functionCall.CallId] = decision;
+        return decision.Allowed && decision.Mode != ToolApprovalMode.Ask;
+    }
+
+    private async Task<WorkToolDecision> EvaluatePermissionAsync(
+        AgentRunState state,
+        string callId,
+        string toolName,
+        string arguments)
+    {
+        var executor = _toolRegistry.GetExecutor(toolName);
+        var explicitOverride = state.Request.ToolApprovals.TryGetValue(toolName, out var byName)
+            ? byName
+            : state.Request.ToolApprovals.TryGetValue("*", out var byWildcard)
+                ? byWildcard
+                : (ToolApprovalMode?)null;
+        var approval = explicitOverride ?? executor?.DefaultApproval ?? ToolApprovalMode.Auto;
+        if (state.Request.DecideToolCall == null)
+            return new WorkToolDecision(true, approval);
+
+        var call = new LlmToolCall { Id = callId, Name = toolName, Arguments = arguments };
         var decision = await state.Request.DecideToolCall(call, approval);
-        return !decision.Allowed || (explicitOverride ?? decision.Mode) != ToolApprovalMode.Ask;
+        return explicitOverride is { } mode ? decision with { Mode = mode } : decision;
+    }
+
+    private async Task EmitDeniedToolAsync(
+        AgentRunState state,
+        string callId,
+        string name,
+        string arguments,
+        string message)
+    {
+        state.AppendToolCall(new AgentToolCallRecord
+        {
+            Id = callId,
+            Name = name,
+            Arguments = arguments,
+            Result = message,
+            IsError = true,
+        });
+        await state.Sink.OnEventAsync(new
+        {
+            type = "tool_call",
+            id = callId,
+            name,
+            arguments,
+        });
+        await state.Sink.OnEventAsync(new
+        {
+            type = "tool_result",
+            id = callId,
+            name,
+            content = message,
+            isError = true,
+        });
+        await state.Sink.OnToolCallAsync(new LlmToolCall { Id = callId, Name = name, Arguments = arguments });
+        await state.Sink.OnToolResultAsync(callId, message, true);
     }
 
     private static string ComposeSystemPrompt(

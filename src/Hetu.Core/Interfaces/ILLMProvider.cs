@@ -55,6 +55,12 @@ public class LlmChatResult
 {
     public string Content { get; set; } = string.Empty;
     public LlmUsage? Usage { get; set; }
+    /// <summary>模型单独返回的思考内容（若 Provider 有）。</summary>
+    public string? Thinking { get; set; }
+    /// <summary>结束原因（stop / length / max_tokens 等）。</summary>
+    public string? FinishReason { get; set; }
+    /// <summary>本次请求耗时（毫秒）。</summary>
+    public long ElapsedMs { get; set; }
 }
 
 /// <summary>
@@ -144,20 +150,4 @@ public class LlmStreamResult
     public string? Thinking { get; set; }
     public List<LlmToolCall>? ToolCalls { get; set; }
     public bool HasToolCalls => ToolCalls is { Count: > 0 };
-}
-
-public interface ILLMProvider
-{
-    string ProviderType { get; }
-    bool SupportsStreaming { get; }
-    Task<string> ChatAsync(IReadOnlyList<LlmChatMessage> messages, ChatOptions options, CancellationToken cancellationToken = default);
-    IAsyncEnumerable<string> ChatStreamAsync(IReadOnlyList<LlmChatMessage> messages, ChatOptions options, CancellationToken cancellationToken = default);
-    Task<string> CompleteAsync(string prompt, CompletionOptions options, CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// 非流式调用并带回用量。默认实现退回 <see cref="ChatAsync"/>（用量为空）；
-    /// 能从响应体读到 usage 的 Provider 应重写，否则这些调用在用量统计里只有输入没有输出。
-    /// </summary>
-    async Task<LlmChatResult> ChatWithUsageAsync(IReadOnlyList<LlmChatMessage> messages, ChatOptions options, CancellationToken cancellationToken = default)
-        => new LlmChatResult { Content = await ChatAsync(messages, options, cancellationToken) };
 }

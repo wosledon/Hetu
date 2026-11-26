@@ -268,11 +268,6 @@ public class ToolExecutionService
         workContext.WriteEventAsync = writeJsonAsync;
         workContext.Runner = workScope?.Runner;
         var toolRegistry = scope.ServiceProvider.GetRequiredService<ToolRegistry>();
-        if (workScope?.RuntimeTools != null)
-        {
-            foreach (var runtimeTool in workScope.RuntimeTools)
-                toolRegistry.AddRuntimeTool(runtimeTool);
-        }
 
         var executor = toolRegistry.GetExecutor(toolCall.Name);
         var explicitOverride = approvalOverrides.TryGetValue(toolCall.Name, out var byName)

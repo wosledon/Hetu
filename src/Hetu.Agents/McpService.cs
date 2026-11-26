@@ -1,21 +1,23 @@
-using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 using Hetu.Core.Entities;
 using Hetu.Core.Interfaces;
 using Hetu.Shared.AI;
 using Hetu.Shared.Common;
+using ModelContextProtocol.Protocol;
 
-namespace Hetu.Core.Services;
+namespace Hetu.Agents;
 
 public class McpService : IMcpService
 {
     private readonly IUnitOfWork _unitOfWork;
+    private readonly McpClientProvider _clients;
     private readonly ILocalizer _localizer;
 
-    public McpService(IUnitOfWork unitOfWork, ILocalizer localizer)
+    public McpService(IUnitOfWork unitOfWork, McpClientProvider clients, ILocalizer localizer)
     {
         _unitOfWork = unitOfWork;
+        _clients = clients;
         _localizer = localizer;
     }
 
@@ -88,16 +90,21 @@ public class McpService : IMcpService
         var server = await _unitOfWork.McpServers.GetByIdAsync(serverId, cancellationToken);
         if (server == null) return ApiResponse<List<McpToolDto>>.Fail(_localizer.T("mcp.serverNotFound"));
         if (!server.IsEnabled) return ApiResponse<List<McpToolDto>>.Fail(_localizer.T("mcp.serverDisabled"));
-        if (server.Type != "stdio") return ApiResponse<List<McpToolDto>>.Fail(_localizer.T("mcp.stdioOnly"));
 
         try
         {
-            using var client = new StdioMcpClient(server.ConnectionConfig, _localizer);
-            var tools = await client.ListToolsAsync(cancellationToken);
-            return ApiResponse<List<McpToolDto>>.Ok(tools);
+            var client = await _clients.GetAsync(server.ConnectionConfig, cancellationToken);
+            var tools = await client.ListToolsAsync(cancellationToken: cancellationToken);
+            return ApiResponse<List<McpToolDto>>.Ok(tools.Select(tool => new McpToolDto
+            {
+                Name = tool.Name,
+                Description = tool.Description,
+                InputSchema = tool.JsonSchema,
+            }).ToList());
         }
         catch (Exception ex)
         {
+            _clients.Invalidate(server.ConnectionConfig);
             return ApiResponse<List<McpToolDto>>.Fail(_localizer.T("mcp.listToolsFailed", ex.Message));
         }
     }
@@ -107,16 +114,26 @@ public class McpService : IMcpService
         var server = await _unitOfWork.McpServers.GetByIdAsync(serverId, cancellationToken);
         if (server == null) return ApiResponse<CallMcpToolResultDto>.Fail(_localizer.T("mcp.serverNotFound"));
         if (!server.IsEnabled) return ApiResponse<CallMcpToolResultDto>.Fail(_localizer.T("mcp.serverDisabled"));
-        if (server.Type != "stdio") return ApiResponse<CallMcpToolResultDto>.Fail(_localizer.T("mcp.stdioOnly"));
 
         try
         {
-            using var client = new StdioMcpClient(server.ConnectionConfig, _localizer);
-            var result = await client.CallToolAsync(request.ToolName, request.Arguments, cancellationToken);
-            return ApiResponse<CallMcpToolResultDto>.Ok(result);
+            var client = await _clients.GetAsync(server.ConnectionConfig, cancellationToken);
+            var result = await client.CallToolAsync(
+                request.ToolName,
+                request.Arguments?.ToDictionary(pair => pair.Key, pair => (object?)pair.Value),
+                cancellationToken: cancellationToken);
+            var content = string.Join("\n", result.Content.OfType<TextContentBlock>().Select(block => block.Text));
+            if (string.IsNullOrEmpty(content) && result.StructuredContent is { } structured)
+                content = JsonSerializer.Serialize(structured);
+            return ApiResponse<CallMcpToolResultDto>.Ok(new CallMcpToolResultDto
+            {
+                Content = content,
+                IsError = result.IsError ?? false,
+            });
         }
         catch (Exception ex)
         {
+            _clients.Invalidate(server.ConnectionConfig);
             return ApiResponse<CallMcpToolResultDto>.Fail(_localizer.T("mcp.callToolFailed", ex.Message));
         }
     }

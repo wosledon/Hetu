@@ -10,6 +10,7 @@ public static class ServiceCollectionExtensions
     {
         services.AddScoped<AgentModelResolver>();
         services.AddScoped<IAgentFactory, HetuAgentFactory>();
+        services.AddScoped<ITextGenerationClient, MafTextGenerationClient>();
         services.AddScoped<IAgentRunner, HetuAgentRunner>();
         return services;
     }

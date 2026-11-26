@@ -6,6 +6,7 @@ using Hetu.Core.Services;
 using Hetu.Core.Services.Tools;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 
 namespace Hetu.Core.Tests;
@@ -131,16 +132,13 @@ public class SubAgentExecutionTests
         }
     }
 
-    private static ServiceProvider CreateServices(IToolExecutor executor, ILLMProvider provider)
+    private static ServiceProvider CreateServices(IToolExecutor executor, IScriptedModel provider)
     {
         var localizer = Substitute.For<ILocalizer>();
         localizer.T(Arg.Any<string>(), Arg.Any<object[]>()).Returns(call => call.Arg<string>());
         localizer.T(Arg.Any<string>()).Returns(call => call.Arg<string>());
 
         var registry = new ToolRegistry([executor], localizer);
-        var factory = Substitute.For<ILLMProviderFactory>();
-        factory.CreateChatProviderAsync(Arg.Any<CancellationToken>()).Returns(provider);
-        factory.CreateProviderAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(provider);
 
         var services = new ServiceCollection();
         services.AddLogging();
@@ -149,11 +147,12 @@ public class SubAgentExecutionTests
         services.AddSingleton(localizer);
         services.AddSingleton(Substitute.For<IUnitOfWork>());
         services.AddSingleton(Substitute.For<IAppSettingService>());
-        services.AddSingleton(factory);
         services.AddSingleton(Substitute.For<ILogger<ToolExecutionService>>());
         services.AddSingleton(Substitute.For<ILogger<CompressionPipelineService>>());
         services.AddSingleton(Substitute.For<ILogger<ContextCompactionService>>());
         services.AddSingleton(Substitute.For<ILlmUsageRecorder>());
+        services.AddSingleton(Substitute.For<ITextGenerationClient>());
+        services.AddSingleton(new McpClientProvider(NullLoggerFactory.Instance));
         services.AddSingleton<ToolExecutionService>();
         services.AddSingleton<CompressionPipelineService>();
         services.AddSingleton<ContextCompactionService>();
@@ -190,15 +189,11 @@ public class SubAgentExecutionTests
 
     private static string ContentFrame(string text) => JsonSerializer.Serialize(new { type = "content", text });
 
-    private sealed class ScriptedProvider(IEnumerable<string[]> turns) : ILLMProvider
+    private sealed class ScriptedProvider(IEnumerable<string[]> turns) : IScriptedModel
     {
         private readonly Queue<string[]> _turns = new(turns);
 
         public string ProviderType => "test";
-        public bool SupportsStreaming => true;
-
-        public Task<string> ChatAsync(IReadOnlyList<LlmChatMessage> messages, ChatOptions options, CancellationToken cancellationToken = default)
-            => Task.FromResult(string.Empty);
 
         public async IAsyncEnumerable<string> ChatStreamAsync(
             IReadOnlyList<LlmChatMessage> messages,
@@ -209,8 +204,5 @@ public class SubAgentExecutionTests
             await Task.Yield();
             foreach (var frame in frames) yield return frame;
         }
-
-        public Task<string> CompleteAsync(string prompt, CompletionOptions options, CancellationToken cancellationToken = default)
-            => Task.FromResult(string.Empty);
     }
 }

@@ -14,7 +14,7 @@ namespace Hetu.Core.Services;
 public class GraphService : IGraphService
 {
     private readonly IUnitOfWork _unitOfWork;
-    private readonly ILLMProviderFactory _llmProviderFactory;
+    private readonly ITextGenerationClient _text;
     private readonly ILlmUsageRecorder _usageRecorder;
     private readonly IMemoryCache _cache;
     private readonly CompressionPipelineService _compression;
@@ -45,10 +45,10 @@ public class GraphService : IGraphService
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
 
-    public GraphService(IUnitOfWork unitOfWork, ILLMProviderFactory llmProviderFactory, ILlmUsageRecorder usageRecorder, IMemoryCache cache, CompressionPipelineService compression, ILocalizer localizer)
+    public GraphService(IUnitOfWork unitOfWork, ITextGenerationClient text, ILlmUsageRecorder usageRecorder, IMemoryCache cache, CompressionPipelineService compression, ILocalizer localizer)
     {
         _unitOfWork = unitOfWork;
-        _llmProviderFactory = llmProviderFactory;
+        _text = text;
         _usageRecorder = usageRecorder;
         _cache = cache;
         _compression = compression;
@@ -361,10 +361,7 @@ public class GraphService : IGraphService
         Guid refId,
         CancellationToken cancellationToken)
     {
-        var provider = await _llmProviderFactory.CreateScenarioProviderAsync("Graph", cancellationToken)
-                       ?? await _llmProviderFactory.CreateChatProviderAsync(cancellationToken);
-        if (provider == null)
-            return ApiResponse<ExtractGraphResultDto>.Fail(_localizer.T("graph.modelUnavailable"));
+        var scenarioModelId = await _text.ResolveScenarioModelAsync("Graph", cancellationToken);
 
         // 单轮提取：只过算法压缩（跳过 LLM 摘要），不截断——长文靠压缩瘦身，避免提取不全
         var content = await _compression.CompressAlgorithmicAsync(rawContent, cancellationToken);
@@ -395,19 +392,31 @@ public class GraphService : IGraphService
             - 只提取真正重要的实体和关系，不要过度提取
             """;
 
-        // SSE 调用：拿正文的同时取 Provider 用量（输出/总计）与延迟，供请求日志展示
-        var callResult = await LlmStreamCaller.CallAsync(
-            provider, prompt, "你是知识图谱提取助手。只输出 JSON，不要输出其他内容。", maxTokens: null, cancellationToken);
+        // 调用模型：拿正文的同时取用量与延迟，供请求日志展示
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        var callResult = await _text.ChatWithUsageAsync(
+            scenarioModelId,
+            [new LlmChatMessage { Role = "user", Content = prompt }],
+            new ChatOptions
+            {
+                ModelId = string.Empty,
+                SystemPrompt = "你是知识图谱提取助手。只输出 JSON，不要输出其他内容。",
+            },
+            cancellationToken);
+        clock.Stop();
+        if (string.IsNullOrWhiteSpace(callResult.Content))
+            return ApiResponse<ExtractGraphResultDto>.Fail(_localizer.T("graph.modelUnavailable"));
 
         await _usageRecorder.RecordAsync(
             LlmUsageSources.Graph,
             callResult.Usage,
             refId: refId,
+            modelId: scenarioModelId,
             // 输入=压缩前估算（实际发送 + 被压缩的内容增量），压缩后=实际发送 prompt
             inputTokens: LlmTokenEstimator.Estimate(prompt)
                 + LlmTokenEstimator.Estimate(rawContent) - LlmTokenEstimator.Estimate(content),
             compressedTokens: LlmTokenEstimator.Estimate(prompt),
-            latencyMs: (int)callResult.ElapsedMs,
+            latencyMs: (int)clock.ElapsedMilliseconds,
             contentPreview: title,
             ct: cancellationToken);
 

@@ -116,7 +116,7 @@ public class HetuAgentRunnerTests
         return executor;
     }
 
-    private static ServiceProvider CreateServices(IToolExecutor executor, ILLMProvider provider)
+    private static ServiceProvider CreateServices(IToolExecutor executor, IScriptedModel provider)
     {
         var localizer = Substitute.For<ILocalizer>();
         localizer.T(Arg.Any<string>(), Arg.Any<object[]>()).Returns(call => call.Arg<string>());
@@ -130,11 +130,12 @@ public class HetuAgentRunnerTests
         services.AddSingleton(localizer);
         services.AddSingleton(Substitute.For<IUnitOfWork>());
         services.AddSingleton(Substitute.For<IAppSettingService>());
-        services.AddSingleton(Substitute.For<ILLMProviderFactory>());
         services.AddSingleton(Substitute.For<ILogger<ToolExecutionService>>());
         services.AddSingleton(Substitute.For<ILogger<CompressionPipelineService>>());
         services.AddSingleton<ILogger<HetuAgentRunner>>(NullLogger<HetuAgentRunner>.Instance);
         services.AddSingleton(Substitute.For<ILlmUsageRecorder>());
+        services.AddSingleton(Substitute.For<ITextGenerationClient>());
+        services.AddSingleton(new McpClientProvider(NullLoggerFactory.Instance));
         services.AddSingleton<ToolExecutionService>();
         services.AddSingleton<CompressionPipelineService>();
         services.AddSingleton<IAgentFactory>(new ScriptedAgentFactory(provider));
@@ -162,15 +163,11 @@ public class HetuAgentRunnerTests
         }
     }
 
-    private sealed class ScriptedProvider(IEnumerable<string[]> turns) : ILLMProvider
+    private sealed class ScriptedProvider(IEnumerable<string[]> turns) : IScriptedModel
     {
         private readonly Queue<string[]> _turns = new(turns);
 
         public string ProviderType => "test";
-        public bool SupportsStreaming => true;
-
-        public Task<string> ChatAsync(IReadOnlyList<LlmChatMessage> messages, ChatOptions options, CancellationToken cancellationToken = default)
-            => Task.FromResult(string.Empty);
 
         public async IAsyncEnumerable<string> ChatStreamAsync(
             IReadOnlyList<LlmChatMessage> messages,
@@ -181,8 +178,5 @@ public class HetuAgentRunnerTests
             await Task.Yield();
             foreach (var frame in frames) yield return frame;
         }
-
-        public Task<string> CompleteAsync(string prompt, CompletionOptions options, CancellationToken cancellationToken = default)
-            => Task.FromResult(string.Empty);
     }
 }

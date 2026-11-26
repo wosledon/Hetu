@@ -10,14 +10,14 @@ public class ProxyService
 {
     private readonly ModelKeyResolver _resolver;
     private readonly ProxyRouteClassifier _classifier;
-    private readonly ILLMProviderFactory _llmFactory;
+    private readonly ITextGenerationClient _text;
     private readonly ProxyConfigService _config;
 
-    public ProxyService(ModelKeyResolver resolver, ProxyRouteClassifier classifier, ILLMProviderFactory llmFactory, ProxyConfigService config)
+    public ProxyService(ModelKeyResolver resolver, ProxyRouteClassifier classifier, ITextGenerationClient text, ProxyConfigService config)
     {
         _resolver = resolver;
         _classifier = classifier;
-        _llmFactory = llmFactory;
+        _text = text;
         _config = config;
     }
 
@@ -50,12 +50,8 @@ public class ProxyService
         if (!string.IsNullOrWhiteSpace(config.RouteClassifierModelKey))
         {
             var classifierResolved = await _resolver.ResolveAsync(config.RouteClassifierModelKey, ct);
-            ILLMProvider? classifierProvider = null;
             if (classifierResolved != null)
-                classifierProvider = await _llmFactory.CreateProviderAsync(classifierResolved.Value.model.Id, ct);
-
-            if (classifierProvider != null)
-                category = await _classifier.ClassifyByLlmAsync(classifierProvider, userText, ct) ?? _classifier.ClassifyByRules(userText);
+                category = await _classifier.ClassifyByLlmAsync(_text, classifierResolved.Value.model.Id, userText, ct) ?? _classifier.ClassifyByRules(userText);
             else
                 category = _classifier.ClassifyByRules(userText);
         }

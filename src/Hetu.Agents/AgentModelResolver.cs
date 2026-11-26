@@ -42,6 +42,21 @@ public sealed class AgentModelResolver
         return new ResolvedAgentModel(model, provider, apiKey, baseUrl);
     }
 
+    public async Task<Guid?> ResolveScenarioAsync(string scenario, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(scenario)) return null;
+        var setting = await _unitOfWork.AppSettings.GetByKeyAsync($"Default{scenario}ModelId", ct);
+        if (string.IsNullOrWhiteSpace(setting?.Value) || !Guid.TryParse(setting.Value, out var modelId))
+            return null;
+        return await ResolveAsync(modelId, ct) == null ? null : modelId;
+    }
+
+    public async Task<Guid?> ResolveCompletionAsync(CancellationToken ct)
+    {
+        var model = await _unitOfWork.AiModels.GetDefaultByPurposeAsync("completion", ct);
+        return model == null || await ResolveAsync(model.Id, ct) == null ? null : model.Id;
+    }
+
     private string UnprotectApiKey(AiProvider provider)
     {
         if (string.IsNullOrEmpty(provider.EncryptedApiKey)) return string.Empty;

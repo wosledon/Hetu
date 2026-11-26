@@ -84,7 +84,7 @@ internal sealed class HetuAIFunction : AIFunction
                 writeEventAsync: payload => _state.Sink.OnEventAsync(payload),
                 writeJsonAsync: payload => _state.Sink.OnEventAsync(payload),
                 cancellationToken,
-                decideToolCall: _state.Request.DecideToolCall,
+                decideToolCall: null,
                 workScope: _state.Request.WorkScope,
                 questionHandler: _state.Request.QuestionHandler,
                 planHandler: _state.Request.PlanHandler,

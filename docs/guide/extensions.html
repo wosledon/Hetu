@@ -102,8 +102,8 @@
       <div class="table-wrap"><table>
         <thead><tr><th>项</th><th>说明</th></tr></thead>
         <tbody>
-          <tr><td>传输</td><td><code>stdio</code>：启动子进程并用 JSON-RPC 2.0 通信（完整支持）；<code>sse</code>：可配置，未接线</td></tr>
-          <tr><td>连接配置</td><td>JSON：<code>command</code> / <code>args</code> / <code>env</code>（stdio）或 <code>url</code>（sse）</td></tr>
+          <tr><td>传输</td><td><code>stdio</code> 与 <code>HTTP / SSE</code> 均由官方 Model Context Protocol SDK 支持；同一连接配置复用同一个客户端</td></tr>
+          <tr><td>连接配置</td><td>JSON：<code>command</code> / <code>args</code> / <code>env</code>（stdio）或 <code>url</code>（HTTP/SSE）</td></tr>
           <tr><td>工具发现</td><td>调用 <code>tools/list</code> 拉取工具清单，自动并入对话工具面</td></tr>
           <tr><td>工具调用</td><td>调用 <code>tools/call</code>，参数与结果在消息流里结构化展示</td></tr>
           <tr><td>启停</td><td>逐服务器启用 / 禁用，可排序</td></tr>
@@ -112,7 +112,7 @@
       <div class="note">MCP 工具与内置工具共用同一套权限模式与审批策略；不确定行为的服务建议先用「询问」模式跑一遍。</div>
 
             <h2>配置示例</h2>
-      <h3>MCP 服务器（stdio）</h3>
+      <h3>MCP 服务器</h3>
       <div class="code"><button class="copy" aria-label="复制代码"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 5H6a2 2 0 0 0-2 2v9"/></svg></button><pre><code>{
   "command": "npx",
   "args": ["-y", "@modelcontextprotocol/server-filesystem", "E:\\repos"],

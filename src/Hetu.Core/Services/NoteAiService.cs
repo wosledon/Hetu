@@ -1,5 +1,4 @@
 using System.Runtime.CompilerServices;
-using System.Text.Json;
 using Hetu.Core.Interfaces;
 using Hetu.Shared.Notes;
 
@@ -8,14 +7,14 @@ namespace Hetu.Core.Services;
 public class NoteAiService : INoteAiService
 {
     private readonly IUnitOfWork _unitOfWork;
-    private readonly ILLMProviderFactory _llmProviderFactory;
+    private readonly ITextGenerationClient _text;
     private readonly ILlmUsageRecorder _usageRecorder;
     private readonly ILocalizer _localizer;
 
-    public NoteAiService(IUnitOfWork unitOfWork, ILLMProviderFactory llmProviderFactory, ILlmUsageRecorder usageRecorder, ILocalizer localizer)
+    public NoteAiService(IUnitOfWork unitOfWork, ITextGenerationClient text, ILlmUsageRecorder usageRecorder, ILocalizer localizer)
     {
         _unitOfWork = unitOfWork;
-        _llmProviderFactory = llmProviderFactory;
+        _text = text;
         _usageRecorder = usageRecorder;
         _localizer = localizer;
     }
@@ -30,11 +29,13 @@ public class NoteAiService : INoteAiService
         }
 
         // 模型解析失败（如 API Key 解密失败）也以 [ERROR] 帧返回，避免序列化阶段 500
-        ILLMProvider? provider = null;
+        Guid? modelId = null;
         string? resolveError = null;
         try
         {
-            provider = await GetProviderAsync(request.ModelId, cancellationToken);
+            modelId = await ResolveModelAsync(request.ModelId, cancellationToken);
+            if (!await _text.IsAvailableAsync(modelId, cancellationToken))
+                resolveError = _localizer.T("noteAi.modelUnavailable");
         }
         catch (Exception ex)
         {
@@ -43,11 +44,6 @@ public class NoteAiService : INoteAiService
         if (resolveError != null)
         {
             yield return $"[ERROR] {resolveError}";
-            yield break;
-        }
-        if (provider == null)
-        {
-            yield return "[ERROR] " + _localizer.T("noteAi.modelUnavailable");
             yield break;
         }
 
@@ -59,7 +55,7 @@ public class NoteAiService : INoteAiService
         };
 
         // 逐字输出，异常（如 API Key 解密失败）以 [ERROR] 帧返回，前端可直接展示
-        await foreach (var content in StreamContentAsync(provider, prompt, options.SystemPrompt, _usageRecorder, noteId, cancellationToken))
+        await foreach (var content in StreamContentAsync(modelId, prompt, options.SystemPrompt, _usageRecorder, noteId, cancellationToken))
         {
             yield return content;
         }
@@ -69,8 +65,8 @@ public class NoteAiService : INoteAiService
     /// 流式产出正文内容；把过程中的异常转换为 [ERROR] 文本帧，
     /// 避免 IAsyncEnumerable 序列化阶段抛出导致 500 且无可读信息。
     /// </summary>
-    private static async IAsyncEnumerable<string> StreamContentAsync(
-        ILLMProvider provider,
+    private async IAsyncEnumerable<string> StreamContentAsync(
+        Guid? modelId,
         string prompt,
         string systemPrompt,
         ILlmUsageRecorder? usageRecorder = null,
@@ -78,7 +74,8 @@ public class NoteAiService : INoteAiService
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         // 迭代器内 catch 块不能 yield，故把异常先落地为变量、在 try/catch 之外输出
-        var stream = provider.ChatStreamAsync(
+        var stream = _text.ChatStreamAsync(
+            modelId,
             [new LlmChatMessage { Role = "user", Content = prompt }],
             new ChatOptions { ModelId = string.Empty, SystemPrompt = systemPrompt },
             cancellationToken);
@@ -112,10 +109,10 @@ public class NoteAiService : INoteAiService
                 yield return yielded ? $"\n\n[ERROR] {error}" : $"[ERROR] {error}";
                 completed = true;
             }
-            else if (!completed && TryExtractContent(next!, out var content) && content.Length > 0)
+            else if (!completed && !string.IsNullOrEmpty(next))
             {
                 yielded = true;
-                yield return content;
+                yield return next;
             }
         }
 
@@ -140,11 +137,13 @@ public class NoteAiService : INoteAiService
         }
 
         // 模型解析失败（如 API Key 解密失败）也以 [ERROR] 帧返回，避免序列化阶段 500
-        ILLMProvider? provider = null;
+        Guid? modelId = null;
         string? resolveError = null;
         try
         {
-            provider = await GetProviderAsync(request.ModelId, cancellationToken);
+            modelId = await ResolveModelAsync(request.ModelId, cancellationToken);
+            if (!await _text.IsAvailableAsync(modelId, cancellationToken))
+                resolveError = _localizer.T("noteAi.modelUnavailable");
         }
         catch (Exception ex)
         {
@@ -153,11 +152,6 @@ public class NoteAiService : INoteAiService
         if (resolveError != null)
         {
             yield return $"[ERROR] {resolveError}";
-            yield break;
-        }
-        if (provider == null)
-        {
-            yield return "[ERROR] " + _localizer.T("noteAi.modelUnavailable");
             yield break;
         }
 
@@ -197,47 +191,17 @@ public class NoteAiService : INoteAiService
             SystemPrompt = systemPrompt
         };
 
-        await foreach (var content in StreamContentAsync(provider, prompt, systemPrompt, _usageRecorder, noteId, cancellationToken))
+        await foreach (var content in StreamContentAsync(modelId, prompt, systemPrompt, _usageRecorder, noteId, cancellationToken))
         {
             yield return content;
         }
     }
 
-    /// <summary>
-    /// 从 LLM 流式 chunk 中提取正文内容，过滤掉 thinking 等结构化类型。
-    /// </summary>
-    private static bool TryExtractContent(string chunk, out string content)
+    private async Task<Guid?> ResolveModelAsync(Guid? modelId, CancellationToken cancellationToken)
     {
-        try
-        {
-            using var doc = JsonDocument.Parse(chunk);
-            if (doc.RootElement.TryGetProperty("type", out var typeEl))
-            {
-                var type = typeEl.GetString();
-                // 只返回 content 类型，跳过 thinking 等其他类型
-                if (type == "content" && doc.RootElement.TryGetProperty("text", out var textEl))
-                {
-                    content = textEl.GetString() ?? "";
-                    return content.Length > 0;
-                }
-                content = "";
-                return false;
-            }
-        }
-        catch { /* not JSON — treat as plain text */ }
-
-        // Not structured JSON, return as-is
-        content = chunk;
-        return content.Length > 0;
-    }
-
-    private async Task<ILLMProvider?> GetProviderAsync(Guid? modelId, CancellationToken cancellationToken)
-    {
-        if (modelId.HasValue)
-            return await _llmProviderFactory.CreateProviderAsync(modelId.Value, cancellationToken);
-        return await _llmProviderFactory.CreateScenarioProviderAsync("NoteAi", cancellationToken)
-               ?? await _llmProviderFactory.CreateCompletionProviderAsync(cancellationToken)
-               ?? await _llmProviderFactory.CreateChatProviderAsync(cancellationToken);
+        if (modelId.HasValue) return modelId;
+        return await _text.ResolveScenarioModelAsync("NoteAi", cancellationToken)
+               ?? await _text.ResolveCompletionModelAsync(cancellationToken);
     }
 }
 

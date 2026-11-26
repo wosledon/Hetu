@@ -325,7 +325,7 @@ public class WorkSessionService : IWorkSessionService
     private readonly ILocalizer _localizer;
     private readonly WorkWorktreeService _worktrees;
     private readonly WorktreeNameSuggester _namer;
-    private readonly ILLMProviderFactory _llmProviderFactory;
+    private readonly ITextGenerationClient _text;
     private readonly IWorkCommandRunnerFactory _runnerFactory;
 
     public WorkSessionService(
@@ -333,14 +333,14 @@ public class WorkSessionService : IWorkSessionService
         ILocalizer localizer,
         WorkWorktreeService worktrees,
         WorktreeNameSuggester namer,
-        ILLMProviderFactory llmProviderFactory,
+        ITextGenerationClient text,
         IWorkCommandRunnerFactory runnerFactory)
     {
         _unitOfWork = unitOfWork;
         _localizer = localizer;
         _worktrees = worktrees;
         _namer = namer;
-        _llmProviderFactory = llmProviderFactory;
+        _text = text;
         _runnerFactory = runnerFactory;
     }
 
@@ -437,8 +437,7 @@ public class WorkSessionService : IWorkSessionService
             ? await _worktrees.GetCurrentBranchAsync(project.RootPath, cancellationToken)
             : session.BaseBranch.Trim();
 
-        var provider = await _llmProviderFactory.CreateChatProviderAsync(cancellationToken);
-        var name = await _namer.SuggestAsync(userMessage, session.Id, provider, cancellationToken);
+        var name = await _namer.SuggestAsync(userMessage, session.Id, session.ModelId, cancellationToken);
 
         // 名字冲突（目录或分支已存在）时加序号后缀，避免动到已有分支
         var branch = name;

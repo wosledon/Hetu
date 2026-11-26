@@ -38,7 +38,7 @@ public class ProxyRouteClassifier
     }
 
     /// <summary>LLM 分类。返回 null 表示调用失败（调用方应降级到规则启发）。</summary>
-    public async Task<string?> ClassifyByLlmAsync(ILLMProvider classifier, string userText, CancellationToken ct = default)
+    public async Task<string?> ClassifyByLlmAsync(ITextGenerationClient text, Guid? modelId, string userText, CancellationToken ct = default)
     {
         try
         {
@@ -48,7 +48,7 @@ public class ProxyRouteClassifier
                 .Append("用户问题：").Append(userText.Length > 800 ? userText[..800] : userText);
 
             var messages = new List<LlmChatMessage> { new() { Role = "user", Content = prompt.ToString() } };
-            var result = await classifier.ChatAsync(messages, new ChatOptions { Stream = false, Temperature = 0 }, ct);
+            var result = await text.ChatAsync(modelId, messages, new ChatOptions { Stream = false, Temperature = 0 }, ct);
             var category = result.Trim().Trim('.', '。', '"', '\'').ToLowerInvariant();
             return Categories.Contains(category) ? category : "default";
         }

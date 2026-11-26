@@ -15,7 +15,7 @@ public class WikiKnowledgeSyncService : IWikiKnowledgeSyncService
     private readonly IUnitOfWork _unitOfWork;
     private readonly IBackgroundTaskCoordinator _taskCoordinator;
     private readonly IEmbeddingProviderFactory _embeddingProviderFactory;
-    private readonly ILLMProviderFactory _llmProviderFactory;
+    private readonly ITextGenerationClient _text;
     private readonly IGraphService _graphService;
     private readonly ILogger<WikiKnowledgeSyncService> _logger;
 
@@ -23,14 +23,14 @@ public class WikiKnowledgeSyncService : IWikiKnowledgeSyncService
         IUnitOfWork unitOfWork,
         IBackgroundTaskCoordinator taskCoordinator,
         IEmbeddingProviderFactory embeddingProviderFactory,
-        ILLMProviderFactory llmProviderFactory,
+        ITextGenerationClient text,
         IGraphService graphService,
         ILogger<WikiKnowledgeSyncService> logger)
     {
         _unitOfWork = unitOfWork;
         _taskCoordinator = taskCoordinator;
         _embeddingProviderFactory = embeddingProviderFactory;
-        _llmProviderFactory = llmProviderFactory;
+        _text = text;
         _graphService = graphService;
         _logger = logger;
     }
@@ -100,9 +100,8 @@ public class WikiKnowledgeSyncService : IWikiKnowledgeSyncService
         var embeddingProvider = await _embeddingProviderFactory.CreateEmbeddingProviderAsync(cancellationToken);
         result.EmbeddingConfigured = embeddingProvider != null;
 
-        var graphProvider = await _llmProviderFactory.CreateScenarioProviderAsync("Graph", cancellationToken)
-                            ?? await _llmProviderFactory.CreateChatProviderAsync(cancellationToken);
-        result.GraphConfigured = graphProvider != null;
+        var graphModelId = await _text.ResolveScenarioModelAsync("Graph", cancellationToken);
+        result.GraphConfigured = await _text.IsAvailableAsync(graphModelId, cancellationToken);
 
         // 索引与抽取都靠后台任务执行：生成过程本身不应被向量/LLM 调用拖住
         if (embeddingProvider != null)
@@ -115,7 +114,7 @@ public class WikiKnowledgeSyncService : IWikiKnowledgeSyncService
             result.QueuedIndexTasks = queued.QueuedCount;
         }
 
-        if (graphProvider != null)
+        if (result.GraphConfigured)
         {
             var graphRequests = syncedItems
                 .Select(item => new BackgroundTaskRequest(

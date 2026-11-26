@@ -121,8 +121,12 @@ EF Core 的 SQLite provider **不支持在 SQL 中排序或聚合 `DateTimeOffse
 - 长耗时工作提交给 `IBackgroundTaskCoordinator`（记录 `TaskItem`，前端「后台任务」页可见）；不要用即发即忘的 `Task.Run`。
 - Agent 运行时在 `src/Hetu.Agents/HetuAgentRunner.cs`：直接组合 MAF 的 `AIFunction`、`FunctionInvokingChatClient`、
   `ChatClientAgent` 与 `ToolApprovalAgent`；不要在 Core 里重新实现模型/工具循环。
-- 运行中引导（`AgentSteeringHub`）通过 `AgentContextChatClient` 中间件注入；审批由 `ToolApprovalAgent` 自动放行
-  `auto`/`bypass`，`ask` 通过 `ToolExecutionService` 等待前端。
+- 运行中引导（`AgentSteeringHub`）通过 `AgentContextChatClient` 中间件注入；权限模式（plan/readonly/ask/auto/bypass）折算为
+  MAF 审批管道的放行/询问/拒绝，`ToolApprovalAgent` 负责自动放行，`ask` 通过 `ToolExecutionService` 等待前端。
+- MCP 统一走官方 `ModelContextProtocol`：`McpClientProvider` 复用连接，`McpClientTool` 直接作为 `AIFunction` 交给 MAF；
+  不要再新增手写 JSON-RPC / stdio 客户端。
+- 非 Agent 的文本任务（NoteAI / Wiki / Graph / 压缩 / 查询改写等）统一走 `ITextGenerationClient`（内部创建 MAF Agent），
+  不要再引入第二套 LLM Provider HTTP 实现。
 - SSE 事件（`delta` / `thinking` / `tool_*` / `steering` / `checkpoint` / `notice` …）在 `HetuAgentRunner` 边界转发。
   新增事件类型时前后端同步（`src/Hetu.Shared/Agent` + `frontend/src/utils/agentStream.ts`）。
 - 异步迭代器带取消令牌时必须加 `[EnumeratorCancellation]`（否则 CS8425，且取消不生效）。

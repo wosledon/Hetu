@@ -56,7 +56,7 @@
     <aside class="docs-toc" data-docs-toc aria-label="本页目录"></aside>
     <div class="docs-body">
       <h1>权限与审批</h1>
-      <p class="lede">权限系统回答一个问题：这个工具调用能不能执行、还是要先问人。它由三层组成——<strong>模式</strong>（用户当前选择）、<strong>项目规则</strong>（<code>WorkApprovalRules</code>）、<strong>工具风险</strong>（读 / 写）。规则永远优先于模式。</p>
+      <p class="lede">权限系统回答一个问题：这个工具调用能不能执行、还是要先问人。它由三层组成——<strong>模式</strong>（用户当前选择）、<strong>项目规则</strong>（<code>WorkApprovalRules</code>）、<strong>工具风险</strong>（读 / 写）。规则永远优先于模式；最终决策交给 MAF 审批管道：放行自动执行，询问由 <code>ToolApprovalAgent</code> 暂停，拒绝直接回传拒绝结果。</p>
 
       <h2>五档权限模式</h2>
       <div class="table-wrap"><table>
