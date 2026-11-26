@@ -125,6 +125,78 @@ public class HetuAgentRunnerTests
         Assert.Equal("第二轮问题", received[2].Content);
     }
 
+    [Fact]
+    public async Task RunAsync_运行中引导_由AIContextProvider注入()
+    {
+        var provider = new ScriptedProvider([[ContentFrame("已调整"), FinishFrame("stop")]]);
+        await using var services = CreateServices(CreateExecutor("test_tool", ToolApprovalMode.Auto), provider);
+        var runner = services.GetRequiredService<IAgentRunner>();
+        var queue = new Queue<string>(["改成只读调研"]);
+        var request = new AgentLoopRequest
+        {
+            Messages = [new ChatMessage(ChatRole.User, "继续")],
+            CompressHistory = false,
+            SessionId = "steering-provider",
+            DrainSteering = () => queue.Count > 0 ? new List<string> { queue.Dequeue() } : [],
+            Sink = new CapturingSink(),
+        };
+
+        var result = await runner.RunAsync(request, CancellationToken.None);
+
+        Assert.Null(result.Error);
+        var received = Assert.Single(provider.ReceivedMessages);
+        Assert.Contains(received, message => message.Content.Contains("改成只读调研", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task RunAsync_上下文接近上限_由ChatReducer自动摘要旧消息()
+    {
+        var provider = new ScriptedProvider([[ContentFrame("继续"), FinishFrame("stop")]]);
+        await using var services = CreateServices(CreateExecutor("test_tool", ToolApprovalMode.Auto), provider);
+        var compactor = services.GetRequiredService<IContextCompactor>();
+        compactor.SummarizeTurnAsync(Arg.Any<IReadOnlyList<LlmChatMessage>>(), Arg.Any<Guid?>(), Arg.Any<CancellationToken>())
+            .Returns("历史摘要");
+        var runner = services.GetRequiredService<IAgentRunner>();
+        var messages = new List<ChatMessage>();
+        for (var i = 0; i < 8; i++)
+            messages.Add(new ChatMessage(i % 2 == 0 ? ChatRole.User : ChatRole.Assistant, $"消息 {i}"));
+        messages.Add(new ChatMessage(ChatRole.User, "最后一问"));
+
+        var result = await runner.RunAsync(new AgentLoopRequest
+        {
+            Messages = messages,
+            CompressHistory = true,
+            ContextWindowTokens = 1,
+            SessionId = "auto-compact",
+            Sink = new CapturingSink(),
+        }, CancellationToken.None);
+
+        Assert.Null(result.Error);
+        var received = Assert.Single(provider.ReceivedMessages);
+        Assert.Contains(received, message => message.Content.Contains("历史摘要", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task RunAsync_工作流工具需要审批但无通道_返回明确错误()
+    {
+        var executor = CreateExecutor("ask_tool", ToolApprovalMode.Ask);
+        await using var services = CreateServices(executor, new ScriptedProvider([]));
+        var toolExecution = services.GetRequiredService<ToolExecutionService>();
+
+        var results = await toolExecution.ExecuteToolCallsAsync(
+            "workflow-test",
+            [new LlmToolCall { Id = "call-1", Name = "ask_tool", Arguments = "{}" }],
+            new Dictionary<string, ToolApprovalMode>(),
+            [],
+            _ => Task.CompletedTask,
+            _ => Task.CompletedTask,
+            CancellationToken.None,
+            interactiveApprovalSupported: false);
+
+        Assert.True(results[0].isError);
+        Assert.Equal("toolExec.approvalUnavailable", results[0].content);
+    }
+
     private static async Task WaitUntilAsync(Func<bool> condition)
     {
         var deadline = DateTime.UtcNow.AddSeconds(5);
