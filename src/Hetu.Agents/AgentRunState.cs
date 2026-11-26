@@ -17,7 +17,7 @@ internal sealed class AgentRunState
         Result = new AgentLoopResult();
         SessionTodos = [];
         TurnId = Guid.NewGuid();
-        TurnPreview = request.Messages.LastOrDefault(m => m.Role == "user")?.Content;
+        TurnPreview = request.Messages.LastOrDefault(m => m.Role == ChatRole.User)?.Text;
         MaxToolCallsPerTurn = request.MaxToolCallsPerTurn > 0 ? request.MaxToolCallsPerTurn : 5;
     }
 
@@ -25,7 +25,7 @@ internal sealed class AgentRunState
     public IAgentLoopSink Sink { get; }
     public IAgentLoopHooks? Hooks { get; }
     public AgentLoopResult Result { get; }
-    public List<LlmChatMessage> ChatMessages { get; set; } = [];
+    public List<ChatMessage> ChatMessages { get; set; } = [];
     public List<SessionTodo> SessionTodos { get; set; }
     public Guid TurnId { get; }
     public string? TurnPreview { get; }

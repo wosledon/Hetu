@@ -4,6 +4,7 @@ using System.Text.Json;
 using Hetu.Core.Interfaces;
 using Hetu.Core.Utilities;
 using Hetu.Shared.AI;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Hetu.Core.Services.Tools;
@@ -116,7 +117,7 @@ public class WorkTaskTool : IToolExecutor
                 然后用简洁的 Markdown 汇报：结论、关键证据（文件:行）、以及尚未确认的疑点。
                 不要复述大段源码，只引用必要的片段。
                 """,
-                Messages = [new LlmChatMessage { Role = "user", Content = prompt }],
+                Messages = [new ChatMessage(ChatRole.User, prompt)],
                 ToolNames = toolNames,
                 // 只读白名单直接声明，不暴露 load_tools；子 Agent 不需要按需加载
                 CoreToolNames = toolNames,

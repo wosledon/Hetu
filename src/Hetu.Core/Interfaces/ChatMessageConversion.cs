@@ -1,13 +1,12 @@
 using System.Text.Json;
-using Hetu.Core.Interfaces;
 using Microsoft.Extensions.AI;
 
-namespace Hetu.Agents;
+namespace Hetu.Core.Interfaces;
 
-/// <summary>数据库/接口层的消息 DTO 与 MAF/MEAI ChatMessage 之间的边界转换。</summary>
-internal static class AgentMessageMapper
+/// <summary>数据库/接口层 LlmChatMessage 与 MEAI ChatMessage 的唯一边界转换。</summary>
+public static class ChatMessageConversion
 {
-    public static List<ChatMessage> ToChatMessages(IEnumerable<LlmChatMessage> messages)
+    public static List<ChatMessage> ToChatMessages(this IEnumerable<LlmChatMessage> messages)
     {
         var result = new List<ChatMessage>();
         foreach (var message in messages)
@@ -51,7 +50,6 @@ internal static class AgentMessageMapper
                     }
                     catch (FormatException)
                     {
-                        // 非 base64 的远端 URL 走 UriContent；无法识别的图片直接跳过，避免整轮失败。
                         if (Uri.TryCreate(raw, UriKind.Absolute, out var fallback))
                             contents.Add(new UriContent(fallback, mediaType));
                     }
@@ -90,7 +88,7 @@ internal static class AgentMessageMapper
         return result;
     }
 
-    public static LlmChatMessage ToLlmMessage(ChatMessage message)
+    public static LlmChatMessage ToLlmMessage(this ChatMessage message)
     {
         var toolResult = message.Contents.OfType<FunctionResultContent>().FirstOrDefault();
         var contentParts = message.Contents.OfType<DataContent>()
@@ -120,7 +118,7 @@ internal static class AgentMessageMapper
         return new LlmChatMessage
         {
             Role = message.Role.Value,
-            Content = toolResult != null ? ConvertResult(toolResult.Result) : message.Text,
+            Content = toolResult != null ? ConvertToolResult(toolResult.Result) : message.Text,
             ContentParts = contentParts.Count > 0 ? contentParts : null,
             ToolCalls = toolCalls.Count > 0 ? toolCalls : null,
             ThinkingBlocks = thinkingBlocks.Count > 0 ? thinkingBlocks : null,
@@ -128,7 +126,7 @@ internal static class AgentMessageMapper
         };
     }
 
-    public static string ConvertResult(object? result) => result switch
+    public static string ConvertToolResult(object? result) => result switch
     {
         null => string.Empty,
         string text => text,

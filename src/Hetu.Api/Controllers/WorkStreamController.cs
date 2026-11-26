@@ -478,7 +478,7 @@ public class WorkStreamController : ControllerBase
         {
             ModelId = modelId,
             SystemPrompt = options.SystemPrompt ?? string.Empty,
-            Messages = chatMessages,
+            Messages = chatMessages.ToChatMessages(),
             ToolNames = allowedToolNames,
             RuntimeFunctions = mcpTools,
             McpServerIds = new List<Guid>(),

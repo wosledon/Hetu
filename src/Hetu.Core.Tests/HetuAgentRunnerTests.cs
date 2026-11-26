@@ -4,6 +4,7 @@ using Hetu.Agents;
 using Hetu.Core.Interfaces;
 using Hetu.Core.Services;
 using Hetu.Core.Services.Tools;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -105,9 +106,9 @@ public class HetuAgentRunnerTests
         {
             Messages =
             [
-                new LlmChatMessage { Role = "user", Content = "第一轮问题" },
-                new LlmChatMessage { Role = "assistant", Content = "第一轮回答" },
-                new LlmChatMessage { Role = "user", Content = "第二轮问题" },
+                new ChatMessage(ChatRole.User, "第一轮问题"),
+                new ChatMessage(ChatRole.Assistant, "第一轮回答"),
+                new ChatMessage(ChatRole.User, "第二轮问题"),
             ],
             CompressHistory = false,
             SessionId = "history-provider",
@@ -203,7 +204,7 @@ public class HetuAgentRunnerTests
 
         public async IAsyncEnumerable<string> ChatStreamAsync(
             IReadOnlyList<LlmChatMessage> messages,
-            ChatOptions options,
+            Hetu.Core.Interfaces.ChatOptions options,
             [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
             ReceivedMessages.Add(messages);

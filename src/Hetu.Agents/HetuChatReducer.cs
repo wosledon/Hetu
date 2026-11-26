@@ -65,7 +65,7 @@ internal sealed class HetuChatReducer : IChatReducer
         if (estimatedTokens < _contextWindowTokens * AutoCompactRatio) return null;
 
         var older = source.Take(source.Count - KeepRecent)
-            .Select(AgentMessageMapper.ToLlmMessage)
+            .Select(message => message.ToLlmMessage())
             .ToList();
         var summary = await _contextCompactor.SummarizeTurnAsync(older, _state.Request.ModelId, cancellationToken);
         if (string.IsNullOrWhiteSpace(summary)) return null;

@@ -69,7 +69,7 @@ internal sealed class ScriptedAgentFactory : IAgentFactory
             AiChatOptions? options = null,
             [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
-            var llmMessages = messages.Select(AgentMessageMapper.ToLlmMessage).ToList();
+            var llmMessages = messages.Select(message => message.ToLlmMessage()).ToList();
             var parser = new LlmStreamParser();
             var toolCalls = new List<LlmToolCall>();
 

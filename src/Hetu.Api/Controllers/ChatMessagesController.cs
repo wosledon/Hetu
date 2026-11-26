@@ -276,7 +276,7 @@ public class ChatMessagesController : ControllerBase
             // Provider 已在上面解析（含 API Key 解密失败的友好报错），此处复用同一实例
             ModelId = modelId,
             SystemPrompt = options.SystemPrompt ?? string.Empty,
-            Messages = chatMessages,
+            Messages = chatMessages.ToChatMessages(),
             ToolNames = useToolCalling ? options.Tools?.Select(t => t.Name).ToList() ?? new List<string>() : new List<string>(),
             McpServerIds = new List<Guid>(),
             MaxIterations = profile.MaxAgentIterations,
