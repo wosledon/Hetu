@@ -9,6 +9,8 @@ namespace Hetu.Agents;
 
 /// <summary>
 /// 把 Hetu 的 <see cref="IToolExecutor"/> 暴露为 MAF 可直接调用的 <see cref="AIFunction"/>。
+/// 这是业务工具到 MAF 的唯一工具边界；工具 schema 是运行时本地化的 JSON，无法用
+/// <c>AIFunctionFactory</c> 的反射 schema 表达，因此保留此原生 <see cref="AIFunction"/> 实现。
 /// 工具调用、审批状态、交互事件仍由 <see cref="ToolExecutionService"/> 承担。
 /// </summary>
 internal sealed class HetuAIFunction : AIFunction

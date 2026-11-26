@@ -95,7 +95,7 @@
         <tbody>
           <tr><td>压缩范围</td><td>当前用户消息作为本轮 input 直接发送，不进入历史压缩；<code>InMemoryChatHistoryProvider</code> 只加载并压缩此前消息，避免用户原话被摘要。本轮新增工具输出另按当前轮预算做确定性截断，保留 ToolCallId 与最近结果</td></tr>
           <tr><td>去重</td><td><code>CompressionPipelineService.PrepareForContextAsync</code> 用 SHA-256 缓存已压缩内容，多轮迭代不会对同一段反复调用压缩管道</td></tr>
-          <tr><td>压缩方式</td><td>调用压缩管道的完整入口（允许 LLM 摘要，取决于管道模式与阈值）</td></tr>
+          <tr><td>压缩方式</td><td>长消息先走压缩管道；历史接近上下文窗口 80% 时先用当前模型摘要旧消息、保留最近 6 条，再对剩余消息做管道压缩</td></tr>
           <tr><td>开销观测</td><td>首轮会单独估算系统提示与工具 schema 的字符开销并写日志，便于区分「提示太重」还是「历史太长」</td></tr>
         </tbody>
       </table></div>

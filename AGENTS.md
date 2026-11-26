@@ -127,6 +127,9 @@ EF Core 的 SQLite provider **不支持在 SQL 中排序或聚合 `DateTimeOffse
 - 对话历史由 MAF `InMemoryChatHistoryProvider` 承载：Controller 仍负责按业务规则构建消息（自动摘要、RAG / @ 注入），
   `HetuAgentRunner` 只把「最后一条 user 消息」作为本轮输入，之前的消息由历史提供者加载；历史压缩通过 `HetuChatReducer`
   （`ChatReducer`）执行，长历史会自动摘要旧消息；不要在 Agent 内部再手写一套历史循环。
+- Agent 消息契约使用 MEAI `ChatMessage`；`LlmChatMessage` 只保留在数据库/文本任务边界，转换集中在 `ChatMessageConversion`。
+- 工具执行器仍是 `IToolExecutor` 业务抽象；交给 MAF 的边界统一为 `AIFunction`（`HetuAIFunction` / 原生 `McpClientTool`），
+  不要再建第二套工具循环或工具定义协议。
 - RAG / 记忆检索封装为 `AIContextProvider`（`RagContextProvider`），通过 `AgentLoopRequest.ContextProviders` 交给 MAF；
   提供者内部只执行一次检索，后续迭代复用结果，避免每轮重复搜索。
 - `@` 引用同样走 `AIContextProvider`（`MentionContextProvider`）；运行中引导走 `SteeringContextProvider`，

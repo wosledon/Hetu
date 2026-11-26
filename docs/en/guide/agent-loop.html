@@ -96,7 +96,7 @@
         <tbody>
           <tr><td>Scope</td><td>The current user message is sent directly as this turn's input and is never compressed as history; <code>InMemoryChatHistoryProvider</code> only loads and compresses earlier messages, preserving the exact request. Tool output produced by the active turn has a separate deterministic budget: old results are compacted while ToolCallId linkage and recent results are preserved</td></tr>
           <tr><td>Deduplication</td><td><code>CompressionPipelineService.PrepareForContextAsync</code> caches compressed content by SHA-256, so the same slice is not recompressed across iterations</td></tr>
-          <tr><td>Method</td><td>Calls the full compression pipeline entry (LLM summary allowed, subject to pipeline mode and threshold)</td></tr>
+          <tr><td>Method</td><td>Long messages go through the compression pipeline first; when history reaches 80% of the context window, older messages are summarized by the current model, the most recent 6 are kept, then the remainder is compressed</td></tr>
           <tr><td>Cost visibility</td><td>The first iteration estimates system prompt and tool schema character cost and logs it, separating "heavy prompt" from "long history"</td></tr>
         </tbody>
       </table></div>
