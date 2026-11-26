@@ -8,10 +8,10 @@ namespace Hetu.Agents;
 /// <summary>非 Agent 文本任务统一走 MAF Agent；不再维护 OpenAI/Anthropic 私有 HTTP 客户端。</summary>
 internal sealed class MafTextGenerationClient : ITextGenerationClient
 {
-    private readonly HetuAgentFactory _factory;
+    private readonly IAgentFactory _factory;
     private readonly AgentModelResolver _resolver;
 
-    public MafTextGenerationClient(HetuAgentFactory factory, AgentModelResolver resolver)
+    public MafTextGenerationClient(IAgentFactory factory, AgentModelResolver resolver)
     {
         _factory = factory;
         _resolver = resolver;

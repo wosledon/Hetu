@@ -51,6 +51,20 @@ internal sealed class ScriptedAgentFactory : IAgentFactory
         return functionClient.AsAIAgent(agentOptions, loggerFactory: NullLoggerFactory.Instance);
     }
 
+    public Task<AIAgent?> CreateTextAgentAsync(
+        Guid? modelId,
+        string? instructions,
+        AiChatOptions? overrides,
+        CancellationToken ct)
+    {
+        var options = overrides?.Clone() ?? new AiChatOptions();
+        options.Instructions = instructions;
+        var agent = new ScriptedChatClient(_provider).AsAIAgent(
+            new ChatClientAgentOptions { Name = "test-text", ChatOptions = options },
+            loggerFactory: NullLoggerFactory.Instance);
+        return Task.FromResult<AIAgent?>(agent);
+    }
+
     private sealed class ScriptedChatClient(IScriptedModel provider) : IChatClient
     {
         public async Task<ChatResponse> GetResponseAsync(
