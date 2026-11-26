@@ -36,6 +36,9 @@ export async function streamWorkflowRun(
   onError: (err: string) => void,
   signal?: AbortSignal,
   toolApprovalMode?: string,
+  workSessionId?: string,
+  agentMode?: string,
+  modelId?: string,
 ): Promise<void> {
   const url = topicId
     ? `/api/workflows/${workflowId}/run/topic/${topicId}/stream`
@@ -45,7 +48,14 @@ export async function streamWorkflowRun(
     const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ input, toolApprovalMode }),
+      body: JSON.stringify({
+        input,
+        toolApprovalMode,
+        workSessionId,
+        permissionMode: workSessionId ? toolApprovalMode : undefined,
+        agentMode,
+        modelId,
+      }),
       signal,
     })
 
@@ -67,7 +77,10 @@ export async function streamWorkflowRun(
           if (plainText != null) onEvent({ type: 'content', text: plainText })
           return
         }
-        onEvent(event as unknown as { type: string; [key: string]: unknown })
+        const workflowEvent = event.type === 'unknown' && typeof event.raw.type === 'string'
+          ? event.raw
+          : event
+        onEvent(workflowEvent as unknown as { type: string; [key: string]: unknown })
       },
       { signal },
     )

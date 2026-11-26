@@ -1,7 +1,10 @@
+using System.Text.Json;
 using Hetu.Api.Streaming;
 using Hetu.Core.Entities;
 using Hetu.Core.Interfaces;
 using Hetu.Core.Services;
+using Hetu.Core.Services.Tools;
+using Hetu.Core.Services.Work;
 using Hetu.Core.Services.Workflows;
 using Hetu.Core.Utilities;
 using Hetu.Shared.Common;
@@ -19,7 +22,9 @@ public class WorkflowsController : ControllerBase
     private readonly WorkflowApprovalService _approvalService;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IChatMessageService _chatMessageService;
-    private readonly ToolExecutionService _toolExecution;
+    private readonly IWorkSessionService _workSessionService;
+    private readonly IWorkCommandRunnerFactory _commandRunnerFactory;
+    private readonly ToolRegistry _toolRegistry;
     private readonly ILocalizer _localizer;
 
     public WorkflowsController(
@@ -28,7 +33,9 @@ public class WorkflowsController : ControllerBase
         WorkflowApprovalService approvalService,
         IUnitOfWork unitOfWork,
         IChatMessageService chatMessageService,
-        ToolExecutionService toolExecution,
+        IWorkSessionService workSessionService,
+        IWorkCommandRunnerFactory commandRunnerFactory,
+        ToolRegistry toolRegistry,
         ILocalizer localizer)
     {
         _workflowService = workflowService;
@@ -36,7 +43,9 @@ public class WorkflowsController : ControllerBase
         _approvalService = approvalService;
         _unitOfWork = unitOfWork;
         _chatMessageService = chatMessageService;
-        _toolExecution = toolExecution;
+        _workSessionService = workSessionService;
+        _commandRunnerFactory = commandRunnerFactory;
+        _toolRegistry = toolRegistry;
         _localizer = localizer;
     }
 
@@ -72,7 +81,10 @@ public class WorkflowsController : ControllerBase
     [HttpPost("{id:guid}/run")]
     public async Task<ApiResponse<WorkflowRunResult>> Run(Guid id, [FromBody] RunWorkflowRequest? request, CancellationToken cancellationToken)
     {
-        var result = await _engine.ExecuteAsync(id, request?.Input, cancellationToken, 0, null, null, request?.ToolApprovalMode);
+        var (workScope, decideToolCall, error, _) = await PrepareWorkContextAsync(request, cancellationToken);
+        if (error != null) return ApiResponse<WorkflowRunResult>.Fail(error);
+        var result = await _engine.ExecuteAsync(id, request?.Input, cancellationToken, 0, null, null, request?.ToolApprovalMode,
+            workScope: workScope, decideToolCall: decideToolCall);
         return ApiResponse<WorkflowRunResult>.Ok(result);
     }
 
@@ -87,7 +99,39 @@ public class WorkflowsController : ControllerBase
 
         try
         {
-            var result = await _engine.ExecuteAsync(id, request?.Input, cancellationToken, 0, sink, null, request?.ToolApprovalMode);
+            var (workScope, decideToolCall, error, notice) = await PrepareWorkContextAsync(request, cancellationToken);
+            if (error != null)
+            {
+                await writer.WriteErrorAsync(error);
+                return;
+            }
+            if (!string.IsNullOrWhiteSpace(notice))
+                await writer.WriteJsonAsync(new { type = "notice", text = notice });
+
+            if (request?.WorkSessionId is Guid workSessionId && !string.IsNullOrWhiteSpace(request.Input))
+            {
+                await _workSessionService.AddMessageAsync(workSessionId, "user", request.Input,
+                    metadata: JsonSerializer.Serialize(new { workflowId = id }), cancellationToken: cancellationToken);
+            }
+
+            var result = await _engine.ExecuteAsync(id, request?.Input, cancellationToken, 0, sink, null, request?.ToolApprovalMode,
+                workScope: workScope, decideToolCall: decideToolCall);
+            if (request?.WorkSessionId is Guid sessionId)
+            {
+                var output = result.Status switch
+                {
+                    "Succeeded" when !string.IsNullOrWhiteSpace(result.Output) => result.Output,
+                    "Succeeded" => null,
+                    "Cancelled" => _localizer.T("workflow.runCancelled"),
+                    _ => result.Error ?? _localizer.T("workflows.executionFailed", result.Error ?? string.Empty)
+                };
+                if (!string.IsNullOrWhiteSpace(output))
+                {
+                    await _workSessionService.AddMessageAsync(sessionId, "assistant", output,
+                        metadata: JsonSerializer.Serialize(new { workflowId = id, runId = result.RunId }),
+                        cancellationToken: CancellationToken.None);
+                }
+            }
             await writer.WriteJsonAsync(new { type = "run_result", result });
         }
         catch (Exception ex)
@@ -178,6 +222,49 @@ public class WorkflowsController : ControllerBase
         return ApiResponse.Ok();
     }
 
+    private async Task<(WorkToolScope? Scope, Func<LlmToolCall, ToolApprovalMode, Task<WorkToolDecision>>? DecideToolCall, string? Error, string? Notice)> PrepareWorkContextAsync(
+        RunWorkflowRequest? request,
+        CancellationToken cancellationToken)
+    {
+        if (request?.WorkSessionId is not Guid workSessionId)
+            return (null, null, null, null);
+
+        var session = await _unitOfWork.WorkSessions.GetByIdAsync(workSessionId, cancellationToken);
+        if (session == null)
+            return (null, null, _localizer.T("work.workSessionNotFound"), null);
+
+        var project = await _unitOfWork.WorkProjects.GetByIdAsync(session.ProjectId, cancellationToken);
+        if (project == null)
+            return (null, null, _localizer.T("work.projectNotFound"), null);
+
+        var worktreeResult = await _workSessionService.EnsureWorktreeAsync(workSessionId, request.Input, cancellationToken);
+        var notice = worktreeResult.Success ? worktreeResult.Data : worktreeResult.Error;
+
+        session = await _unitOfWork.WorkSessions.GetByIdAsync(workSessionId, cancellationToken) ?? session;
+        var root = !string.IsNullOrWhiteSpace(session.WorktreePath) && Directory.Exists(session.WorktreePath)
+            ? session.WorktreePath
+            : project.RootPath;
+        var runner = root == project.RootPath
+            ? _commandRunnerFactory.Create(project)
+            : new LocalCommandRunner(root);
+        var mode = AgentModePolicy.Apply(
+            request.AgentMode ?? session.AgentMode,
+            WorkToolPolicy.Parse(request.PermissionMode ?? session.PermissionMode));
+        var rules = await _unitOfWork.WorkApprovalRules.FindAsync(r => r.ProjectId == project.Id, cancellationToken);
+        var scope = new WorkToolScope
+        {
+            ProjectRoot = root,
+            ProjectId = project.Id,
+            ModelId = request.ModelId ?? session.ModelId,
+            DiagnosticsCommand = project.DiagnosticsCommand,
+            Runner = runner
+        };
+        var decideToolCall = AgentToolPolicy.CreateDecider(
+            _toolRegistry,
+            new AgentPolicyContext { Mode = mode, Rules = rules });
+        return (scope, decideToolCall, null, notice);
+    }
+
     private static object MapRun(WorkflowRun r) => new
     {
         id = r.Id,
@@ -242,6 +329,9 @@ internal class SseWorkflowEventSink : IWorkflowEventSink
 
     public Task OnAgentToolCallAsync(Guid runId, string nodeId, string toolCallId, string name, string arguments)
         => _writer.WriteJsonAsync(new { type = "agent_tool_call", runId, nodeId, toolCallId, name, arguments });
+
+    public Task OnAgentToolResultAsync(Guid runId, string nodeId, string toolCallId, string content, bool isError)
+        => _writer.WriteJsonAsync(new { type = "agent_tool_result", runId, nodeId, toolCallId, content, isError });
 
     public Task OnRunCompletedAsync(Guid runId, string? output)
         => _writer.WriteJsonAsync(new { type = "run_completed", runId, output });
