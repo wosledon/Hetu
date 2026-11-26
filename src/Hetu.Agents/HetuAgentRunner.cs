@@ -24,6 +24,7 @@ internal sealed class HetuAgentRunner : IAgentRunner
     private readonly ToolRegistry _toolRegistry;
     private readonly ToolExecutionService _toolExecution;
     private readonly CompressionPipelineService _compression;
+    private readonly IContextCompactor _contextCompactor;
     private readonly McpClientProvider _mcpClients;
     private readonly ILocalizer _localizer;
     private readonly IUnitOfWork _unitOfWork;
@@ -34,6 +35,7 @@ internal sealed class HetuAgentRunner : IAgentRunner
         ToolRegistry toolRegistry,
         ToolExecutionService toolExecution,
         CompressionPipelineService compression,
+        IContextCompactor contextCompactor,
         McpClientProvider mcpClients,
         ILocalizer localizer,
         IUnitOfWork unitOfWork,
@@ -43,6 +45,7 @@ internal sealed class HetuAgentRunner : IAgentRunner
         _toolRegistry = toolRegistry;
         _toolExecution = toolExecution;
         _compression = compression;
+        _contextCompactor = contextCompactor;
         _mcpClients = mcpClients;
         _localizer = localizer;
         _unitOfWork = unitOfWork;
@@ -105,7 +108,7 @@ internal sealed class HetuAgentRunner : IAgentRunner
             BuildTools(state, mcpTools);
 
             var (history, inputMessages) = SplitHistoryMessages(state.ChatMessages);
-            var inputChars = inputMessages.Sum(message => message.Content?.Length ?? 0);
+            var inputChars = inputMessages.Sum(message => message.Text.Length);
             var options = BuildAgentOptions(state, resolved, history, inputChars);
             var agent = _agentFactory.Create(resolved, options, state, request.MaxIterations > 0 ? request.MaxIterations : DefaultMaxIterations);
 
@@ -120,7 +123,7 @@ internal sealed class HetuAgentRunner : IAgentRunner
 
             var session = await agent.CreateSessionAsync(ct);
             var runOptions = new ChatClientAgentRunOptions();
-            var input = AgentMessageMapper.ToChatMessages(inputMessages);
+            var input = inputMessages;
 
             while (true)
             {
@@ -148,7 +151,7 @@ internal sealed class HetuAgentRunner : IAgentRunner
                                 {
                                     // 审批被拒绝或原生 MCP 工具等未进入 HetuAIFunction 的结果，由 MAF 直接生成；
                                     // 补 tool_call/tool_result，避免前端卡片悬挂或缺参数。
-                                    var resultText = AgentMessageMapper.ConvertResult(result.Result);
+                                    var resultText = ChatMessageConversion.ConvertToolResult(result.Result);
                                     var name = state.ApprovalToolNames.GetValueOrDefault(result.CallId) ?? "tool";
                                     var arguments = state.ToolCallArguments.GetValueOrDefault(result.CallId) ?? "{}";
                                     var isError = result.Exception is not null;
@@ -217,7 +220,7 @@ internal sealed class HetuAgentRunner : IAgentRunner
 
     private static void PrepareHistory(AgentRunState state)
     {
-        state.ChatMessages = new List<LlmChatMessage>(state.Request.Messages);
+        state.ChatMessages = new List<ChatMessage>(state.Request.Messages);
     }
 
     private void BuildTools(AgentRunState state, IReadOnlyList<AIFunction> runtimeFunctions)
@@ -282,30 +285,31 @@ internal sealed class HetuAgentRunner : IAgentRunner
     private static string Sanitize(string input)
         => string.Concat(input.Where(c => char.IsLetterOrDigit(c) || c is '_' or '-'));
 
-    private static (IReadOnlyList<LlmChatMessage> History, IReadOnlyList<LlmChatMessage> Input) SplitHistoryMessages(
-        IReadOnlyList<LlmChatMessage> messages)
+    private static (IReadOnlyList<ChatMessage> History, IReadOnlyList<ChatMessage> Input) SplitHistoryMessages(
+        IReadOnlyList<ChatMessage> messages)
     {
         if (messages.Count <= 1) return ([], messages);
 
         // 本轮输入从最后一条 user 消息开始；之前的消息交给 MAF ChatHistoryProvider，
         // 避免每轮把完整历史当成本次输入重复传递。
         var start = messages.Count - 1;
-        while (start > 0 && messages[start].Role != "user") start--;
+        while (start > 0 && messages[start].Role != ChatRole.User) start--;
         return (messages.Take(start).ToList(), messages.Skip(start).ToList());
     }
 
     private ChatHistoryProvider CreateChatHistoryProvider(
-        IReadOnlyList<LlmChatMessage> history,
+        IReadOnlyList<ChatMessage> history,
         AgentRunState state,
-        int inputChars)
+        int inputChars,
+        int? contextWindowTokens)
     {
-        var initial = AgentMessageMapper.ToChatMessages(history).ToList();
+        var initial = history.ToList();
         return new InMemoryChatHistoryProvider(new InMemoryChatHistoryProviderOptions
         {
             StateKey = "hetu-request-history",
             StateInitializer = _ => new InMemoryChatHistoryProvider.State { Messages = initial },
             ChatReducer = state.Request.CompressHistory
-                ? new HetuChatReducer(_compression, state, inputChars)
+                ? new HetuChatReducer(_compression, _contextCompactor, state, inputChars, contextWindowTokens)
                 : null,
             ReducerTriggerEvent = InMemoryChatHistoryProviderOptions.ChatReducerTriggerEvent.BeforeMessagesRetrieval,
         });
@@ -314,7 +318,7 @@ internal sealed class HetuAgentRunner : IAgentRunner
     private ChatClientAgentOptions BuildAgentOptions(
         AgentRunState state,
         ResolvedAgentModel model,
-        IReadOnlyList<LlmChatMessage> history,
+        IReadOnlyList<ChatMessage> history,
         int inputChars)
     {
         var request = state.Request;
@@ -324,6 +328,10 @@ internal sealed class HetuAgentRunner : IAgentRunner
             declared.Count,
             state.LoadableToolNames.Except(state.LoadedToolNames, StringComparer.OrdinalIgnoreCase).ToList(),
             request.MaxToolCallsPerTurn);
+
+        var contextProviders = new List<AIContextProvider>();
+        if (request.ContextProviders != null) contextProviders.AddRange(request.ContextProviders);
+        if (request.DrainSteering != null) contextProviders.Add(new SteeringContextProvider(state));
 
         var chatOptions = new AiChatOptions
         {
@@ -346,8 +354,8 @@ internal sealed class HetuAgentRunner : IAgentRunner
         {
             Name = "hetu",
             ChatOptions = chatOptions,
-            ChatHistoryProvider = CreateChatHistoryProvider(history, state, inputChars),
-            AIContextProviders = request.ContextProviders?.ToList(),
+            ChatHistoryProvider = CreateChatHistoryProvider(history, state, inputChars, state.Request.ContextWindowTokens ?? model.Model.ContextWindow),
+            AIContextProviders = contextProviders.Count > 0 ? contextProviders : null,
             UseProvidedChatClientAsIs = true,
         };
     }

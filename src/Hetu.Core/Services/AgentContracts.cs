@@ -67,7 +67,7 @@ public class AgentLoopRequest
 {
     public Guid? ModelId { get; set; }
     public string SystemPrompt { get; set; } = string.Empty;
-    public List<LlmChatMessage> Messages { get; set; } = new();
+    public IReadOnlyList<ChatMessage> Messages { get; set; } = [];
     public List<string> ToolNames { get; set; } = new();
     /// <summary>调用方预加载的运行中函数（如 MCP 工具），避免 Runner 重复建连。</summary>
     public IReadOnlyList<AIFunction>? RuntimeFunctions { get; set; }

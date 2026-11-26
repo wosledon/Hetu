@@ -4,7 +4,9 @@ using Hetu.Core.Entities;
 using Hetu.Core.Interfaces;
 using Hetu.Core.Utilities;
 using Hetu.Shared.Workflow;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
+using AiChatMessage = Microsoft.Extensions.AI.ChatMessage;
 
 namespace Hetu.Core.Services.Workflows.NodeExecutors;
 /// <summary>
@@ -71,9 +73,9 @@ public class AgentNodeExecutor : INodeExecutor
         string userInput = string.Join("\n\n", parts.Where(p => !string.IsNullOrWhiteSpace(p)));
 
         // 构建 LLM 消息
-        var messages = new List<LlmChatMessage>
+        var messages = new List<AiChatMessage>
         {
-            new() { Role = "user", Content = userInput }
+            new(ChatRole.User, userInput)
         };
 
         // 节点级执行参数（全部来自 node.Config）

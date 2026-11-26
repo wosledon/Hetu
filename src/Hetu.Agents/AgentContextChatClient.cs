@@ -12,13 +12,11 @@ using AiChatOptions = Microsoft.Extensions.AI.ChatOptions;
 namespace Hetu.Agents;
 
 /// <summary>
-/// MAF 管道里的唯一一层运行时中间件：注入运行中引导、按 load_tools 结果刷新工具声明、按模型请求记录用量。
-/// 不实现模型/工具循环——循环由 <see cref="FunctionInvokingChatClient"/> 负责。
+/// MAF 管道里的运行时中间件：按 load_tools 结果刷新工具声明、按模型请求记录用量。
+/// 运行中引导由 <see cref="SteeringContextProvider"/> 注入；不实现模型/工具循环。
 /// </summary>
 internal sealed class AgentContextChatClient : DelegatingChatClient
 {
-    private const string SteeringPrefix = "【运行中引导，请立即结合它调整当前工作】\n";
-
     private readonly AgentRunState _state;
     private readonly ILlmUsageRecorder _usageRecorder;
     private readonly ILogger _logger;
@@ -40,7 +38,7 @@ internal sealed class AgentContextChatClient : DelegatingChatClient
         AiChatOptions? options = null,
         CancellationToken cancellationToken = default)
     {
-        var (prepared, preparedOptions) = await PrepareAsync(messages, options);
+        var (prepared, preparedOptions) = Prepare(messages, options);
         var clock = Stopwatch.StartNew();
         var response = await base.GetResponseAsync(prepared, preparedOptions, cancellationToken);
         clock.Stop();
@@ -53,7 +51,7 @@ internal sealed class AgentContextChatClient : DelegatingChatClient
         AiChatOptions? options = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        var (prepared, preparedOptions) = await PrepareAsync(messages, options);
+        var (prepared, preparedOptions) = Prepare(messages, options);
         var clock = Stopwatch.StartNew();
         var content = new StringBuilder();
         var thinking = new StringBuilder();
@@ -144,21 +142,11 @@ internal sealed class AgentContextChatClient : DelegatingChatClient
         return normalized;
     }
 
-    private async Task<(List<ChatMessage> Messages, AiChatOptions Options)> PrepareAsync(
+    private (List<ChatMessage> Messages, AiChatOptions Options) Prepare(
         IEnumerable<ChatMessage> messages,
         AiChatOptions? options)
     {
         var list = messages.ToList();
-
-        if (_state.Request.DrainSteering is { } drain)
-        {
-            foreach (var guidance in drain())
-            {
-                if (string.IsNullOrWhiteSpace(guidance)) continue;
-                list.Add(new ChatMessage(ChatRole.User, SteeringPrefix + guidance));
-                await _state.Sink.OnSteeringAsync(guidance);
-            }
-        }
 
         var preparedOptions = (options ?? new AiChatOptions()).Clone();
         _state.ToolCallsThisIteration = 0;

@@ -43,7 +43,7 @@ internal sealed class MafTextGenerationClient : ITextGenerationClient
 
         var clock = System.Diagnostics.Stopwatch.StartNew();
         var response = await agent.RunAsync(
-            AgentMessageMapper.ToChatMessages(messages),
+            messages.ToChatMessages(),
             cancellationToken: cancellationToken);
         clock.Stop();
         return new LlmChatResult
@@ -75,7 +75,7 @@ internal sealed class MafTextGenerationClient : ITextGenerationClient
         if (agent == null) yield break;
 
         await foreach (var update in agent.RunStreamingAsync(
-            AgentMessageMapper.ToChatMessages(messages),
+            messages.ToChatMessages(),
             cancellationToken: cancellationToken))
         {
             if (!string.IsNullOrEmpty(update.Text))

@@ -16,7 +16,7 @@ public class AgentContextChatClientTests
         var inner = new SingleUpdateChatClient(new ChatResponseUpdate(ChatRole.Assistant, [call]));
         var state = new AgentRunState(new AgentLoopRequest
         {
-            Messages = [new() { Role = "user", Content = "hi" }],
+            Messages = [new ChatMessage(ChatRole.User, "hi")],
             CompressHistory = false,
             EnableTools = false,
         });

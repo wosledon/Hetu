@@ -206,6 +206,7 @@ public static class HetuServiceCollectionExtensions
         services.AddScoped<InboxService>();
         services.AddScoped<CompressionPipelineService>();
         services.AddScoped<ContextCompactionService>();
+        services.AddScoped<IContextCompactor>(sp => sp.GetRequiredService<ContextCompactionService>());
     }
 
     private static void AddProxyServices(IServiceCollection services)

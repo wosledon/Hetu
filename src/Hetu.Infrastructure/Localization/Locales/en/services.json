@@ -256,6 +256,7 @@
   "toolExec.planHeader": "Current work plan ({0} steps):",
   "toolExec.planAllDone": "All steps are complete.",
   "toolExec.denied": "Tool \"{0}\" was denied by the permission policy.",
+  "toolExec.approvalUnavailable": "Tool \"{0}\" requires manual approval, but this workflow entry has no approval channel; switch the permission mode or run it in a session that supports approvals.",
   "toolExec.planNext": "Next: start \"{0}\" (id={1}). Call todo(action=update, id={1}, status=in-progress) first, then todo(action=complete, id={1}) when done.",
   "toolExec.statusTodo": "[not started]",
   "toolExec.statusInProgress": "[in progress]",

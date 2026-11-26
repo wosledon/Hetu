@@ -262,7 +262,7 @@ public class ChatMessagesController : ControllerBase
         var ragProvider = new RagContextProvider(
             _contextInjector, request.WebSearch, request.KnowledgeBase, request.Memory,
             request.Content ?? string.Empty, writer, modelInfo.ModelId, topicId, projectId: null);
-        await InjectMentionsAsync(request, chatMessages, writer, ct);
+        var mentionProvider = new MentionContextProvider(_mentionContext, request.Mentions, writer);
 
         var profile = BuiltinProfiles.Knowledge;
         var (useToolCalling, approvalOverrides) = ConfigureToolCalling(request, profile, options);
@@ -276,7 +276,7 @@ public class ChatMessagesController : ControllerBase
             // Provider 已在上面解析（含 API Key 解密失败的友好报错），此处复用同一实例
             ModelId = modelId,
             SystemPrompt = options.SystemPrompt ?? string.Empty,
-            Messages = chatMessages,
+            Messages = chatMessages.ToChatMessages(),
             ToolNames = useToolCalling ? options.Tools?.Select(t => t.Name).ToList() ?? new List<string>() : new List<string>(),
             McpServerIds = new List<Guid>(),
             MaxIterations = profile.MaxAgentIterations,
@@ -291,7 +291,7 @@ public class ChatMessagesController : ControllerBase
             UsageRefId = topicId,
             ContextWindowTokens = request.ContextWindow,
             Sink = sink,
-            ContextProviders = [ragProvider],
+            ContextProviders = [ragProvider, mentionProvider],
             DrainSteering = () => _steering.Drain(steeringKey),
             EnableTools = useToolCalling,
             // 常驻工具集：其余工具只在系统提示里列名，模型用 load_tools 按需加载 schema（省上下文固定开销）
@@ -737,16 +737,6 @@ public class ChatMessagesController : ControllerBase
             Log.Debug("[Agent] reasoningEffort={Effort} (request={RequestEffort}, agent={AgentEffort}, model={ModelEffort})",
                 options.ReasoningEffort, request.ReasoningEffort, agentReasoningEffort, model?.ReasoningEffort);
         }
-    }
-
-    /// <summary>
-    /// 解析输入框 @ 引用（笔记 / 笔记本 / 标签 / 知识项），把内容作为上下文插入本轮对话。
-    /// 与 RAG 注入一致：插在最后一条用户消息之前，模型可直接引用。
-    /// </summary>
-    private async Task InjectMentionsAsync(SendMessageRequest request, List<LlmChatMessage> messages, SseStreamWriter writer, CancellationToken ct)
-    {
-        var resolved = await _mentionContext.BuildAsync(request.Mentions, messages, ct);
-        if (resolved > 0) await writer.WriteJsonAsync(new { type = "mentions", count = resolved });
     }
 
     private (bool useToolCalling, Dictionary<string, ToolApprovalMode> overrides) ConfigureToolCalling(

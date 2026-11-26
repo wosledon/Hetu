@@ -10,6 +10,8 @@ using Hetu.Core.Services.Workflows;
 using Hetu.Shared.Common;
 using Hetu.Shared.Notifications;
 using Hetu.Shared.Tasks;
+using Microsoft.Extensions.AI;
+using AiChatMessage = Microsoft.Extensions.AI.ChatMessage;
 using Microsoft.Extensions.Logging;
 
 namespace Hetu.Infrastructure.Services;
@@ -208,7 +210,7 @@ public class KanbanTaskExecutor : IKanbanTaskExecutor
                 {
                     ModelId = null,
                     SystemPrompt = systemPrompt,
-                    Messages = new List<LlmChatMessage> { new() { Role = "user", Content = brief } },
+                    Messages = new List<AiChatMessage> { new(ChatRole.User, brief) },
                     ToolNames = tools,
                     ToolApprovals = toolApprovals,
                     QuestionHandler = OnQuestionAsync,
