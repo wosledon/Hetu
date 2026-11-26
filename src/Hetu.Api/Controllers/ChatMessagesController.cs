@@ -259,7 +259,9 @@ public class ChatMessagesController : ControllerBase
             }
         }
 
-        var (searchJson, kbJson, memJson) = await InjectRagAsync(topicId, request, chatMessages, writer, modelInfo.ModelId, ct);
+        var ragProvider = new RagContextProvider(
+            _contextInjector, request.WebSearch, request.KnowledgeBase, request.Memory,
+            request.Content ?? string.Empty, writer, modelInfo.ModelId, topicId, projectId: null);
         await InjectMentionsAsync(request, chatMessages, writer, ct);
 
         var profile = BuiltinProfiles.Knowledge;
@@ -289,6 +291,7 @@ public class ChatMessagesController : ControllerBase
             UsageRefId = topicId,
             ContextWindowTokens = request.ContextWindow,
             Sink = sink,
+            ContextProviders = [ragProvider],
             DrainSteering = () => _steering.Drain(steeringKey),
             EnableTools = useToolCalling,
             // 常驻工具集：其余工具只在系统提示里列名，模型用 load_tools 按需加载 schema（省上下文固定开销）
@@ -312,6 +315,7 @@ public class ChatMessagesController : ControllerBase
         var latencyMs = (int)sw.ElapsedMilliseconds;
         var cancelled = loopResult.Cancelled;
         var loopError = loopResult.Error;
+        var (searchJson, kbJson, memJson) = ragProvider.Result;
 
         // 中断或正常完成都保存已生成的部分内容
         var finalContent = loopResult.Content;
@@ -743,16 +747,6 @@ public class ChatMessagesController : ControllerBase
     {
         var resolved = await _mentionContext.BuildAsync(request.Mentions, messages, ct);
         if (resolved > 0) await writer.WriteJsonAsync(new { type = "mentions", count = resolved });
-    }
-
-    private async Task<(string? search, string? knowledge, string? memory)> InjectRagAsync(
-        Guid topicId, SendMessageRequest request, List<LlmChatMessage> messages, SseStreamWriter writer, Guid modelId, CancellationToken ct)
-    {
-        // 对话会话：记忆作用域 = 全局 ∪ 当前会话（对话话题没有项目绑定）
-        var result = await _contextInjector.InjectRagAsync(
-            request.WebSearch, request.KnowledgeBase, request.Memory, request.Content ?? string.Empty, messages, writer, modelId,
-            topicId, projectId: null, ct);
-        return (result.SearchJson, result.KnowledgeJson, result.MemoryJson);
     }
 
     private (bool useToolCalling, Dictionary<string, ToolApprovalMode> overrides) ConfigureToolCalling(

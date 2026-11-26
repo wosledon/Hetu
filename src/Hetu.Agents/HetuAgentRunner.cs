@@ -347,6 +347,7 @@ internal sealed class HetuAgentRunner : IAgentRunner
             Name = "hetu",
             ChatOptions = chatOptions,
             ChatHistoryProvider = CreateChatHistoryProvider(history, state, inputChars),
+            AIContextProviders = request.ContextProviders?.ToList(),
             UseProvidedChatClientAsIs = true,
         };
     }
