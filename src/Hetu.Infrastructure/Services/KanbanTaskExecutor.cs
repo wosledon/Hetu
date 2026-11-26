@@ -36,7 +36,7 @@ public class KanbanTaskExecutor : IKanbanTaskExecutor
     private readonly IUnitOfWork _unitOfWork;
     private readonly IBackgroundTaskQueue _taskQueue;
     private readonly AgentLoopService _agentLoop;
-    private readonly WorkflowExecutionEngine _workflowEngine;
+    private readonly MafWorkflowRunner _workflowEngine;
     private readonly IWorkCommandRunnerFactory _runnerFactory;
     private readonly InboxService _inbox;
     private readonly CompressionPipelineService _compression;
@@ -47,7 +47,7 @@ public class KanbanTaskExecutor : IKanbanTaskExecutor
         IUnitOfWork unitOfWork,
         IBackgroundTaskQueue taskQueue,
         AgentLoopService agentLoop,
-        WorkflowExecutionEngine workflowEngine,
+        MafWorkflowRunner workflowEngine,
         IWorkCommandRunnerFactory runnerFactory,
         InboxService inbox,
         CompressionPipelineService compression,

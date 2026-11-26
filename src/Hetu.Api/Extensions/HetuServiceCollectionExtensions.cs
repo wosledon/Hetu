@@ -1,6 +1,7 @@
 using Hetu.Api.Services;
 using Hetu.Core.Interfaces;
 using Hetu.Core.Services;
+using Hetu.Core.Services.AgentFramework;
 using Hetu.Core.Services.Tools;
 using Hetu.Core.Services.Work;
 using Hetu.Core.Services.Workflows;
@@ -15,6 +16,7 @@ using Hetu.Infrastructure.ScheduledTasks;
 using Hetu.Infrastructure.SemanticSearch;
 using Hetu.Infrastructure.Services;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.Agents.AI.Workflows;
 using Microsoft.EntityFrameworkCore;
 using Pgvector.EntityFrameworkCore;
 
@@ -219,7 +221,8 @@ public static class HetuServiceCollectionExtensions
     private static void AddWorkflowServices(IServiceCollection services)
     {
         services.AddSingleton<WorkflowApprovalService>();
-        services.AddScoped<WorkflowExecutionEngine>();
+        services.AddSingleton(_ => CheckpointManager.CreateInMemory());
+        services.AddScoped<MafWorkflowRunner>();
 
         services.AddScoped<INodeExecutor, StartNodeExecutor>();
         services.AddScoped<INodeExecutor, AgentNodeExecutor>();
@@ -229,13 +232,13 @@ public static class HetuServiceCollectionExtensions
         services.AddScoped<INodeExecutor, ParallelNodeExecutor>();
         services.AddScoped<INodeExecutor, MergeNodeExecutor>();
         services.AddScoped<INodeExecutor, ToolNodeExecutor>();
-        services.AddScoped<INodeExecutor, HumanNodeExecutor>();
         services.AddScoped<INodeExecutor, SubWorkflowNodeExecutor>();
     }
 
     private static void AddWorkServices(IServiceCollection services)
     {
         services.AddScoped<IWorkflowService, WorkflowService>();
+        services.AddScoped<MafAgentRunner>();
         services.AddScoped<AgentLoopService>();
         // 运行中引导：所有端共享同一份内存队列（单例）
         services.AddSingleton<Hetu.Core.Services.AgentSteeringHub>();

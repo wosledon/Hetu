@@ -7,7 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Hetu.Core.Services.Workflows.NodeExecutors;
 
 /// <summary>
-/// SubWorkflow 节点：递归调用另一个工作流。通过 IServiceProvider 懒加载 WorkflowExecutionEngine 避免循环依赖。
+/// SubWorkflow 节点：递归调用另一个工作流。通过 IServiceProvider 懒加载 MafWorkflowRunner 避免循环依赖。
 /// 配置 JSON: { "subWorkflowId": "guid", "inputTemplate": "{{start.input}}" }
 /// 递归深度上限 5，防止无限递归。
 /// </summary>
@@ -37,13 +37,23 @@ public class SubWorkflowNodeExecutor : INodeExecutor
 
         // 懒加载引擎避免循环依赖
         using var scope = _serviceProvider.CreateScope();
-        var engine = scope.ServiceProvider.GetRequiredService<WorkflowExecutionEngine>();
+        var engine = scope.ServiceProvider.GetRequiredService<MafWorkflowRunner>();
 
         var depth = GetDepth(ctx) + 1;
         if (depth > 5)
             return new NodeResult { Error = _localizer.T("workflowNode.subWorkflowDepthExceeded") };
 
-        var subResult = await engine.ExecuteAsync(subWorkflowId, subInput, ct, depth, null, null, ctx.GlobalApprovalMode);
+        var subResult = await engine.ExecuteAsync(
+            subWorkflowId,
+            subInput,
+            ct,
+            depth,
+            sink,
+            null,
+            ctx.GlobalApprovalMode,
+            ctx.QuestionHandler,
+            ctx.WorkScope,
+            ctx.DecideToolCall);
         if (subResult.Status != "Succeeded")
             return new NodeResult { Error = subResult.Error ?? _localizer.T("workflowNode.subWorkflowFailed") };
 

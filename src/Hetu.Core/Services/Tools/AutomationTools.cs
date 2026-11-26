@@ -98,7 +98,7 @@ public class RunWorkflowTool : IToolExecutor
                 return ToolExecutionResult.Error("id 必须是有效 GUID");
 
             var input = ListProjectsTool.ReadString(argumentsJson, "input");
-            var engine = _services.GetRequiredService<WorkflowExecutionEngine>();
+            var engine = _services.GetRequiredService<MafWorkflowRunner>();
             var result = await engine.ExecuteAsync(id, input, cancellationToken);
 
             var output = result.Output ?? "";

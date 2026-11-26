@@ -18,7 +18,7 @@ namespace Hetu.Api.Controllers;
 public class WorkflowsController : ControllerBase
 {
     private readonly IWorkflowService _workflowService;
-    private readonly WorkflowExecutionEngine _engine;
+    private readonly MafWorkflowRunner _engine;
     private readonly WorkflowApprovalService _approvalService;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IChatMessageService _chatMessageService;
@@ -29,7 +29,7 @@ public class WorkflowsController : ControllerBase
 
     public WorkflowsController(
         IWorkflowService workflowService,
-        WorkflowExecutionEngine engine,
+        MafWorkflowRunner engine,
         WorkflowApprovalService approvalService,
         IUnitOfWork unitOfWork,
         IChatMessageService chatMessageService,
