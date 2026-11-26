@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Text.Json;
 using Hetu.Core.Entities;
 using Hetu.Core.Interfaces;
+using Hetu.Core.Services.Tools;
 using Hetu.Shared.Workflow;
 
 namespace Hetu.Core.Services.Workflows;
@@ -44,6 +45,12 @@ public class ExecutionContext
     /// 为空时走 SSE 会话等待用户回答。
     /// </summary>
     public Func<LlmToolCall, Task<string>>? QuestionHandler { get; set; }
+
+    /// <summary>Code 会话的工作项目作用域；为空时工作流不绑定项目</summary>
+    public WorkToolScope? WorkScope { get; set; }
+
+    /// <summary>Code 会话的逐次工具权限决策</summary>
+    public Func<LlmToolCall, ToolApprovalMode, Task<WorkToolDecision>>? DecideToolCall { get; set; }
 
     /// <summary>工作流节点列表</summary>
     public List<NodeDto> Nodes { get; set; } = new();

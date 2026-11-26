@@ -202,6 +202,9 @@ const nowMs = () => Date.now()
  */
 const inputDraftCache = new Map<string, { input: string; pastedBlock: string }>()
 
+/** 工作流选择按会话缓存：草稿首轮落库会触发重挂载，选择不能随之丢失。 */
+const workflowSelectionCache = new Map<string, string>()
+
 export default function WorkSessionArea({
   project,
   session,
@@ -223,6 +226,8 @@ export default function WorkSessionArea({
   const confirmRef = useRef(useConfirm())
   // 会话身份：草稿期没有 id，用 projectId 兜底——与父组件 key 同源，草稿缓存按它存取
   const sessionKey = session?.id || session?.projectId || ''
+  const [workflowOutput, setWorkflowOutput] = useState('')
+  const workflowRun = useWorkflowRun(setWorkflowOutput, workflowSelectionCache.get(sessionKey), true)
   const [input, setInput] = useState(() => inputDraftCache.get(sessionKey)?.input ?? '')
   /** 粘贴的超长文本（日志/JSON/base64）：以折叠块挂在输入框上方，不占用输入框本身 */
   const [pastedBlock, setPastedBlock] = useState(() => inputDraftCache.get(sessionKey)?.pastedBlock ?? '')
@@ -306,7 +311,7 @@ export default function WorkSessionArea({
   })
 
   // 运行态 = 本组件起的流 ∪ 后端说还在跑的那一流；收到 done 后只等连接收尾，界面不再显示「回复中」
-  const busy = localStreaming || (runStatus?.active ?? false)
+  const busy = localStreaming || (runStatus?.active ?? false) || workflowRun.isRunning
   const isStreaming = busy && !streamDone
 
   // 默认只取最新一页，避免长会话一次加载全部历史；「加载更早」时扩大窗口
@@ -484,11 +489,6 @@ export default function WorkSessionArea({
 
   // @ 引用笔记 / 笔记本 / 标签 / 知识库：与对话页共用同一份候选构建
   const noteMentionItems = useMentionItems(inputMenu?.kind === 'mention' ? inputMenu.query : null)
-
-  // 工作流：与对话页共用同一套运行状态与交互（Code 会话不绑定话题，工作流独立运行）
-  const [workflowOutput, setWorkflowOutput] = useState('')
-  const workflowRun = useWorkflowRun(setWorkflowOutput)
-
 
 
   // 技能：数据库技能 + 本地技能目录（与对话页同源）+ 项目启用的技能（标记「项目」）
@@ -972,14 +972,14 @@ export default function WorkSessionArea({
       setAttachedFiles([])
       return
     }
-    // 选中工作流时：本轮交给工作流执行（与对话页同一套运行逻辑）
+    // 选中工作流时：先走统一的草稿会话创建，再绑定 Code 项目上下文执行
     if (workflowRun.workflow) {
       setInput('')
       setInputHistory(pushInputHistory(content))
       setSelectedMentions([])
       setMentionedFiles([])
       setInjectedContexts([])
-      await workflowRun.run(buildContent(content), undefined, permissionMode)
+      await runStream(buildContent(content), permissionMode, true, [], undefined, true)
       return
     }
     setInput('')
@@ -1121,7 +1121,8 @@ export default function WorkSessionArea({
     persistUserMessage = true,
     images: { data: string; mimeType: string; fileName?: string }[] = [],
     target?: IWorkSession,
-  ) => {
+    asWorkflow = false,
+  ): Promise<void> => {
     let active = target ?? draftCreatedRef.current ?? session
     if (!active) return
 
@@ -1148,6 +1149,11 @@ export default function WorkSessionArea({
           inputDraftCache.set(created.id, draft)
           inputDraftCache.delete(draftKey)
         }
+        const selectedWorkflowId = workflowSelectionCache.get(draftKey)
+        if (selectedWorkflowId) {
+          workflowSelectionCache.set(created.id, selectedWorkflowId)
+          workflowSelectionCache.delete(draftKey)
+        }
         queryClient.invalidateQueries({ queryKey: ['workSessions', created.projectId] })
         queryClient.invalidateQueries({ queryKey: ['workProjects'] })
         // 主工作区模式下选了别的分支：创建后执行检出（选分支即检出）
@@ -1161,6 +1167,44 @@ export default function WorkSessionArea({
     }
 
     const activeId = active.id
+    if (asWorkflow) {
+      if (!workflowRun.workflow) return
+      setPendingUser(content)
+      setPendingUserSentAt(nowMs())
+      resetStreamState()
+      scrollToBottomNow()
+      const completed = await workflowRun.run(
+        content,
+        undefined,
+        mode,
+        activeId,
+        agentMode,
+        selectedModelId || active.modelId || undefined,
+      )
+      await Promise.allSettled([
+        queryClient.invalidateQueries({ queryKey: ['workMessages', activeId] }),
+        queryClient.invalidateQueries({ queryKey: ['workSessions', active.projectId] }),
+        queryClient.invalidateQueries({ queryKey: ['workProjects'] }),
+        queryClient.invalidateQueries({ queryKey: ['workFileChanges', activeId] }),
+        queryClient.invalidateQueries({ queryKey: ['workCheckpoints', activeId] }),
+      ])
+      setPendingUser(null)
+      setWorkflowOutput('')
+      const updated = await workSessionService.getById(activeId).catch(() => null)
+      if (updated) {
+        onSessionUpdated?.(updated)
+        if (queueRef.current.length === 0 && draftCreatedRef.current) {
+          draftCreatedRef.current = null
+          onSessionCreated?.(updated)
+        }
+      }
+      const [queued, ...rest] = queueRef.current
+      if (completed && queued) {
+        updateQueue(() => rest)
+        await runStream(queued.content, permissionMode, true, [], undefined, !!workflowRun.workflow)
+      }
+      return
+    }
     setLocalStreaming(true)
     setOwnsStream(true)
     if (persistUserMessage)
@@ -1861,6 +1905,10 @@ export default function WorkSessionArea({
             const id = draftCreatedRef.current?.id ?? session?.id
             if (!id) return
             updateQueue(() => [])
+            if (workflowRun.isRunning) {
+              workflowRun.stop()
+              return
+            }
             // 先断本地挂载（本页起的那一流 / 重连挂上的那条），再通知服务端取消循环本身——
             // 刷新后发起流的那一方已不在这个页面里，光 abort 是停不掉后端的
             workStreamRuns.cancel(id)
@@ -1882,12 +1930,14 @@ export default function WorkSessionArea({
                 ]}
                 value={selectedAgentId}
                 onSelect={(item) => {
+                  workflowSelectionCache.delete(sessionKey)
                   workflowRun.setWorkflow(null)
                   if (session) setAgentOverride({ sessionId: session.id, value: item.id })
                 }}
                 projectItems={(copilotAssets?.agents ?? []).map((a) => ({ id: a.id, name: a.name, description: a.description, icon: 'bot' as const }))}
                 projectValue={selectedAgentId}
                 onSelectProject={(item) => {
+                  workflowSelectionCache.delete(sessionKey)
                   workflowRun.setWorkflow(null)
                   if (session) setAgentOverride({ sessionId: session.id, value: item.id })
                 }}
@@ -1896,6 +1946,7 @@ export default function WorkSessionArea({
                 onSelectWorkflow={(item) => {
                   const workflow = workflowRun.workflows.find((w) => w.id === item.id)
                   if (workflow) {
+                    workflowSelectionCache.set(sessionKey, workflow.id)
                     if (session) setAgentOverride({ sessionId: session.id, value: '' })
                     workflowRun.setWorkflow(workflow)
                   }

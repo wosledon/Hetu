@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Hetu.Core.Entities;
 using Hetu.Core.Interfaces;
+using Hetu.Core.Services.Tools;
 using Hetu.Core.Utilities;
 using Hetu.Shared.Workflow;
 using Microsoft.Extensions.DependencyInjection;
@@ -30,6 +31,7 @@ public interface IWorkflowEventSink
     Task OnRunFailedAsync(Guid runId, string error) => Task.CompletedTask;
     // Agent 节点内部工具调用事件（ask_question / 工具审批 / 普通工具）
     Task OnAgentToolCallAsync(Guid runId, string nodeId, string toolCallId, string name, string arguments) => Task.CompletedTask;
+    Task OnAgentToolResultAsync(Guid runId, string nodeId, string toolCallId, string content, bool isError) => Task.CompletedTask;
 }
 
 /// <summary>
@@ -58,18 +60,18 @@ public class WorkflowExecutionEngine
     }
 
     /// <summary>按工作流 ID 执行</summary>
-    public async Task<WorkflowRunResult> ExecuteAsync(Guid workflowId, string? input, CancellationToken ct, int depth = 0, IWorkflowEventSink? sink = null, Guid? chatTopicId = null, string? globalApprovalMode = null, Func<LlmToolCall, Task<string>>? questionHandler = null)
+    public async Task<WorkflowRunResult> ExecuteAsync(Guid workflowId, string? input, CancellationToken ct, int depth = 0, IWorkflowEventSink? sink = null, Guid? chatTopicId = null, string? globalApprovalMode = null, Func<LlmToolCall, Task<string>>? questionHandler = null, WorkToolScope? workScope = null, Func<LlmToolCall, ToolApprovalMode, Task<WorkToolDecision>>? decideToolCall = null)
     {
         var wf = await _unitOfWork.Workflows.GetByIdAsync(workflowId, ct);
         if (wf == null) return new WorkflowRunResult { Status = "Failed", Error = _localizer.T("workflow.notFound") };
         if (!wf.IsEnabled) return new WorkflowRunResult { Status = "Failed", Error = _localizer.T("workflow.disabled") };
 
         var dto = Map(wf);
-        return await ExecuteAsync(dto, input, ct, depth, sink, chatTopicId, globalApprovalMode, questionHandler);
+        return await ExecuteAsync(dto, input, ct, depth, sink, chatTopicId, globalApprovalMode, questionHandler, workScope, decideToolCall);
     }
 
     /// <summary>按工作流 DTO 执行（支持传入未持久化的定义）</summary>
-    public async Task<WorkflowRunResult> ExecuteAsync(WorkflowDto workflow, string? input, CancellationToken ct, int depth = 0, IWorkflowEventSink? sink = null, Guid? chatTopicId = null, string? globalApprovalMode = null, Func<LlmToolCall, Task<string>>? questionHandler = null)
+    public async Task<WorkflowRunResult> ExecuteAsync(WorkflowDto workflow, string? input, CancellationToken ct, int depth = 0, IWorkflowEventSink? sink = null, Guid? chatTopicId = null, string? globalApprovalMode = null, Func<LlmToolCall, Task<string>>? questionHandler = null, WorkToolScope? workScope = null, Func<LlmToolCall, ToolApprovalMode, Task<WorkToolDecision>>? decideToolCall = null)
     {
         var validation = WorkflowService.ValidateGraph(workflow, _localizer);
         if (!validation.Valid)
@@ -101,6 +103,8 @@ public class WorkflowExecutionEngine
             Edges = workflow.Edges,
             GlobalApprovalMode = globalApprovalMode,
             QuestionHandler = questionHandler,
+            WorkScope = workScope,
+            DecideToolCall = decideToolCall,
             MaxTotalIterations = 100,
             MaxNodeVisits = 20
         };
@@ -149,7 +153,7 @@ public class WorkflowExecutionEngine
             run.Status = "Cancelled";
             run.CompletedAt = DateTimeOffset.UtcNow;
             run.TotalIterations = ctx.TotalIterations;
-            await _unitOfWork.SaveChangesAsync(ct);
+            await _unitOfWork.SaveChangesAsync(CancellationToken.None);
             result.Status = "Cancelled";
             await (sink?.OnRunFailedAsync(run.Id, _localizer.T("workflow.runCancelled")) ?? Task.CompletedTask);
         }

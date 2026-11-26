@@ -99,7 +99,7 @@ public class AgentNodeExecutor : INodeExecutor
 
         var request = new AgentLoopRequest
         {
-            ModelId = TryGetGuid(config, "modelId"),
+            ModelId = TryGetGuid(config, "modelId") ?? ctx.WorkScope?.ModelId,
             SystemPrompt = preset.Content,
             Messages = messages,
             ToolNames = toolNames,
@@ -111,6 +111,8 @@ public class AgentNodeExecutor : INodeExecutor
             UsageSource = LlmUsageSources.Workflow,
             UsageRefId = ctx.RunId,
             QuestionHandler = ctx.QuestionHandler,
+            DecideToolCall = ctx.DecideToolCall,
+            WorkScope = ctx.WorkScope,
             Sink = new CollectingAgentLoopSink(sink, ctx.RunId, node.Id)
         };
 
@@ -202,7 +204,8 @@ internal class CollectingAgentLoopSink : IAgentLoopSink
         return Task.CompletedTask;
     }
 
-    public Task OnToolResultAsync(string toolCallId, string content, bool isError) => Task.CompletedTask;
+    public Task OnToolResultAsync(string toolCallId, string content, bool isError)
+        => _workflowSink?.OnAgentToolResultAsync(_runId, _nodeId, toolCallId, content, isError) ?? Task.CompletedTask;
 
     public Task OnDebugAsync(string text) => Task.CompletedTask;
 }

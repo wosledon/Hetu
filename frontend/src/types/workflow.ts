@@ -103,6 +103,11 @@ export interface IValidationResult {
 
 export interface IRunWorkflowRequest {
   input?: string
+  toolApprovalMode?: string
+  workSessionId?: string
+  modelId?: string
+  permissionMode?: string
+  agentMode?: string
 }
 
 export interface IWorkflowEvent {

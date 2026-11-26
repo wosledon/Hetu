@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import i18n from '../i18n'
 import { workflowService, streamWorkflowRun } from '../services/workflowService'
@@ -11,26 +11,40 @@ interface WorkflowToolCall { nodeId: string; toolCallId: string; name: string; a
 
 /**
  * 工作流运行状态与交互（节点状态 / Human 审批 / Agent 工具交互），对话与会话页共用。
- * topicId 传入时结果写入该话题，Code 会话不传（工作流独立运行）。
+ * topicId 传入时结果写入该话题；workSessionId 传入时绑定 Code 项目上下文并写入会话。
  */
-export function useWorkflowRun(onOutput?: (text: string) => void) {
+export function useWorkflowRun(onOutput?: (text: string) => void, initialWorkflowId?: string, abortOnUnmount = false) {
   const { data: workflows = [] } = useQuery({ queryKey: ['workflows'], queryFn: workflowService.getAll })
-  const [workflow, setWorkflow] = useState<IWorkflow | null>(null)
+  const [workflowId, setWorkflowId] = useState(initialWorkflowId ?? '')
+  const workflow = workflows.find(w => w.id === workflowId) ?? null
   const [nodes, setNodes] = useState<WorkflowNodeState[]>([])
   const [pendingApproval, setPendingApproval] = useState<PendingApproval | null>(null)
   const [toolCall, setToolCall] = useState<WorkflowToolCall | null>(null)
   const [error, setError] = useState('')
+  const [isRunning, setIsRunning] = useState(false)
   const runIdRef = useRef('')
+  const controllerRef = useRef<AbortController | null>(null)
 
-  const run = useCallback(async (input: string, topicId?: string, toolApprovalMode?: string) => {
-    if (!workflow) return
+  const setWorkflow = useCallback((next: IWorkflow | null) => setWorkflowId(next?.id ?? ''), [])
+  const stop = useCallback(() => controllerRef.current?.abort(), [])
+
+  useEffect(() => () => {
+    if (abortOnUnmount) controllerRef.current?.abort()
+  }, [abortOnUnmount])
+
+  const run = useCallback(async (input: string, topicId?: string, toolApprovalMode?: string, workSessionId?: string, agentMode?: string, modelId?: string) => {
+    if (!workflow || controllerRef.current) return false
     setNodes([])
     runIdRef.current = ''
     setPendingApproval(null)
     setToolCall(null)
     setError('')
+    onOutput?.('')
 
     const controller = new AbortController()
+    controllerRef.current = controller
+    setIsRunning(true)
+    let completed = false
     try {
       await streamWorkflowRun(workflow.id, input, topicId,
         (evt: IWorkflowEvent) => {
@@ -57,7 +71,13 @@ export function useWorkflowRun(onOutput?: (text: string) => void) {
             case 'agent_tool_call':
               setToolCall({ nodeId: evt.nodeId!, toolCallId: evt.toolCallId!, name: evt.name ?? '', arguments: evt.arguments ?? '{}' })
               break
+            case 'agent_tool_result':
+              if (evt.toolCallId) {
+                setToolCall((current) => current?.toolCallId === evt.toolCallId ? null : current)
+              }
+              break
             case 'run_completed':
+              completed = true
               onOutput?.(evt.output ?? i18n.t('workflows:run.completed'))
               break
             case 'run_failed':
@@ -65,17 +85,30 @@ export function useWorkflowRun(onOutput?: (text: string) => void) {
               onOutput?.(i18n.t('workflows:run.failedWith', { error: evt.error ?? '' }))
               break
             case 'run_result':
+              completed = evt.result?.status === 'Succeeded'
               if (evt.result?.error) setError(evt.result.error)
               onOutput?.(evt.result?.output ?? evt.result?.error ?? i18n.t('workflows:run.completed'))
               break
           }
         },
-        (err) => onOutput?.(i18n.t('workflows:run.failedWith', { error: err })),
+        (err) => {
+          setError(err)
+          onOutput?.(i18n.t('workflows:run.failedWith', { error: err }))
+        },
         controller.signal,
-        toolApprovalMode)
+        toolApprovalMode,
+        workSessionId,
+        agentMode,
+        modelId)
     } catch {
-      onOutput?.(i18n.t('workflows:run.exception'))
+      if (!controller.signal.aborted) onOutput?.(i18n.t('workflows:run.exception'))
+    } finally {
+      if (controllerRef.current === controller) {
+        controllerRef.current = null
+        setIsRunning(false)
+      }
     }
+    return completed
   }, [workflow, onOutput])
 
   /** Human 节点审批 */
@@ -114,6 +147,8 @@ export function useWorkflowRun(onOutput?: (text: string) => void) {
     pendingApproval,
     toolCall,
     error,
+    isRunning,
+    stop,
     run,
     approve,
     submitToolInteraction,

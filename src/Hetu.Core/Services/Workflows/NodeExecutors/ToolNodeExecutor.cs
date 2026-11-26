@@ -12,10 +12,12 @@ namespace Hetu.Core.Services.Workflows.NodeExecutors;
 public class ToolNodeExecutor : INodeExecutor
 {
     private readonly ToolRegistry _toolRegistry;
+    private readonly ToolExecutionService _toolExecution;
     private readonly ILocalizer _localizer;
-    public ToolNodeExecutor(ToolRegistry toolRegistry, ILocalizer localizer)
+    public ToolNodeExecutor(ToolRegistry toolRegistry, ToolExecutionService toolExecution, ILocalizer localizer)
     {
         _toolRegistry = toolRegistry;
+        _toolExecution = toolExecution;
         _localizer = localizer;
     }
 
@@ -37,6 +39,27 @@ public class ToolNodeExecutor : INodeExecutor
 
         try
         {
+            if (ctx.WorkScope != null)
+            {
+                var toolCallId = Guid.NewGuid().ToString("N");
+                if (sink != null)
+                    await sink.OnAgentToolCallAsync(ctx.RunId, node.Id, toolCallId, toolName, argumentsJson);
+                var results = await _toolExecution.ExecuteToolCallsAsync(
+                    $"workflow-{ctx.RunId}-{node.Id}",
+                    [new LlmToolCall { Id = toolCallId, Name = toolName, Arguments = argumentsJson }],
+                    new Dictionary<string, ToolApprovalMode>(),
+                    [],
+                    _ => Task.CompletedTask,
+                    _ => Task.CompletedTask,
+                    ct,
+                    decideToolCall: ctx.DecideToolCall,
+                    workScope: ctx.WorkScope);
+                var (_, content, isError) = results[0];
+                if (sink != null)
+                    await sink.OnAgentToolResultAsync(ctx.RunId, node.Id, toolCallId, content, isError);
+                return new NodeResult { Output = content, Error = isError ? content : null };
+            }
+
             var result = await executor.ExecuteAsync(argumentsJson, ct);
             return new NodeResult
             {
