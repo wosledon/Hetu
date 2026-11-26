@@ -8,7 +8,6 @@ public class EmbeddingProviderFactory : IEmbeddingProviderFactory
 {
     private readonly IUnitOfWork _unitOfWork;
     private readonly IDataProtector _protector;
-    private readonly IHttpClientFactory _httpClientFactory;
     private readonly IFoundryLocalService _foundry;
     private readonly ILocalizer _localizer;
     private readonly ILogger<EmbeddingProviderFactory> _logger;
@@ -16,14 +15,12 @@ public class EmbeddingProviderFactory : IEmbeddingProviderFactory
     public EmbeddingProviderFactory(
         IUnitOfWork unitOfWork,
         IDataProtectionProvider dataProtectionProvider,
-        IHttpClientFactory httpClientFactory,
         IFoundryLocalService foundry,
         ILocalizer localizer,
         ILogger<EmbeddingProviderFactory> logger)
     {
         _unitOfWork = unitOfWork;
         _protector = dataProtectionProvider.CreateProtector("Hetu.AiProvider.ApiKey");
-        _httpClientFactory = httpClientFactory;
         _foundry = foundry;
         _localizer = localizer;
         _logger = logger;
@@ -78,15 +75,14 @@ public class EmbeddingProviderFactory : IEmbeddingProviderFactory
             return null;
         }
 
-        var httpClient = _httpClientFactory.CreateClient();
-        httpClient.BaseAddress = new Uri(await ResolveBaseUrlAsync(provider, cancellationToken));
+        var baseUrl = await ResolveBaseUrlAsync(provider, cancellationToken);
 
         switch (provider.ProviderType.ToLowerInvariant())
         {
             case "openai":
             // Foundry Local 暴露 OpenAI 兼容端点，直接复用
             case "foundry":
-                return new OpenAiEmbeddingProvider(httpClient, apiKey, modelId, dimensions);
+                return new MafEmbeddingProvider(apiKey, modelId, baseUrl, dimensions);
             case "anthropic":
                 return new AnthropicEmbeddingProvider(dimensions);
             default:

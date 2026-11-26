@@ -53,7 +53,8 @@ public class ToolNodeExecutor : INodeExecutor
                     _ => Task.CompletedTask,
                     ct,
                     decideToolCall: ctx.DecideToolCall,
-                    workScope: ctx.WorkScope);
+                    workScope: ctx.WorkScope,
+                    interactiveApprovalSupported: false);
                 var (_, content, isError) = results[0];
                 if (sink != null)
                     await sink.OnAgentToolResultAsync(ctx.RunId, node.Id, toolCallId, content, isError);

@@ -256,6 +256,7 @@
   "toolExec.planHeader": "当前工作计划（共 {0} 个步骤）：",
   "toolExec.planAllDone": "所有步骤已完成。",
   "toolExec.denied": "工具 \"{0}\" 被权限策略拒绝。",
+  "toolExec.approvalUnavailable": "工具 \"{0}\" 需要人工审批，但当前工作流入口没有审批通道；请切换权限模式或在支持审批的会话中执行。",
   "toolExec.planNext": "下一步：开始执行 \"{0}\"（id={1}）。先调用 todo(action=update, id={1}, status=in-progress)，做完后调用 todo(action=complete, id={1})。",
   "toolExec.statusTodo": "[未开始]",
   "toolExec.statusInProgress": "[进行中]",

@@ -24,6 +24,7 @@ internal sealed class HetuAgentRunner : IAgentRunner
     private readonly ToolRegistry _toolRegistry;
     private readonly ToolExecutionService _toolExecution;
     private readonly CompressionPipelineService _compression;
+    private readonly IContextCompactor _contextCompactor;
     private readonly McpClientProvider _mcpClients;
     private readonly ILocalizer _localizer;
     private readonly IUnitOfWork _unitOfWork;
@@ -34,6 +35,7 @@ internal sealed class HetuAgentRunner : IAgentRunner
         ToolRegistry toolRegistry,
         ToolExecutionService toolExecution,
         CompressionPipelineService compression,
+        IContextCompactor contextCompactor,
         McpClientProvider mcpClients,
         ILocalizer localizer,
         IUnitOfWork unitOfWork,
@@ -43,6 +45,7 @@ internal sealed class HetuAgentRunner : IAgentRunner
         _toolRegistry = toolRegistry;
         _toolExecution = toolExecution;
         _compression = compression;
+        _contextCompactor = contextCompactor;
         _mcpClients = mcpClients;
         _localizer = localizer;
         _unitOfWork = unitOfWork;
@@ -297,7 +300,8 @@ internal sealed class HetuAgentRunner : IAgentRunner
     private ChatHistoryProvider CreateChatHistoryProvider(
         IReadOnlyList<LlmChatMessage> history,
         AgentRunState state,
-        int inputChars)
+        int inputChars,
+        int? contextWindowTokens)
     {
         var initial = AgentMessageMapper.ToChatMessages(history).ToList();
         return new InMemoryChatHistoryProvider(new InMemoryChatHistoryProviderOptions
@@ -305,7 +309,7 @@ internal sealed class HetuAgentRunner : IAgentRunner
             StateKey = "hetu-request-history",
             StateInitializer = _ => new InMemoryChatHistoryProvider.State { Messages = initial },
             ChatReducer = state.Request.CompressHistory
-                ? new HetuChatReducer(_compression, state, inputChars)
+                ? new HetuChatReducer(_compression, _contextCompactor, state, inputChars, contextWindowTokens)
                 : null,
             ReducerTriggerEvent = InMemoryChatHistoryProviderOptions.ChatReducerTriggerEvent.BeforeMessagesRetrieval,
         });
@@ -324,6 +328,10 @@ internal sealed class HetuAgentRunner : IAgentRunner
             declared.Count,
             state.LoadableToolNames.Except(state.LoadedToolNames, StringComparer.OrdinalIgnoreCase).ToList(),
             request.MaxToolCallsPerTurn);
+
+        var contextProviders = new List<AIContextProvider>();
+        if (request.ContextProviders != null) contextProviders.AddRange(request.ContextProviders);
+        if (request.DrainSteering != null) contextProviders.Add(new SteeringContextProvider(state));
 
         var chatOptions = new AiChatOptions
         {
@@ -346,8 +354,8 @@ internal sealed class HetuAgentRunner : IAgentRunner
         {
             Name = "hetu",
             ChatOptions = chatOptions,
-            ChatHistoryProvider = CreateChatHistoryProvider(history, state, inputChars),
-            AIContextProviders = request.ContextProviders?.ToList(),
+            ChatHistoryProvider = CreateChatHistoryProvider(history, state, inputChars, model.Model.ContextWindow),
+            AIContextProviders = contextProviders.Count > 0 ? contextProviders : null,
             UseProvidedChatClientAsIs = true,
         };
     }

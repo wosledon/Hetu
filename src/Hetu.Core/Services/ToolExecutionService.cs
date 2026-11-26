@@ -217,14 +217,16 @@ public class ToolExecutionService
         Func<LlmToolCall, Task<PlanDecision>>? planHandler = null,
         Func<(string toolCallId, string content, bool isError), Task>? onToolResult = null,
         TimeSpan? defaultToolTimeout = null,
-        bool approvalAlreadyHandled = false)
+        bool approvalAlreadyHandled = false,
+        bool interactiveApprovalSupported = true)
     {
         var results = new List<(string toolCallId, string content, bool isError)>(toolCalls.Count);
         foreach (var call in toolCalls)
         {
             var result = await ExecuteToolCallAsync(
                 sessionId, call, approvalOverrides, sessionTodos, writeJsonAsync, cancellationToken,
-                decideToolCall, workScope, questionHandler, planHandler, defaultToolTimeout, approvalAlreadyHandled);
+                decideToolCall, workScope, questionHandler, planHandler, defaultToolTimeout, approvalAlreadyHandled,
+                interactiveApprovalSupported);
             results.Add((call.Id, result.content, result.isError));
             if (onToolResult != null) await onToolResult(results[^1]);
         }
@@ -243,7 +245,8 @@ public class ToolExecutionService
         Func<LlmToolCall, Task<string>>? questionHandler,
         Func<LlmToolCall, Task<PlanDecision>>? planHandler,
         TimeSpan? defaultToolTimeout,
-        bool approvalAlreadyHandled)
+        bool approvalAlreadyHandled,
+        bool interactiveApprovalSupported)
     {
         var state = _sessions.GetOrCreate(sessionId);
         var isSilentTool = InteractiveTools.IsInteractive(toolCall.Name);
@@ -301,7 +304,9 @@ public class ToolExecutionService
             return await ReturnAsync(_localizer.T("toolExec.notFound", toolCall.Name), true);
 
         var result = approval == ToolApprovalMode.Ask && !isSilentTool && !approvalAlreadyHandled
-            ? await ExecuteWithApprovalAsync(state, toolCall, executor, sessionTodos, writeJsonAsync, ct, defaultToolTimeout)
+            ? interactiveApprovalSupported
+                ? await ExecuteWithApprovalAsync(state, toolCall, executor, sessionTodos, writeJsonAsync, ct, defaultToolTimeout)
+                : await ReturnAsync(_localizer.T("toolExec.approvalUnavailable", toolCall.Name), true)
             : await ExecuteSingleToolAsync(state, toolCall, executor!, sessionTodos, writeJsonAsync, ct, questionHandler, planHandler, defaultToolTimeout);
         await writeJsonAsync(new
         {

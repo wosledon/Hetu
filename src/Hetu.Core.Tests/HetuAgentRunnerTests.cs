@@ -164,6 +164,7 @@ public class HetuAgentRunnerTests
         services.AddSingleton<ILogger<HetuAgentRunner>>(NullLogger<HetuAgentRunner>.Instance);
         services.AddSingleton(Substitute.For<ILlmUsageRecorder>());
         services.AddSingleton(Substitute.For<ITextGenerationClient>());
+        services.AddSingleton(Substitute.For<IContextCompactor>());
         services.AddSingleton(new McpClientProvider(NullLoggerFactory.Instance));
         services.AddSingleton<ToolExecutionService>();
         services.AddSingleton<CompressionPipelineService>();

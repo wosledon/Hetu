@@ -10,7 +10,7 @@ namespace Hetu.Core.Services;
 /// 会话上下文管理：统计上下文占用（系统提示 / 历史 / 摘要）并在超限或用户执行 /compress 时，
 /// 用当前大模型把较早的历史压缩成一段摘要，摘要只影响后续 LLM 上下文，不改动原始消息。
 /// </summary>
-public class ContextCompactionService
+public class ContextCompactionService : IContextCompactor
 {
     /// <summary>自动压缩触发阈值：占用达到窗口的该比例时先压缩再发送</summary>
     private const double AutoCompactRatio = 0.8;

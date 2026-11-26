@@ -156,6 +156,7 @@ public class SubAgentExecutionTests
         services.AddSingleton<ToolExecutionService>();
         services.AddSingleton<CompressionPipelineService>();
         services.AddSingleton<ContextCompactionService>();
+        services.AddSingleton<IContextCompactor>(sp => sp.GetRequiredService<ContextCompactionService>());
         services.AddSingleton<IAgentFactory>(new ScriptedAgentFactory(provider));
         services.AddScoped<HetuAgentRunner>();
         services.AddScoped<IAgentRunner>(sp => sp.GetRequiredService<HetuAgentRunner>());

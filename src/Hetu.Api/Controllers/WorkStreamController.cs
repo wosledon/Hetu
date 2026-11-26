@@ -324,9 +324,8 @@ public class WorkStreamController : ControllerBase
             autoSummary ?? sessionEntity?.ContextSummary,
             sessionEntity?.ContextSummaryThroughMessageId);
 
-        // 输入框 @ 引用（笔记 / 笔记本 / 标签 / 知识库）：与对话会话共用同一份注入规则
-        var mentionCount = await _mentionContext.BuildAsync(request.Mentions, chatMessages, ct);
-        if (mentionCount > 0) await writer.WriteJsonAsync(new { type = "mentions", count = mentionCount });
+        // 输入框 @ 引用（笔记 / 笔记本 / 标签 / 知识库）：作为 MAF AIContextProvider 在本轮首次模型调用前解析
+        var mentionProvider = new MentionContextProvider(_mentionContext, request.Mentions, writer);
 
         // 图片附件（视觉模型多模态输入）：与对话会话共用同一挂载规则
         ChatContextInjector.AttachImages(request.Images, modelInfo.ProviderType, chatMessages);
@@ -495,7 +494,7 @@ public class WorkStreamController : ControllerBase
             UsageRefId = sessionId,
             ContextWindowTokens = request.ContextWindow,
             Sink = sink,
-            ContextProviders = [ragProvider],
+            ContextProviders = [ragProvider, mentionProvider],
             Hooks = hooks,
             DrainSteering = () => _steering.Drain(steeringKey),
             EnableTools = request.EnableTools,

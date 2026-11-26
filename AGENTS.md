@@ -121,13 +121,16 @@ EF Core 的 SQLite provider **不支持在 SQL 中排序或聚合 `DateTimeOffse
 - 长耗时工作提交给 `IBackgroundTaskCoordinator`（记录 `TaskItem`，前端「后台任务」页可见）；不要用即发即忘的 `Task.Run`。
 - Agent 运行时在 `src/Hetu.Agents/HetuAgentRunner.cs`：直接组合 MAF 的 `AIFunction`、`FunctionInvokingChatClient`、
   `ChatClientAgent` 与 `ToolApprovalAgent`；不要在 Core 里重新实现模型/工具循环。
-- 运行中引导（`AgentSteeringHub`）通过 `AgentContextChatClient` 中间件注入；权限模式（plan/readonly/ask/auto/bypass）折算为
+- 运行中引导（`AgentSteeringHub`）通过 `SteeringContextProvider` 注入；权限模式（plan/readonly/ask/auto/bypass）折算为
   MAF 审批管道的放行/询问/拒绝，`ToolApprovalAgent` 负责自动放行，`ask` 通过 `ToolExecutionService` 等待前端。
+  工作流工具节点没有审批通道，`ToolNodeExecutor` 必须传 `interactiveApprovalSupported: false`，遇到 `ask` 返回明确错误而不是等待。
 - 对话历史由 MAF `InMemoryChatHistoryProvider` 承载：Controller 仍负责按业务规则构建消息（自动摘要、RAG / @ 注入），
   `HetuAgentRunner` 只把「最后一条 user 消息」作为本轮输入，之前的消息由历史提供者加载；历史压缩通过 `HetuChatReducer`
-  （`ChatReducer`）执行，不要在 Agent 内部再手写一套历史循环。
+  （`ChatReducer`）执行，长历史会自动摘要旧消息；不要在 Agent 内部再手写一套历史循环。
 - RAG / 记忆检索封装为 `AIContextProvider`（`RagContextProvider`），通过 `AgentLoopRequest.ContextProviders` 交给 MAF；
   提供者内部只执行一次检索，后续迭代复用结果，避免每轮重复搜索。
+- `@` 引用同样走 `AIContextProvider`（`MentionContextProvider`）；运行中引导走 `SteeringContextProvider`，
+  不要把这些上下文再手工插入 `chatMessages`。
 - MCP 统一走官方 `ModelContextProtocol`：`McpClientProvider` 复用连接，`McpClientTool` 直接作为 `AIFunction` 交给 MAF；
   不要再新增手写 JSON-RPC / stdio 客户端。
 - 非 Agent 的文本任务（NoteAI / Wiki / Graph / 压缩 / 查询改写等）统一走 `ITextGenerationClient`（内部创建 MAF Agent），
@@ -225,6 +228,7 @@ dotnet ef migrations add <Name> --project src/Hetu.Infrastructure.PostgresMigrat
 
 - PostgreSQL 必须安装并启用 `pgvector`。
 - 向量维度由 `Embedding:Dimensions` 决定（默认 1536），必须与 Embedding 模型实际维度一致（SQLite 下不一致会插入失败）。
+- Embedding 统一走官方 MEAI `IEmbeddingGenerator`（`MafEmbeddingProvider`），不要手写 `/embeddings` HTTP 请求。
 - SQLite 的 `sqlite-vec` 原生库在 `src/Hetu.Infrastructure/sqlite-vec/vec0.dll`，连接打开时自动加载。
 
 ## 测试与验证
