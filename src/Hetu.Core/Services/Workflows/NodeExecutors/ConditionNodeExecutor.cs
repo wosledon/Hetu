@@ -24,7 +24,7 @@ public class ConditionNodeExecutor : INodeExecutor
             {
                 using var doc = JsonDocument.Parse(node.Config!);
                 if (doc.RootElement.TryGetProperty("branches", out var brArr) && brArr.ValueKind == JsonValueKind.Array)
-                    branches = brArr.EnumerateArray().ToList();
+                    branches = brArr.EnumerateArray().Select(element => element.Clone()).ToList();
                 if (doc.RootElement.TryGetProperty("defaultHandle", out var dh) && dh.ValueKind == JsonValueKind.String)
                     defaultHandle = dh.GetString() ?? defaultHandle;
             }

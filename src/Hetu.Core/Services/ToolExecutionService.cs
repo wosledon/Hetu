@@ -123,6 +123,20 @@ public class ToolExecutionService
         return false;
     }
 
+    public TaskCompletionSource<bool> RegisterApproval(string sessionId, string toolCallId)
+    {
+        var state = _sessions.GetOrCreate(sessionId);
+        var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        state.Approvals[toolCallId] = tcs;
+        return tcs;
+    }
+
+    public void RemoveApproval(string sessionId, string toolCallId)
+    {
+        if (_sessions.TryGet(sessionId, out var state))
+            state.Approvals.TryRemove(toolCallId, out _);
+    }
+
     /// <summary>Submit a decision (approve/reject with optional feedback) for a pending plan in the given session.</summary>
     public bool TrySetPlanDecision(string sessionId, string toolCallId, bool approved, string feedback)
     {
@@ -205,7 +219,40 @@ public class ToolExecutionService
         TimeSpan? defaultToolTimeout = null)
     {
         var results = new List<(string toolCallId, string content, bool isError)>(toolCalls.Count);
+        foreach (var call in toolCalls)
+        {
+            var result = await ExecuteToolCallAsync(
+                sessionId, call, approvalOverrides, sessionTodos, writeJsonAsync, cancellationToken,
+                decideToolCall, workScope, questionHandler, planHandler, defaultToolTimeout);
+            results.Add((call.Id, result.content, result.isError));
+            if (onToolResult != null) await onToolResult(results[^1]);
+        }
+        return results;
+    }
+
+    private async Task<(string content, bool isError)> ExecuteToolCallAsync(
+        string sessionId,
+        LlmToolCall toolCall,
+        Dictionary<string, ToolApprovalMode> approvalOverrides,
+        List<SessionTodo> sessionTodos,
+        Func<object, Task> writeJsonAsync,
+        CancellationToken ct,
+        Func<LlmToolCall, ToolApprovalMode, Task<WorkToolDecision>>? decideToolCall,
+        WorkToolScope? workScope,
+        Func<LlmToolCall, Task<string>>? questionHandler,
+        Func<LlmToolCall, Task<PlanDecision>>? planHandler,
+        TimeSpan? defaultToolTimeout)
+    {
         var state = _sessions.GetOrCreate(sessionId);
+        var isSilentTool = InteractiveTools.IsInteractive(toolCall.Name);
+        await writeJsonAsync(new
+        {
+            type = "tool_call",
+            id = toolCall.Id,
+            name = toolCall.Name,
+            arguments = toolCall.Arguments,
+            hidden = isSilentTool,
+        });
 
         await using var scope = _scopeFactory.CreateAsyncScope();
         var workContext = scope.ServiceProvider.GetRequiredService<WorkToolContext>();
@@ -225,139 +272,52 @@ public class ToolExecutionService
                 toolRegistry.AddRuntimeTool(runtimeTool);
         }
 
-        // 阶段 1：发 tool_call 帧并解析审批，把拒绝 / 未找到的调用先固定为结果
-        var prepared = new List<PreparedToolCall>(toolCalls.Count);
-        foreach (var toolCall in toolCalls)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            bool isSilentTool = InteractiveTools.IsInteractive(toolCall.Name);
-
-            _logger.LogInformation("[ToolExec] writeJsonAsync tool_call id={Id} name={Name} session={SessionId}", toolCall.Id, toolCall.Name, sessionId);
-            await writeJsonAsync(new
-            {
-                type = "tool_call",
-                id = toolCall.Id,
-                name = toolCall.Name,
-                arguments = toolCall.Arguments,
-                hidden = isSilentTool
-            });
-
-            var executor = toolRegistry.GetExecutor(toolCall.Name);
-
-            // 优先级：显式逐工具配置 > 策略模式（权限模式 / 项目规则） > 工具自身声明
-            ToolApprovalMode? explicitOverride = approvalOverrides.TryGetValue(toolCall.Name, out var byName)
-                ? byName
-                : approvalOverrides.TryGetValue("*", out var byWildcard)
-                    ? byWildcard
-                    : null;
-
-            var approval = explicitOverride ?? executor?.DefaultApproval ?? ToolApprovalMode.Auto;
-
-            // 策略只做"否决"与"补默认"：显式配置优先，项目规则仍可否决
-            if (decideToolCall != null && !isSilentTool)
-            {
-                var decision = await decideToolCall(toolCall, approval);
-                if (!decision.Allowed)
-                {
-                    var denyMessage = decision.DenyMessage ?? _localizer.T("toolExec.denied", toolCall.Name);
-                    prepared.Add(new PreparedToolCall(toolCall, executor, approval, isSilentTool, (denyMessage, true)));
-                    continue;
-                }
-                approval = explicitOverride ?? decision.Mode;
-            }
-
-            if (executor == null && !InteractiveTools.IsInteractive(toolCall.Name))
-            {
-                prepared.Add(new PreparedToolCall(toolCall, null, approval, isSilentTool,
-                    (_localizer.T("toolExec.notFound", toolCall.Name), true)));
-                continue;
-            }
-
-            prepared.Add(new PreparedToolCall(toolCall, executor, approval, isSilentTool, null));
-        }
-
-        // 阶段 2：执行并按原顺序回结果。平行批次的回调在整批完成后按顺序触发，
-        // 串行调用则在各自执行完立即回调（plan/question 等待前，前面的结果已经落库）
-        async Task EmitResultAsync(PreparedToolCall item, (string content, bool isError) result)
+        var executor = toolRegistry.GetExecutor(toolCall.Name);
+        var explicitOverride = approvalOverrides.TryGetValue(toolCall.Name, out var byName)
+            ? byName
+            : approvalOverrides.TryGetValue("*", out var byWildcard)
+                ? byWildcard
+                : (ToolApprovalMode?)null;
+        var approval = explicitOverride ?? executor?.DefaultApproval ?? ToolApprovalMode.Auto;
+        async Task<(string content, bool isError)> ReturnAsync(string content, bool isError)
         {
             await writeJsonAsync(new
             {
                 type = "tool_result",
-                id = item.Call.Id,
-                name = item.Call.Name,
-                content = result.content,
-                isError = result.isError,
-                collapsed = item.Approval == ToolApprovalMode.Bypass,
-                hidden = item.IsSilentTool
+                id = toolCall.Id,
+                name = toolCall.Name,
+                content,
+                isError,
+                collapsed = approval == ToolApprovalMode.Bypass,
+                hidden = isSilentTool,
             });
-
-            results.Add((item.Call.Id, result.content, result.isError));
-            if (onToolResult != null) await onToolResult(results[^1]);
+            return (content, isError);
         }
-
-        var allowParallelReads = workScope?.Runner is not { IsRemote: true };
-        for (var index = 0; index < prepared.Count;)
+        if (decideToolCall != null && !isSilentTool)
         {
-            var item = prepared[index];
-            if (item.ImmediateResult is { } immediate)
-            {
-                await EmitResultAsync(item, immediate);
-                index++;
-                continue;
-            }
-
-            var call = item.Call;
-            if (item.Approval == ToolApprovalMode.Ask && !InteractiveTools.IsInteractive(call.Name))
-            {
-                await EmitResultAsync(item, await ExecuteWithApprovalAsync(state, call, item.Executor, sessionTodos, writeJsonAsync, cancellationToken, defaultToolTimeout));
-                index++;
-                continue;
-            }
-
-            if (allowParallelReads && CanRunReadInParallel(item))
-            {
-                var batch = new List<PreparedToolCall> { item };
-                var next = index + 1;
-                while (next < prepared.Count && CanRunReadInParallel(prepared[next]))
-                {
-                    batch.Add(prepared[next]);
-                    next++;
-                }
-                if (batch.Count > 1)
-                {
-                    var batchResults = await Task.WhenAll(batch.Select(b =>
-                        ExecuteSingleToolAsync(state, b.Call, b.Executor!, sessionTodos, writeJsonAsync, cancellationToken, questionHandler, planHandler, defaultToolTimeout)));
-                    for (var k = 0; k < batch.Count; k++) await EmitResultAsync(batch[k], batchResults[k]);
-                    index = next;
-                    continue;
-                }
-            }
-
-            await EmitResultAsync(item, await ExecuteSingleToolAsync(state, call, item.Executor!, sessionTodos, writeJsonAsync, cancellationToken, questionHandler, planHandler, defaultToolTimeout));
-            index++;
+            var decision = await decideToolCall(toolCall, approval);
+            if (!decision.Allowed)
+                return await ReturnAsync(decision.DenyMessage ?? _localizer.T("toolExec.denied", toolCall.Name), true);
+            approval = explicitOverride ?? decision.Mode;
         }
+        if (executor == null && !isSilentTool)
+            return await ReturnAsync(_localizer.T("toolExec.notFound", toolCall.Name), true);
 
-        return results;
+        var result = approval == ToolApprovalMode.Ask && !isSilentTool
+            ? await ExecuteWithApprovalAsync(state, toolCall, executor, sessionTodos, writeJsonAsync, ct, defaultToolTimeout)
+            : await ExecuteSingleToolAsync(state, toolCall, executor!, sessionTodos, writeJsonAsync, ct, questionHandler, planHandler, defaultToolTimeout);
+        await writeJsonAsync(new
+        {
+            type = "tool_result",
+            id = toolCall.Id,
+            name = toolCall.Name,
+            content = result.content,
+            isError = result.isError,
+            collapsed = approval == ToolApprovalMode.Bypass,
+            hidden = isSilentTool,
+        });
+        return result;
     }
-
-    /// <summary>可并行执行的只读文件工具：只用文件系统，不共享 EF 上下文 / 交互状态</summary>
-    private static readonly HashSet<string> ParallelReadTools = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "work_list_dir", "work_read_file", "work_glob", "work_grep",
-    };
-
-    private static bool CanRunReadInParallel(PreparedToolCall item)
-        => item.ImmediateResult == null
-           && item.Approval != ToolApprovalMode.Ask
-           && item.Executor is { Risk: ToolRisk.Read }
-           && ParallelReadTools.Contains(item.Call.Name);
-
-    private sealed record PreparedToolCall(
-        LlmToolCall Call,
-        IToolExecutor? Executor,
-        ToolApprovalMode Approval,
-        bool IsSilentTool,
-        (string content, bool isError)? ImmediateResult);
 
     private async Task<(string content, bool isError)> ExecuteWithApprovalAsync(
         SessionPendingState state,

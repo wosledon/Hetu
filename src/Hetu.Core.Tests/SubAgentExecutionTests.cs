@@ -2,6 +2,7 @@ using System.Runtime.CompilerServices;
 using System.Text.Json;
 using Hetu.Core.Interfaces;
 using Hetu.Core.Services;
+using Hetu.Core.Services.AgentFramework;
 using Hetu.Core.Services.Tools;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -142,6 +143,7 @@ public class SubAgentExecutionTests
         factory.CreateProviderAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(provider);
 
         var services = new ServiceCollection();
+        services.AddLogging();
         services.AddScoped(_ => new WorkToolContext());
         services.AddScoped(_ => registry);
         services.AddSingleton(localizer);
@@ -156,6 +158,7 @@ public class SubAgentExecutionTests
         services.AddSingleton<ToolExecutionService>();
         services.AddSingleton<CompressionPipelineService>();
         services.AddSingleton<ContextCompactionService>();
+        services.AddScoped<MafAgentRunner>();
         services.AddScoped<AgentLoopService>();
         return services.BuildServiceProvider();
     }

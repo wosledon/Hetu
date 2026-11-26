@@ -2,6 +2,7 @@ using System.Runtime.CompilerServices;
 using System.Text.Json;
 using Hetu.Core.Interfaces;
 using Hetu.Core.Services;
+using Hetu.Core.Services.AgentFramework;
 using Hetu.Core.Services.Tools;
 using Hetu.Shared.Common;
 using Hetu.Shared.Settings;
@@ -159,6 +160,45 @@ public class AgentExecutionSafetyTests
         Assert.Equal(1024, receivedOptions?.ReasoningBudgetTokens);
         Assert.Equal(2048, receivedOptions?.MaxTokens);
         Assert.Equal(0.2, receivedOptions?.Temperature);
+    }
+
+    [Fact]
+    public async Task RunAsync_工具需要审批_通过MAF恢复后执行()
+    {
+        var executor = CreateExecutor("test_tool");
+        executor.DefaultApproval.Returns(ToolApprovalMode.Ask);
+        var executions = 0;
+        executor.ExecuteAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                executions++;
+                return ToolExecutionResult.Success("approved-result");
+            });
+        var localizer = CreateLocalizer();
+        var registry = new ToolRegistry([executor], localizer);
+        using var services = CreateToolServices(registry);
+        var toolExecution = CreateToolExecution(services, localizer);
+        var provider = Substitute.For<ILLMProvider>();
+        var invocation = 0;
+        provider.ChatStreamAsync(Arg.Any<IReadOnlyList<LlmChatMessage>>(), Arg.Any<ChatOptions>(), Arg.Any<CancellationToken>())
+            .Returns(_ => invocation++ == 0
+                ? Frames(ToolCallsFrame("call-1", "{}"), FinishFrame("stop"))
+                : Frames(ContentFrame("done"), FinishFrame("stop")));
+        var service = CreateAgentLoop(provider, registry, services, localizer, toolExecution: toolExecution);
+        var sink = new ApprovalSink(toolExecution);
+
+        var result = await service.RunAsync(new AgentLoopRequest
+        {
+            SessionId = "session",
+            ToolNames = ["test_tool"],
+            MaxIterations = 2,
+            CompressHistory = false,
+            Sink = sink,
+        }, CancellationToken.None);
+
+        Assert.True(sink.Requested);
+        Assert.Equal(1, executions);
+        Assert.Equal("done", result.Content);
     }
 
     [Theory]
@@ -964,29 +1004,34 @@ public class AgentExecutionSafetyTests
         ILocalizer localizer,
         ILlmUsageRecorder? usageRecorder = null,
         IAppSettingService? appSettings = null,
-        ContextCompactionService? contextCompaction = null)
+        ContextCompactionService? contextCompaction = null,
+        ToolExecutionService? toolExecution = null)
     {
         var factory = Substitute.For<ILLMProviderFactory>();
         factory.CreateChatProviderAsync(Arg.Any<CancellationToken>()).Returns(provider);
         return new AgentLoopService(
             factory,
             registry,
-            CreateToolExecution(services, localizer),
-            new CompressionPipelineService(
-                appSettings ?? Substitute.For<IAppSettingService>(),
-                Substitute.For<ILogger<CompressionPipelineService>>(),
-                factory,
-                Substitute.For<ILlmUsageRecorder>()),
-            contextCompaction ?? new ContextCompactionService(
-                Substitute.For<IUnitOfWork>(),
-                factory,
-                Substitute.For<ILlmUsageRecorder>(),
-                Substitute.For<ILogger<ContextCompactionService>>(),
-                localizer),
             Substitute.For<IUnitOfWork>(),
-            usageRecorder ?? Substitute.For<ILlmUsageRecorder>(),
             Substitute.For<ILogger<AgentLoopService>>(),
-            localizer);
+            localizer,
+            new MafAgentRunner(
+                registry,
+                toolExecution ?? CreateToolExecution(services, localizer),
+                new CompressionPipelineService(
+                    appSettings ?? Substitute.For<IAppSettingService>(),
+                    Substitute.For<ILogger<CompressionPipelineService>>(),
+                    factory,
+                    Substitute.For<ILlmUsageRecorder>()),
+                contextCompaction ?? new ContextCompactionService(
+                    Substitute.For<IUnitOfWork>(),
+                    factory,
+                    Substitute.For<ILlmUsageRecorder>(),
+                    Substitute.For<ILogger<ContextCompactionService>>(),
+                    localizer),
+                usageRecorder ?? Substitute.For<ILlmUsageRecorder>(),
+                Substitute.For<ILogger<MafAgentRunner>>(),
+                localizer));
     }
 
     /// <summary>记录每次落库的用量行，供断言逐次请求的口径</summary>
@@ -1023,6 +1068,20 @@ public class AgentExecutionSafetyTests
                 TurnId = turnId,
                 Iteration = iteration,
             }, ct);
+    }
+
+    private sealed class ApprovalSink(ToolExecutionService toolExecution) : IAgentLoopSink
+    {
+        public bool Requested { get; private set; }
+
+        public Task OnEventAsync(object payload)
+        {
+            var type = payload.GetType().GetProperty("type")?.GetValue(payload)?.ToString();
+            if (type != "approval_request") return Task.CompletedTask;
+            var id = payload.GetType().GetProperty("id")?.GetValue(payload)?.ToString();
+            Requested = id != null && toolExecution.TrySetApproval("session", id, true);
+            return Task.CompletedTask;
+        }
     }
 
     private static IToolExecutor CreateExecutor(string name)

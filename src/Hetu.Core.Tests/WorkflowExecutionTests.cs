@@ -3,10 +3,12 @@ using System.Text.Json;
 using Hetu.Core.Entities;
 using Hetu.Core.Interfaces;
 using Hetu.Core.Services;
+using Hetu.Core.Services.AgentFramework;
 using Hetu.Core.Services.Tools;
 using Hetu.Core.Services.Workflows;
 using Hetu.Core.Services.Workflows.NodeExecutors;
 using Hetu.Shared.Workflow;
+using Microsoft.Agents.AI.Workflows;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
@@ -140,11 +142,13 @@ public class WorkflowExecutionTests
         unitOfWork.WorkflowRunNodes.Returns(Substitute.For<IRepository<WorkflowRunNode>>());
         var localizer = CreateLocalizer();
         var capturing = new CapturingExecutor();
-        var engine = new WorkflowExecutionEngine(
+        var engine = new MafWorkflowRunner(
             unitOfWork,
             [new StartNodeExecutor(), capturing, new EndNodeExecutor()],
-            Substitute.For<ILogger<WorkflowExecutionEngine>>(),
-            localizer);
+            Substitute.For<ILogger<MafWorkflowRunner>>(),
+            localizer,
+            new WorkflowApprovalService(),
+            CheckpointManager.CreateInMemory());
         var workflow = new WorkflowDto
         {
             Id = Guid.NewGuid(),
@@ -170,6 +174,195 @@ public class WorkflowExecutionTests
         Assert.Same(scope, capturing.Scope);
     }
 
+    [Fact]
+    public async Task ExecuteAsync_条件节点_按分支路由()
+    {
+        var checkpointManager = CheckpointManager.CreateInMemory();
+        var engine = new MafWorkflowRunner(
+            CreateWorkflowUnitOfWork(),
+            [new StartNodeExecutor(), new ConditionNodeExecutor(), new EndNodeExecutor()],
+            Substitute.For<ILogger<MafWorkflowRunner>>(),
+            CreateLocalizer(),
+            new WorkflowApprovalService(),
+            checkpointManager);
+        var workflow = new WorkflowDto
+        {
+            Id = Guid.NewGuid(),
+            Name = "condition",
+            IsEnabled = true,
+            Nodes =
+            [
+                new NodeDto { Id = "start", Type = WorkflowNodeTypes.Start, Label = "Start" },
+                new NodeDto
+                {
+                    Id = "condition",
+                    Type = WorkflowNodeTypes.Condition,
+                    Label = "Condition",
+                    Config = JsonSerializer.Serialize(new
+                    {
+                        branches = new[] { new { handle = "yes", expression = "{{start.input}} == yes" } },
+                        defaultHandle = "no"
+                    })
+                },
+                new NodeDto { Id = "yes", Type = WorkflowNodeTypes.End, Label = "Yes" },
+                new NodeDto { Id = "no", Type = WorkflowNodeTypes.End, Label = "No" }
+            ],
+            Edges =
+            [
+                new EdgeDto { Id = "e1", Source = "start", Target = "condition" },
+                new EdgeDto { Id = "e2", Source = "condition", Target = "yes", SourceHandle = "yes" },
+                new EdgeDto { Id = "e3", Source = "condition", Target = "no" }
+            ]
+        };
+
+        var result = await engine.ExecuteAsync(workflow, "yes", CancellationToken.None);
+
+        Assert.True(result.Status == "Succeeded", result.Error);
+        Assert.Equal("yes", result.Output);
+        Assert.NotNull(await checkpointManager.GetLatestCheckpointAsync(result.RunId.ToString()));
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_循环节点_退出条件满足后结束()
+    {
+        var body = new CountingExecutor(WorkflowNodeTypes.Agent, "continue", "done");
+        var engine = new MafWorkflowRunner(
+            CreateWorkflowUnitOfWork(),
+            [new StartNodeExecutor(), new LoopNodeExecutor(CreateLocalizer()), body, new EndNodeExecutor()],
+            Substitute.For<ILogger<MafWorkflowRunner>>(),
+            CreateLocalizer(),
+            new WorkflowApprovalService(),
+            CheckpointManager.CreateInMemory());
+        var workflow = new WorkflowDto
+        {
+            Id = Guid.NewGuid(),
+            Name = "loop",
+            IsEnabled = true,
+            Nodes =
+            [
+                new NodeDto { Id = "start", Type = WorkflowNodeTypes.Start, Label = "Start" },
+                new NodeDto
+                {
+                    Id = "loop",
+                    Type = WorkflowNodeTypes.Loop,
+                    Label = "Loop",
+                    Config = JsonSerializer.Serialize(new { maxIterations = 3, exitCondition = "{{body.output}} == done" })
+                },
+                new NodeDto { Id = "body", Type = WorkflowNodeTypes.Agent, Label = "Body", AgentId = Guid.NewGuid() },
+                new NodeDto
+                {
+                    Id = "end",
+                    Type = WorkflowNodeTypes.End,
+                    Label = "End",
+                    Config = JsonSerializer.Serialize(new { outputTemplate = "{{body.output}}" })
+                }
+            ],
+            Edges =
+            [
+                new EdgeDto { Id = "e1", Source = "start", Target = "loop" },
+                new EdgeDto { Id = "e2", Source = "loop", Target = "body", SourceHandle = "body" },
+                new EdgeDto { Id = "e3", Source = "body", Target = "loop" },
+                new EdgeDto { Id = "e4", Source = "loop", Target = "end", SourceHandle = "exit" }
+            ]
+        };
+
+        var result = await engine.ExecuteAsync(workflow, "start", CancellationToken.None);
+
+        Assert.Equal("Succeeded", result.Status);
+        Assert.Equal(2, body.Executions);
+        Assert.Equal("done", result.Output);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_分路合并_汇总分支输出()
+    {
+        var engine = new MafWorkflowRunner(
+            CreateWorkflowUnitOfWork(),
+            [new StartNodeExecutor(), new OutputExecutor(new Dictionary<string, string> { ["left"] = "L", ["right"] = "R" }), new MergeNodeExecutor(), new EndNodeExecutor()],
+            Substitute.For<ILogger<MafWorkflowRunner>>(),
+            CreateLocalizer(),
+            new WorkflowApprovalService(),
+            CheckpointManager.CreateInMemory());
+        var workflow = new WorkflowDto
+        {
+            Id = Guid.NewGuid(),
+            Name = "fanout",
+            IsEnabled = true,
+            Nodes =
+            [
+                new NodeDto { Id = "start", Type = WorkflowNodeTypes.Start, Label = "Start" },
+                new NodeDto { Id = "left", Type = WorkflowNodeTypes.Agent, Label = "Left", AgentId = Guid.NewGuid() },
+                new NodeDto { Id = "right", Type = WorkflowNodeTypes.Agent, Label = "Right", AgentId = Guid.NewGuid() },
+                new NodeDto { Id = "merge", Type = WorkflowNodeTypes.Merge, Label = "Merge" },
+                new NodeDto { Id = "end", Type = WorkflowNodeTypes.End, Label = "End" }
+            ],
+            Edges =
+            [
+                new EdgeDto { Id = "e1", Source = "start", Target = "left" },
+                new EdgeDto { Id = "e2", Source = "start", Target = "right" },
+                new EdgeDto { Id = "e3", Source = "left", Target = "merge" },
+                new EdgeDto { Id = "e4", Source = "right", Target = "merge" },
+                new EdgeDto { Id = "e5", Source = "merge", Target = "end" }
+            ]
+        };
+
+        var result = await engine.ExecuteAsync(workflow, "start", CancellationToken.None);
+
+        Assert.Equal("Succeeded", result.Status);
+        Assert.Contains("L", result.Output);
+        Assert.Contains("R", result.Output);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_Human节点_通过MAF请求恢复后继续()
+    {
+        var approvals = new WorkflowApprovalService();
+        var sink = new HumanApprovalSink();
+        var engine = new MafWorkflowRunner(
+            CreateWorkflowUnitOfWork(),
+            [new StartNodeExecutor(), new EndNodeExecutor()],
+            Substitute.For<ILogger<MafWorkflowRunner>>(),
+            CreateLocalizer(),
+            approvals,
+            CheckpointManager.CreateInMemory());
+        var workflow = new WorkflowDto
+        {
+            Id = Guid.NewGuid(),
+            Name = "human",
+            IsEnabled = true,
+            Nodes =
+            [
+                new NodeDto { Id = "start", Type = WorkflowNodeTypes.Start, Label = "Start" },
+                new NodeDto { Id = "human", Type = WorkflowNodeTypes.Human, Label = "Human" },
+                new NodeDto { Id = "end", Type = WorkflowNodeTypes.End, Label = "End" }
+            ],
+            Edges =
+            [
+                new EdgeDto { Id = "e1", Source = "start", Target = "human" },
+                new EdgeDto { Id = "e2", Source = "human", Target = "end", SourceHandle = "approved" }
+            ]
+        };
+
+        var runTask = engine.ExecuteAsync(workflow, "input", CancellationToken.None, sink: sink);
+        var runId = await sink.RunId.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        for (var i = 0; i < 100 && approvals.GetPendingForRun(runId.ToString()).Count == 0 && !runTask.IsCompleted; i++)
+            await Task.Delay(10);
+        if (!runTask.IsCompleted)
+            Assert.True(approvals.TryResolve(runId.ToString(), "human", true));
+
+        var result = await runTask.WaitAsync(TimeSpan.FromSeconds(2));
+
+        Assert.True(result.Status == "Succeeded", result.Error);
+    }
+
+    private static IUnitOfWork CreateWorkflowUnitOfWork()
+    {
+        var unitOfWork = Substitute.For<IUnitOfWork>();
+        unitOfWork.WorkflowRuns.Returns(Substitute.For<IRepository<WorkflowRun>>());
+        unitOfWork.WorkflowRunNodes.Returns(Substitute.For<IRepository<WorkflowRunNode>>());
+        return unitOfWork;
+    }
+
     private static IUnitOfWork CreateUnitOfWork(Guid presetId)
     {
         var unitOfWork = Substitute.For<IUnitOfWork>();
@@ -187,6 +380,7 @@ public class WorkflowExecutionTests
         factory.CreateProviderAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>()).Returns(provider);
 
         var services = new ServiceCollection();
+        services.AddLogging();
         services.AddScoped(_ => new WorkToolContext());
         services.AddScoped<IToolExecutor, WorkReadFileTool>();
         services.AddScoped<IToolExecutor, WorkWriteFileTool>();
@@ -204,6 +398,7 @@ public class WorkflowExecutionTests
         services.AddSingleton<ToolExecutionService>();
         services.AddSingleton<CompressionPipelineService>();
         services.AddSingleton<ContextCompactionService>();
+        services.AddScoped<MafAgentRunner>();
         services.AddScoped<AgentLoopService>();
         services.AddScoped<AgentNodeExecutor>();
         services.AddScoped<ToolNodeExecutor>();
@@ -234,6 +429,37 @@ public class WorkflowExecutionTests
     private static string FinishFrame(string reason) => JsonSerializer.Serialize(new { type = "finish", reason });
 
     private static string ContentFrame(string text) => JsonSerializer.Serialize(new { type = "content", text });
+
+    private sealed class HumanApprovalSink : IWorkflowEventSink
+    {
+        public TaskCompletionSource<Guid> RunId { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public Task OnRunStartedAsync(Guid runId, WorkflowDto workflow)
+        {
+            RunId.TrySetResult(runId);
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class CountingExecutor(string nodeType, params string[] outputs) : INodeExecutor
+    {
+        public string NodeType => nodeType;
+        public int Executions { get; private set; }
+
+        public Task<NodeResult> ExecuteAsync(NodeDto node, ExecutionContext ctx, CancellationToken ct, IWorkflowEventSink? sink = null)
+        {
+            var output = outputs[Math.Min(Executions, outputs.Length - 1)];
+            Executions++;
+            return Task.FromResult(new NodeResult { Output = output });
+        }
+    }
+
+    private sealed class OutputExecutor(IReadOnlyDictionary<string, string> outputs) : INodeExecutor
+    {
+        public string NodeType => WorkflowNodeTypes.Agent;
+
+        public Task<NodeResult> ExecuteAsync(NodeDto node, ExecutionContext ctx, CancellationToken ct, IWorkflowEventSink? sink = null)
+            => Task.FromResult(new NodeResult { Output = outputs[node.Id] });
+    }
 
     private sealed class CapturingExecutor : INodeExecutor
     {
