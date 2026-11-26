@@ -22,7 +22,7 @@ public sealed class AgentPolicyContext
 
 /// <summary>
 /// 统一的工具审批策略。把「会话权限模式 + 项目审批规则 + 工具风险等级 + 工具自身声明」
-/// 折算为逐次工具调用的决策，供 <see cref="AgentLoopService"/> 的 <c>DecideToolCall</c> 使用。
+/// 折算为逐次工具调用的决策，供 Agent 运行时的 <c>DecideToolCall</c> 使用。
 /// <para>
 /// 三个消费方的差异只体现在入参上：
 /// 编码会话传入真实权限模式与项目规则；对话页传入 Auto 并沿用工具自身声明的默认审批；

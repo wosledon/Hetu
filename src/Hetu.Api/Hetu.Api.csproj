@@ -48,9 +48,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="../Hetu.Agents/Hetu.Agents.csproj" />
     <ProjectReference Include="../Hetu.Core/Hetu.Core.csproj" />
     <ProjectReference Include="../Hetu.Infrastructure/Hetu.Infrastructure.csproj" />
-    <ProjectReference Include="../Hetu.Infrastructure.PostgresMigrations/Hetu.Infrastructure.PostgresMigrations.csproj" />
+    <ProjectReference
+      Include="../Hetu.Infrastructure.PostgresMigrations/Hetu.Infrastructure.PostgresMigrations.csproj" />
     <ProjectReference Include="../Hetu.Shared/Hetu.Shared.csproj" />
   </ItemGroup>
 
@@ -70,14 +72,18 @@
     <FrontendWwwroot>$(MSBuildThisFileDirectory)wwwroot</FrontendWwwroot>
   </PropertyGroup>
 
-  <Target Name="BuildFrontendSpa" BeforeTargets="AssignTargetPaths;PrepareForBuild" Condition="'$(Configuration)' == 'Release' AND '$(SkipFrontendBuild)' != 'true' AND Exists('$(FrontendProjectDir)\package.json')">
+  <Target Name="BuildFrontendSpa" BeforeTargets="AssignTargetPaths;PrepareForBuild"
+    Condition="'$(Configuration)' == 'Release' AND '$(SkipFrontendBuild)' != 'true' AND Exists('$(FrontendProjectDir)\package.json')">
     <Message Importance="high" Text="[Hetu] Building frontend SPA at $(FrontendProjectDir)" />
-    <Exec Command="npm ci" WorkingDirectory="$(FrontendProjectDir)" Condition="!Exists('$(FrontendProjectDir)\node_modules')" />
+    <Exec Command="npm ci" WorkingDirectory="$(FrontendProjectDir)"
+      Condition="!Exists('$(FrontendProjectDir)\node_modules')" />
     <Exec Command="npm run build" WorkingDirectory="$(FrontendProjectDir)" />
     <ItemGroup>
       <_FrontendDistFiles Include="$(FrontendDistDir)\**\*.*" />
     </ItemGroup>
-    <Copy SourceFiles="@(_FrontendDistFiles)" DestinationFiles="@(_FrontendDistFiles->'$(FrontendWwwroot)\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(_FrontendDistFiles)"
+      DestinationFiles="@(_FrontendDistFiles->'$(FrontendWwwroot)\%(RecursiveDir)%(Filename)%(Extension)')"
+      SkipUnchangedFiles="true" />
     <!--
       注意：这里只拷贝不清理。dist 里的 js/css 带内容哈希，旧 chunk 不会被同名覆盖，
       反复构建会让 src/Hetu.Api/wwwroot 堆积孤儿文件（实测攒过 126 个、7.22 MB，
@@ -99,4 +105,3 @@
   </ItemGroup>
 
 </Project>
-

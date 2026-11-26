@@ -35,7 +35,7 @@ public class KanbanTaskExecutor : IKanbanTaskExecutor
 
     private readonly IUnitOfWork _unitOfWork;
     private readonly IBackgroundTaskQueue _taskQueue;
-    private readonly AgentLoopService _agentLoop;
+    private readonly IAgentRunner _agentLoop;
     private readonly MafWorkflowRunner _workflowEngine;
     private readonly IWorkCommandRunnerFactory _runnerFactory;
     private readonly InboxService _inbox;
@@ -46,7 +46,7 @@ public class KanbanTaskExecutor : IKanbanTaskExecutor
     public KanbanTaskExecutor(
         IUnitOfWork unitOfWork,
         IBackgroundTaskQueue taskQueue,
-        AgentLoopService agentLoop,
+        IAgentRunner agentLoop,
         MafWorkflowRunner workflowEngine,
         IWorkCommandRunnerFactory runnerFactory,
         InboxService inbox,
@@ -231,6 +231,8 @@ public class KanbanTaskExecutor : IKanbanTaskExecutor
                 };
 
                 var agentResult = await _agentLoop.RunAsync(request, cancellationToken);
+                if (KanbanTaskQuestionPendingException.TryParse(agentResult.Error, out var pendingQuestion))
+                    throw new KanbanTaskQuestionPendingException(pendingQuestion);
                 output = agentResult.Content;
                 if (string.IsNullOrWhiteSpace(output) && !string.IsNullOrWhiteSpace(agentResult.Thinking))
                     output = agentResult.Thinking!;

@@ -100,7 +100,7 @@ public class WorkTaskTool : IToolExecutor
         try
         {
             // 复用共享 Agent 循环：解析、参数校验、截断保护、工具执行与主会话完全一致
-            var agentLoop = _services.GetRequiredService<AgentLoopService>();
+            var agentLoop = _services.GetRequiredService<IAgentRunner>();
             var sink = new SubAgentSink(EmitAsync, subAgentId, description);
 
             using var subCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);

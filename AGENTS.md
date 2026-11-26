@@ -11,26 +11,28 @@ Hetu（河图）是**本地优先**的 AI 知识与 Agent 工作台，由两个�
 - **底座**：知识库（分块 + 向量）、知识图谱、Wiki 生成、记忆与 Dream、任务看板 / 工作流 / 后台任务、
   智能体 / 技能 / 工具 / MCP、模型与供应商 / 代理 / 用量统计。
 - **桌面**：`shell/hetu-desktop`（Tauri 2）拉起后端 sidecar，提供托盘、自动更新与安装包。
+- **Agent 运行时**：`src/Hetu.Agents`（Microsoft Agent Framework 1.28 + 官方 OpenAI/Anthropic Provider）。
 
 无账号、无云依赖；所有数据与模型调用都在本机（SQLite + `sqlite-vec`，可切 PostgreSQL + `pgvector`）。
 
 ## 技术栈
 
-| 层 | 技术 |
-| --- | --- |
-| 后端 | ASP.NET Core 10（`net10.0`）· EF Core 10 · Serilog · Scalar（`/scalar/v1`） |
-| 存储 | SQLite（默认，`sqlite-vec` 扩展）/ PostgreSQL 16+（`pgvector`） |
-| 前端 | React 19 · TypeScript 6（strict）· Vite 8 · Tailwind CSS 4 · react-router 7 |
-| 状态 | Zustand（客户端）+ TanStack Query v5（服务端） |
+| 层            | 技术                                                                                       |
+| ------------- | ------------------------------------------------------------------------------------------ |
+| 后端          | ASP.NET Core 10（`net10.0`）· EF Core 10 · Serilog · Scalar（`/scalar/v1`）                |
+| 存储          | SQLite（默认，`sqlite-vec` 扩展）/ PostgreSQL 16+（`pgvector`）                            |
+| 前端          | React 19 · TypeScript 6（strict）· Vite 8 · Tailwind CSS 4 · react-router 7                |
+| 状态          | Zustand（客户端）+ TanStack Query v5（服务端）                                             |
 | 编辑器/可视化 | Milkdown · CodeMirror · xterm.js · react-markdown(+KaTeX/Mermaid) · ECharts · XYFlow+dagre |
-| 桌面 | Tauri 2（Rust 外壳 + sidecar + updater + NSIS 安装器） |
-| 国际化 | i18next（`zh` / `en` 两份文案必须同步） |
+| 桌面          | Tauri 2（Rust 外壳 + sidecar + updater + NSIS 安装器）                                     |
+| 国际化        | i18next（`zh` / `en` 两份文案必须同步）                                                    |
 
 ## 目录结构
 
 ```
 src/
 ├── Hetu.Api/                                  # 控制器、SSE 流、后台 Worker、Program.cs
+├── Hetu.Agents/                               # MAF 运行时：AIAgent 工厂、工具 AIFunction、会话与审批
 ├── Hetu.Core/                                 # 实体（Entities）、服务（Services）、仓储接口（Interfaces）
 ├── Hetu.Infrastructure/                       # EF Core、仓储实现、AI Provider、MCP、sqlite-vec
 ├── Hetu.Infrastructure.PostgresMigrations/    # PostgreSQL 迁移与模型快照
@@ -114,11 +116,14 @@ EF Core 的 SQLite provider **不支持在 SQL 中排序或聚合 `DateTimeOffse
   `Hetu.Infrastructure/Repositories`，并挂到 `IUnitOfWork`。
 - **禁止在循环里查库**（N+1）：改成一次 `Where(id in …)` / 分组聚合 / 批量投影。
 
-### 后台任务与 Agent 循环
+### 后台任务与 Agent 运行时
 
 - 长耗时工作提交给 `IBackgroundTaskCoordinator`（记录 `TaskItem`，前端「后台任务」页可见）；不要用即发即忘的 `Task.Run`。
-- Agent 循环在 `AgentLoopService`：工具调用、审批（`WorkApprovalRules`）、运行中引导（`AgentSteeringHub`）、
-  发送队列、SSE 事件（`delta` / `thinking` / `tool_*` / `steering` / `checkpoint` / `notice` …）。
+- Agent 运行时在 `src/Hetu.Agents/HetuAgentRunner.cs`：直接组合 MAF 的 `AIFunction`、`FunctionInvokingChatClient`、
+  `ChatClientAgent` 与 `ToolApprovalAgent`；不要在 Core 里重新实现模型/工具循环。
+- 运行中引导（`AgentSteeringHub`）通过 `AgentContextChatClient` 中间件注入；审批由 `ToolApprovalAgent` 自动放行
+  `auto`/`bypass`，`ask` 通过 `ToolExecutionService` 等待前端。
+- SSE 事件（`delta` / `thinking` / `tool_*` / `steering` / `checkpoint` / `notice` …）在 `HetuAgentRunner` 边界转发。
   新增事件类型时前后端同步（`src/Hetu.Shared/Agent` + `frontend/src/utils/agentStream.ts`）。
 - 异步迭代器带取消令牌时必须加 `[EnumeratorCancellation]`（否则 CS8425，且取消不生效）。
 

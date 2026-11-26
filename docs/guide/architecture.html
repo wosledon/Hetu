@@ -240,7 +240,7 @@ Hetu.Shared         DTO / 枚举 / 常量（前后端契约）</code></pre></div
         <tbody>
           <tr><td>应用装配 / 中间件</td><td><code>src/Hetu.Api/Program.cs</code>（DI、响应缓存、健康检查、Scalar）</td></tr>
           <tr><td>SSE 流式入口</td><td><code>src/Hetu.Api/Controllers/WorkStreamController.cs</code> · <code>ChatMessagesController.cs</code></td></tr>
-          <tr><td>Agent 循环</td><td><code>src/Hetu.Core/Services/AgentLoopService.cs</code>（含运行中引导、检查点、审批）</td></tr>
+              <tr><td>Agent 运行时</td><td><code>src/Hetu.Agents/HetuAgentRunner.cs</code>（MAF <code>AIAgent</code> / 工具循环 / 审批 / 引导）</td></tr>
           <tr><td>仓储实现</td><td><code>src/Hetu.Infrastructure/Repositories/</code>（<code>EfRepository</code> 提供分页 / 聚合 / 清理原语）</td></tr>
           <tr><td>数据库上下文与迁移</td><td><code>src/Hetu.Infrastructure/Data/</code> 与 <code>src/Hetu.Infrastructure.PostgresMigrations/</code></td></tr>
           <tr><td>Git / 工作树 / PR</td><td><code>src/Hetu.Api/Services/WorkGitService.cs</code> · <code>src/Hetu.Core/Services/Work/WorkWorktreeService.cs</code></td></tr>

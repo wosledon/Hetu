@@ -1,9 +1,9 @@
 using System.Runtime.CompilerServices;
 using System.Text.Json;
+using Hetu.Agents;
 using Hetu.Core.Entities;
 using Hetu.Core.Interfaces;
 using Hetu.Core.Services;
-using Hetu.Core.Services.AgentFramework;
 using Hetu.Core.Services.Tools;
 using Hetu.Core.Services.Workflows;
 using Hetu.Core.Services.Workflows.NodeExecutors;
@@ -390,7 +390,6 @@ public class WorkflowExecutionTests
         services.AddSingleton(factory);
         services.AddSingleton(Substitute.For<IAppSettingService>());
         services.AddSingleton(Substitute.For<ILogger<ToolExecutionService>>());
-        services.AddSingleton(Substitute.For<ILogger<AgentLoopService>>());
         services.AddSingleton(Substitute.For<ILogger<AgentNodeExecutor>>());
         services.AddSingleton(Substitute.For<ILogger<CompressionPipelineService>>());
         services.AddSingleton(Substitute.For<ILogger<ContextCompactionService>>());
@@ -398,8 +397,9 @@ public class WorkflowExecutionTests
         services.AddSingleton<ToolExecutionService>();
         services.AddSingleton<CompressionPipelineService>();
         services.AddSingleton<ContextCompactionService>();
-        services.AddScoped<MafAgentRunner>();
-        services.AddScoped<AgentLoopService>();
+        services.AddSingleton<IAgentFactory>(new ScriptedAgentFactory(provider));
+        services.AddScoped<HetuAgentRunner>();
+        services.AddScoped<IAgentRunner>(sp => sp.GetRequiredService<HetuAgentRunner>());
         services.AddScoped<AgentNodeExecutor>();
         services.AddScoped<ToolNodeExecutor>();
         return services.BuildServiceProvider();

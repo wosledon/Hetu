@@ -56,16 +56,16 @@
     <aside class="docs-toc" data-docs-toc aria-label="本页目录"></aside>
     <div class="docs-body">
       <h1>Agent 循环</h1>
-      <p class="lede">对话页、编码会话、任务看板、工作流四条入口共用同一个内核：<code>AgentLoopService.RunAsync</code>。它负责「把消息、工具、审批、压缩、事件流串成一轮」，具体业务语义留在各自的调用方。</p>
+<p class="lede">对话页、编码会话、任务看板、工作流四条入口共用同一个内核：<code>HetuAgentRunner.RunAsync</code>。它直接组合 Microsoft Agent Framework 的 <code>ChatClientAgent</code>、<code>FunctionInvokingChatClient</code> 与 <code>ToolApprovalAgent</code>，只负责业务事件转发、历史压缩与结果汇总。</p>
 
       <h2>一次运行的完整顺序</h2>
       <ol>
         <li><strong>解析模型</strong>：请求里带 <code>ModelId</code> 就按它创建 provider，否则用默认对话模型；两者都拿不到直接抛错（不静默降级）。</li>
-        <li><strong>装载工具</strong>：先取内置 / 会话工具，再按会话绑定的 MCP 服务器加载 <code>tools/list</code> 结果，合并后刷新工具 schema 与系统提示。</li>
+              <li><strong>装载工具</strong>：先取内置 / 会话工具，再按会话绑定的 MCP 服务器加载 <code>tools/list</code> 结果，合并为 <code>AIFunction</code>。</li>
         <li><strong>进入循环</strong>（默认最多 15 轮）：每轮开头先 <code>DrainSteering()</code> 把「运行中引导」并入上下文，再按配置触发历史压缩，然后调用模型。</li>
         <li><strong>处理模型输出</strong>：正文与思考通过事件流实时推出；工具调用交给调用方的判定器决定执行还是请求审批。</li>
         <li><strong>回填结果</strong>：工具结果写回上下文，同时通过事件出口推给前端；每轮的正文/思考/工具/用量累加进本轮结果。</li>
-        <li><strong>收尾</strong>：没有更多工具调用时结束；迭代上限用尽时先按 <code>MaxContinuations</code> 自动续跑（上下文与进度保留），全部用尽后才执行一次 <code>tools=none</code> 的进展总结并标记 <code>iteration_limit</code>。调用方负责落库消息、写用量、补 <code>done</code> 帧。</li>
+        <li><strong>收尾</strong>：没有更多工具调用时结束；到达迭代上限时 MAF 自动执行一次不带工具的收尾请求并标记 <code>iteration_limit</code>。调用方负责落库消息、写用量、补 <code>done</code> 帧。</li>
       </ol>
 
       <h2>关键参数</h2>
@@ -74,9 +74,7 @@
         <tbody>
           <tr><td><code>MaxIterations</code></td><td>15</td><td>最大迭代轮数；传 ≤ 0 时回落默认 15，避免死循环</td></tr>
           <tr><td><code>MaxToolCallsPerTurn</code></td><td>5</td><td>单轮工具调用上限；超出部分跳过并回一条错误结果（不终止本轮，模型可拆小批次重试）</td></tr>
-          <tr><td><code>MaxContinuations</code></td><td>1（对话 / Code 为 2）</td><td>迭代上限用尽后自动续跑的段数；每段重新计 <code>MaxIterations</code>，本段无任何成功工具调用时不再续跑</td></tr>
-          <tr><td><code>ProviderMaxRetries</code></td><td>2</td><td>Provider 瞬时失败（连接 / 429 / 5xx）的重试次数；仅在尚未产出任何内容时生效，退避随次数递增</td></tr>
-          <tr><td><code>ToolTimeout</code></td><td>10 分钟</td><td>单个工具的默认执行上限；工具自身声明 <code>Timeout</code> 时取更短者，超时会取消工具自身的令牌</td></tr>
+              <tr><td><code>ToolTimeout</code></td><td>10 分钟</td><td>单个工具的默认执行上限；工具自身声明 <code>Timeout</code> 时取更短者，超时会取消工具自身的令牌</td></tr>
           <tr><td><code>CompressHistory</code></td><td>true</td><td>为 false 时跳过历史压缩（排查压缩引发的行为变化时用）</td></tr>
           <tr><td><code>EnableTools</code></td><td>true</td><td>关闭后不发工具 schema，纯对话模式</td></tr>
           <tr><td><code>CoreToolNames</code></td><td>null</td><td>给定时只暴露这些核心工具，其余按会话配置追加</td></tr>

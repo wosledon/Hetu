@@ -1,7 +1,7 @@
 using Hetu.Api.Services;
+using Hetu.Agents;
 using Hetu.Core.Interfaces;
 using Hetu.Core.Services;
-using Hetu.Core.Services.AgentFramework;
 using Hetu.Core.Services.Tools;
 using Hetu.Core.Services.Work;
 using Hetu.Core.Services.Workflows;
@@ -238,8 +238,7 @@ public static class HetuServiceCollectionExtensions
     private static void AddWorkServices(IServiceCollection services)
     {
         services.AddScoped<IWorkflowService, WorkflowService>();
-        services.AddScoped<MafAgentRunner>();
-        services.AddScoped<AgentLoopService>();
+        services.AddHetuAgents();
         // 运行中引导：所有端共享同一份内存队列（单例）
         services.AddSingleton<Hetu.Core.Services.AgentSteeringHub>();
         // 编码会话运行注册表：循环生命周期与 HTTP 请求解耦，客户端断开不影响运行（单例）
