@@ -17,7 +17,7 @@ public class MemoryService : IMemoryService
 {
     private readonly IUnitOfWork _unitOfWork;
     private readonly IEmbeddingProviderFactory _embeddingProviderFactory;
-    private readonly ILLMProviderFactory _llmProviderFactory;
+    private readonly ITextGenerationClient _text;
     private readonly IAppSettingService _appSettingService;
     private readonly HetuDbContext _dbContext;
     private readonly ILogger<MemoryService> _logger;
@@ -38,7 +38,7 @@ public class MemoryService : IMemoryService
     public MemoryService(
         IUnitOfWork unitOfWork,
         IEmbeddingProviderFactory embeddingProviderFactory,
-        ILLMProviderFactory llmProviderFactory,
+        ITextGenerationClient text,
         IAppSettingService appSettingService,
         HetuDbContext dbContext,
         ILogger<MemoryService> logger,
@@ -46,7 +46,7 @@ public class MemoryService : IMemoryService
     {
         _unitOfWork = unitOfWork;
         _embeddingProviderFactory = embeddingProviderFactory;
-        _llmProviderFactory = llmProviderFactory;
+        _text = text;
         _appSettingService = appSettingService;
         _dbContext = dbContext;
         _logger = logger;
@@ -213,8 +213,8 @@ public class MemoryService : IMemoryService
             return ApiResponse<List<MemoryDto>>.Ok([]);
 
         // 使用快速模型提取事实
-        var provider = await CreateFastProviderAsync(cancellationToken);
-        if (provider == null)
+        var modelId = await CreateFastModelIdAsync(cancellationToken);
+        if (!await _text.IsAvailableAsync(modelId, cancellationToken))
             return ApiResponse<List<MemoryDto>>.Fail(_localizer.T("memory.fastModelNotConfigured"));
 
         var conversationText = new StringBuilder();
@@ -254,7 +254,7 @@ public class MemoryService : IMemoryService
             };
             var options = new ChatOptions { Stream = false, Temperature = 0.3 };
 
-            var response = await provider.ChatAsync(chatMessages, options, cancellationToken);
+            var response = await _text.ChatAsync(modelId, chatMessages, options, cancellationToken);
 
             var extracted = LlmJsonExtractor.Deserialize<List<ExtractedFact>>(response);
             if (extracted == null || extracted.Count == 0)
@@ -390,8 +390,8 @@ public class MemoryService : IMemoryService
         if (messages.Count < 2)
             return ApiResponse<List<MemoryDto>>.Ok([]);
 
-        var provider = await CreateFastProviderAsync(cancellationToken);
-        if (provider == null)
+        var modelId = await CreateFastModelIdAsync(cancellationToken);
+        if (!await _text.IsAvailableAsync(modelId, cancellationToken))
             return ApiResponse<List<MemoryDto>>.Fail(_localizer.T("memory.fastModelNotConfigured"));
 
         var conversationText = new StringBuilder();
@@ -420,7 +420,8 @@ public class MemoryService : IMemoryService
 
         try
         {
-            var response = await provider.ChatAsync(
+            var response = await _text.ChatAsync(
+                modelId,
                 [new LlmChatMessage { Role = "user", Content = extractPrompt }],
                 new ChatOptions { Stream = false, Temperature = 0.3 },
                 cancellationToken);
@@ -1015,18 +1016,17 @@ public class MemoryService : IMemoryService
         }
     }
 
-    private async Task<ILLMProvider?> CreateFastProviderAsync(CancellationToken cancellationToken)
+    private async Task<Guid?> CreateFastModelIdAsync(CancellationToken cancellationToken)
     {
         // 优先使用快速模型
         var fastSetting = await _unitOfWork.AppSettings.GetByKeyAsync("DefaultFastModelId", cancellationToken);
-        if (!string.IsNullOrWhiteSpace(fastSetting?.Value) && Guid.TryParse(fastSetting.Value, out var fastModelId))
-        {
-            var provider = await _llmProviderFactory.CreateProviderAsync(fastModelId, cancellationToken);
-            if (provider != null) return provider;
-        }
+        if (!string.IsNullOrWhiteSpace(fastSetting?.Value)
+            && Guid.TryParse(fastSetting.Value, out var fastModelId)
+            && await _text.IsAvailableAsync(fastModelId, cancellationToken))
+            return fastModelId;
 
         // 回退到默认 chat 模型
-        return await _llmProviderFactory.CreateChatProviderAsync(cancellationToken);
+        return null;
     }
 
     private static MemoryDto MapToDto(Memory m) => new()

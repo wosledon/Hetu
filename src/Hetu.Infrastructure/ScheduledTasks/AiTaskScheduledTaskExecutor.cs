@@ -12,16 +12,16 @@ namespace Hetu.Infrastructure.ScheduledTasks;
 /// </summary>
 public class AiTaskScheduledTaskExecutor : IScheduledTaskExecutor
 {
-    private readonly ILLMProviderFactory _llmProviderFactory;
+    private readonly ITextGenerationClient _text;
     private readonly ILlmUsageRecorder _usageRecorder;
     private readonly ILogger<AiTaskScheduledTaskExecutor> _logger;
 
     public AiTaskScheduledTaskExecutor(
-        ILLMProviderFactory llmProviderFactory,
+        ITextGenerationClient text,
         ILlmUsageRecorder usageRecorder,
         ILogger<AiTaskScheduledTaskExecutor> logger)
     {
-        _llmProviderFactory = llmProviderFactory;
+        _text = text;
         _usageRecorder = usageRecorder;
         _logger = logger;
     }
@@ -36,20 +36,20 @@ public class AiTaskScheduledTaskExecutor : IScheduledTaskExecutor
 
         _logger.LogInformation("定时执行 AI 任务 {TaskName}，指令长度 {Len}", task.Name, prompt.Length);
 
-        var provider = await _llmProviderFactory.CreateChatProviderAsync(cancellationToken);
-        if (provider == null)
-            throw new InvalidOperationException("未找到可用的对话模型，请先在设置中配置默认对话模型");
-
         var options = new ChatOptions
         {
             ModelId = string.Empty,
             SystemPrompt = string.IsNullOrWhiteSpace(systemPrompt) ? "你是智能助手。" : systemPrompt,
         };
 
-        var result = await provider.ChatWithUsageAsync(
+        var result = await _text.ChatWithUsageAsync(
+            null,
             [new LlmChatMessage { Role = "user", Content = prompt }],
             options,
             cancellationToken);
+
+        if (string.IsNullOrWhiteSpace(result.Content))
+            throw new InvalidOperationException("未找到可用的对话模型，请先在设置中配置默认对话模型");
 
         await _usageRecorder.RecordAsync(
             LlmUsageSources.Scheduled, result.Usage,

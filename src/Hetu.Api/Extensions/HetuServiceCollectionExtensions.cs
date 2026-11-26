@@ -122,7 +122,6 @@ public static class HetuServiceCollectionExtensions
         services.AddScoped<IAiProviderService, AiProviderService>();
         services.AddScoped<IAiModelService, AiModelService>();
         services.AddSingleton<IModelCatalogService, ModelCatalogService>();
-        services.AddScoped<ILLMProviderFactory, LlmProviderFactory>();
         services.AddScoped<IEmbeddingProviderFactory, EmbeddingProviderFactory>();
         services.AddScoped<INoteEmbeddingService, NoteEmbeddingService>();
         services.AddScoped<IWikiKnowledgeSyncService, WikiKnowledgeSyncService>();
@@ -144,6 +143,7 @@ public static class HetuServiceCollectionExtensions
         services.AddScoped<IPromptPresetService, PromptPresetService>();
         services.AddScoped<ILocalPromptPresetService, LocalPromptPresetService>();
         services.AddScoped<IMcpService, McpService>();
+        services.AddSingleton<McpClientProvider>();
         services.AddScoped<IWhiteboardService, WhiteboardService>();
 
         // Foundry Local 本地模型运行时：单例（内部串行化 CLI 调用，避免并发抢缓存锁）

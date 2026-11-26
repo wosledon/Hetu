@@ -31,20 +31,20 @@ public class ContextCompactionService
         "输出中文 Markdown，按小节组织：## 目标 / ## 关键结论与决定 / ## 涉及文件与命令 / ## 待办与下一步 / ## 约束。";
 
     private readonly IUnitOfWork _unitOfWork;
-    private readonly ILLMProviderFactory _llmProviderFactory;
+    private readonly ITextGenerationClient _text;
     private readonly ILlmUsageRecorder _usageRecorder;
     private readonly ILogger<ContextCompactionService> _logger;
     private readonly ILocalizer _localizer;
 
     public ContextCompactionService(
         IUnitOfWork unitOfWork,
-        ILLMProviderFactory llmProviderFactory,
+        ITextGenerationClient text,
         ILlmUsageRecorder usageRecorder,
         ILogger<ContextCompactionService> logger,
         ILocalizer localizer)
     {
         _unitOfWork = unitOfWork;
-        _llmProviderFactory = llmProviderFactory;
+        _text = text;
         _usageRecorder = usageRecorder;
         _logger = logger;
         _localizer = localizer;
@@ -319,13 +319,9 @@ public class ContextCompactionService
 
         try
         {
-            var provider = modelId is { } id
-                ? await _llmProviderFactory.CreateProviderAsync(id, ct)
-                : await _llmProviderFactory.CreateChatProviderAsync(ct);
-            if (provider == null) return null;
-
             var clock = System.Diagnostics.Stopwatch.StartNew();
-            var completion = await provider.ChatWithUsageAsync(
+            var completion = await _text.ChatWithUsageAsync(
+                modelId,
                 [new LlmChatMessage { Role = "user", Content = text }],
                 new ChatOptions { ModelId = string.Empty, SystemPrompt = SummarySystemPrompt, MaxTokens = 2048 },
                 ct);

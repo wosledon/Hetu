@@ -45,7 +45,7 @@ public class WikiService : IWikiService
     private const string SystemPromptArchitect = "你是资深软件架构师，擅长为代码仓库规划文档结构。";
 
     private readonly IUnitOfWork _unitOfWork;
-    private readonly ILLMProviderFactory _llmProviderFactory;
+    private readonly ITextGenerationClient _text;
     private readonly IWorkCodeIndexService _codeIndexService;
     private readonly IWorkCommandRunnerFactory _runnerFactory;
     private readonly IBackgroundTaskQueue _taskQueue;
@@ -58,7 +58,7 @@ public class WikiService : IWikiService
 
     public WikiService(
         IUnitOfWork unitOfWork,
-        ILLMProviderFactory llmProviderFactory,
+        ITextGenerationClient text,
         IWorkCodeIndexService codeIndexService,
         IWorkCommandRunnerFactory runnerFactory,
         IBackgroundTaskQueue taskQueue,
@@ -70,7 +70,7 @@ public class WikiService : IWikiService
         IWikiKnowledgeSyncService knowledgeSync)
     {
         _unitOfWork = unitOfWork;
-        _llmProviderFactory = llmProviderFactory;
+        _text = text;
         _codeIndexService = codeIndexService;
         _runnerFactory = runnerFactory;
         _taskQueue = taskQueue;
@@ -94,7 +94,7 @@ public class WikiService : IWikiService
     /// 输出/总计取 Provider 上报的用量（SSE usage 帧），并附本次延迟。
     /// </summary>
     private Task RecordWikiUsageAsync(
-        string prompt, int inputTokens, string? preview, Guid? projectId, LlmCallResult result, CancellationToken ct)
+        string prompt, int inputTokens, string? preview, Guid? projectId, LlmChatResult result, CancellationToken ct)
         => _usageRecorder.RecordAsync(
             LlmUsageSources.Wiki,
             result.Usage,
@@ -300,8 +300,9 @@ public class WikiService : IWikiService
         await _unitOfWork.WikiGenerationJobs.UpdateAsync(job, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        var provider = await ResolveProviderAsync(modelId, cancellationToken);
-        if (provider == null) throw new InvalidOperationException(_localizer.T("wiki.modelNotConfigured"));
+        var resolvedModelId = await ResolveModelIdAsync(modelId, cancellationToken);
+        if (!await _text.IsAvailableAsync(resolvedModelId, cancellationToken))
+            throw new InvalidOperationException(_localizer.T("wiki.modelNotConfigured"));
 
         job.Stage = _localizer.T("wiki.stageCollecting");
         job.Progress = 5;
@@ -326,7 +327,7 @@ public class WikiService : IWikiService
         job.Progress = 10;
         await SaveJobAsync(job, cancellationToken);
 
-        var plans = await PlanModulePagesAsync(provider, project, material, cancellationToken);
+        var plans = await PlanModulePagesAsync(resolvedModelId, project, material, cancellationToken);
         job.TotalPages = plans.Count + 1;
         await SaveJobAsync(job, cancellationToken);
 
@@ -348,7 +349,7 @@ public class WikiService : IWikiService
             try
             {
                 // 失败重试 + 截断续写，尽量把该拿到的页面拿到
-                var content = await GeneratePageWithRetryAsync(provider, project, material, plan, plans.Select(p => p.Title), workProjectId, useSemantic, services, cancellationToken);
+                var content = await GeneratePageWithRetryAsync(resolvedModelId, project, material, plan, plans.Select(p => p.Title), workProjectId, useSemantic, services, cancellationToken);
                 if (string.IsNullOrWhiteSpace(content))
                 {
                     lock (failedPages) failedPages.Add(plan.Title);
@@ -400,7 +401,7 @@ public class WikiService : IWikiService
         job.Progress = 90;
         await SaveJobAsync(job, cancellationToken);
 
-        var overview = await GenerateOverviewAsync(provider, project, material, modulePages, workProjectId, useSemantic, cancellationToken);
+        var overview = await GenerateOverviewAsync(resolvedModelId, project, material, modulePages, workProjectId, useSemantic, cancellationToken);
         overview.Id = Guid.NewGuid();
         overview.ProjectId = project.Id;
         overview.SetId = setId;
@@ -447,7 +448,7 @@ public class WikiService : IWikiService
 
     /// <summary>生成单页并按需重试；彻底失败返回空串</summary>
     private async Task<string> GeneratePageWithRetryAsync(
-        ILLMProvider provider,
+        Guid? modelId,
         ManagedProject project,
         WikiSourceMaterial material,
         WikiPagePlan plan,
@@ -461,7 +462,7 @@ public class WikiService : IWikiService
         {
             try
             {
-                var page = await BuildPageAsync(provider, project, material, plan, siblingTitles, workProjectId, useSemantic, services, cancellationToken);
+                var page = await BuildPageAsync(modelId, project, material, plan, siblingTitles, workProjectId, useSemantic, services, cancellationToken);
                 if (string.IsNullOrWhiteSpace(page.Content))
                 {
                     // 推理模型常把额度花在思考上导致正文为空：记下来便于定位，并重试
@@ -576,16 +577,20 @@ public class WikiService : IWikiService
     /// 每一轮（含续写）各记一条请求日志：输入/压缩后/输出/总计/延迟。
     /// </summary>
     private async Task<string> GenerateContinuedAsync(
-        ILLMProvider provider, string initialPrompt, string systemPrompt,
+        Guid? modelId, string initialPrompt, string systemPrompt,
         int inputTokens, string? preview, Guid? projectId, CancellationToken cancellationToken)
     {
         // 关闭流内思考→正文切换：模型必在思考里起草（草稿标题/图表骨架都会命中启发式），
         // 误切会把整段自言自语混进正文（「对，这个能清楚表达关系」「等下，再调整下细节」…）。
         // 思考与正文分开收集，流结束后取舍：正文通道有内容就用正文，否则从思考里抢救并激进清洗。
-        var first = await LlmStreamCaller.CallAsync(provider, initialPrompt, systemPrompt, ContentMaxTokens, cancellationToken);
+        var first = await _text.ChatWithUsageAsync(
+            modelId,
+            [new LlmChatMessage { Role = "user", Content = initialPrompt }],
+            new ChatOptions { ModelId = string.Empty, SystemPrompt = systemPrompt, MaxTokens = ContentMaxTokens },
+            cancellationToken);
         await RecordWikiUsageAsync(initialPrompt, inputTokens, preview, projectId, first, cancellationToken);
         var full = PickBody(first);
-        var finish = first.Finish;
+        var finish = first.FinishReason;
 
         for (var round = 0; round < MaxContinueRounds; round++)
         {
@@ -593,11 +598,15 @@ public class WikiService : IWikiService
             if (!truncatedByLimit && CountFences(full) % 2 == 0) break;
 
             string more;
-            LlmCallResult result;
+            LlmChatResult result;
             try
             {
                 var continuePrompt = BuildContinuePrompt(full);
-                result = await LlmStreamCaller.CallAsync(provider, continuePrompt, systemPrompt, ContentMaxTokens, cancellationToken);
+                result = await _text.ChatWithUsageAsync(
+                    modelId,
+                    [new LlmChatMessage { Role = "user", Content = continuePrompt }],
+                    new ChatOptions { ModelId = string.Empty, SystemPrompt = systemPrompt, MaxTokens = ContentMaxTokens },
+                    cancellationToken);
                 // 续写不再经过压缩管道：输入 = 压缩后 = 实际发送
                 await RecordWikiUsageAsync(continuePrompt, LlmTokenEstimator.Estimate(continuePrompt), null, projectId, result, cancellationToken);
                 more = PickBody(result);
@@ -616,7 +625,7 @@ public class WikiService : IWikiService
                 break;
             }
             full += more.StartsWith("\n") ? more : "\n" + more;
-            finish = result.Finish;
+            finish = result.FinishReason;
             if (round == MaxContinueRounds - 1)
                 _logger.LogWarning("Wiki 内容已达最大续写次数 {Max}，可能仍未生成完整", MaxContinueRounds);
         }
@@ -632,7 +641,7 @@ public class WikiService : IWikiService
     /// 模型的成稿几乎总以 ## 小节 开头（提示词要求），而口语规划里的标题是被
     /// 「比如：## 项目简介」这类句子粘着的，断行后才认得出来。
     /// </summary>
-    private static string PickBody(LlmCallResult result)
+    private static string PickBody(LlmChatResult result)
     {
         if (!string.IsNullOrWhiteSpace(result.Content)) return result.Content;
         var thinking = result.Thinking;
@@ -663,8 +672,9 @@ public class WikiService : IWikiService
         if (!material.HasContext)
             return ApiResponse<WikiDocumentDto>.Fail(material.Failure ?? _localizer.T("wiki.materialUnavailable"));
 
-        var provider = await ResolveProviderAsync(null, cancellationToken);
-        if (provider == null) return ApiResponse<WikiDocumentDto>.Fail(_localizer.T("wiki.modelNotConfigured"));
+        var resolvedModelId = await ResolveModelIdAsync(null, cancellationToken);
+        if (!await _text.IsAvailableAsync(resolvedModelId, cancellationToken))
+            return ApiResponse<WikiDocumentDto>.Fail(_localizer.T("wiki.modelNotConfigured"));
 
         var workProjectId = project.ProjectType == "Ssh"
             ? material.WorkProjectId
@@ -687,14 +697,14 @@ public class WikiService : IWikiService
         try
         {
             regenerated = doc.SortOrder == 0
-                ? await GenerateOverviewAsync(provider, project, material,
+                ? await GenerateOverviewAsync(resolvedModelId, project, material,
                     (await _unitOfWork.WikiDocuments.GetAllAsync(cancellationToken))
                         .Where(d => d.SetId == doc.SetId && d.SortOrder > 0)
                         .OrderBy(d => d.SortOrder)
                         .Select(d => new WikiDocument { Title = d.Title })
                         .ToList(),
                     workProjectId, useSemantic, cancellationToken)
-                : await BuildPageAsync(provider, project, material,
+                : await BuildPageAsync(resolvedModelId, project, material,
                     new WikiPagePlan { Index = doc.SortOrder, Title = doc.Title, Brief = doc.Brief ?? string.Empty },
                     siblings, workProjectId, useSemantic, new PageServices(_codeIndexService, _compression), cancellationToken);
         }
@@ -796,7 +806,7 @@ public class WikiService : IWikiService
     #region LLM 调用
 
     private async Task<List<WikiPagePlan>> PlanModulePagesAsync(
-        ILLMProvider provider, ManagedProject project, WikiSourceMaterial material, CancellationToken cancellationToken)
+        Guid? modelId, ManagedProject project, WikiSourceMaterial material, CancellationToken cancellationToken)
     {
         const string JsonSpec = """
             {"chapters":[{"title":"章节标题（10字以内）","pages":[{"title":"页面标题（14字以内）","brief":"该页必须讲清的内容要点（120字以内）","covers":"该页覆盖的目录/文件/模块名"}]}]}
@@ -826,14 +836,18 @@ public class WikiService : IWikiService
         {
             var planInputTokens = EstimateBeforeCompression(prompt, (material.BaseContext, baseContext));
             // 同正文生成：关流内思考切换，JSON 被写进思考通道时从思考里取
-            var planResult = await LlmStreamCaller.CallAsync(provider, prompt, SystemPromptArchitect, 6144, cancellationToken);
+            var planResult = await _text.ChatWithUsageAsync(
+                modelId,
+                [new LlmChatMessage { Role = "user", Content = prompt }],
+                new ChatOptions { ModelId = string.Empty, SystemPrompt = SystemPromptArchitect, MaxTokens = 6144 },
+                cancellationToken);
             await RecordWikiUsageAsync(prompt, planInputTokens, null, project.Id, planResult, cancellationToken);
-            plans = ParseOutline(planResult.ContentOrThinking());
+            plans = ParseOutline(ContentOrThinking(planResult));
 
             // 解析失败时带原始回复重试一次：让模型只输出 JSON，别放弃规划（否则只能退回通用大纲）
             if (plans.Count == 0)
             {
-                var rawOutline = TruncateForLog(planResult.ContentOrThinking());
+                var rawOutline = TruncateForLog(ContentOrThinking(planResult));
                 _logger.LogWarning(
                     "Wiki 大纲解析失败，带原始回复重试一次 projectId={ProjectId} raw={Raw}",
                     project.Id, rawOutline);
@@ -844,9 +858,13 @@ public class WikiService : IWikiService
                     【上次的回复】
                     {rawOutline}
                     """;
-                var retry = await LlmStreamCaller.CallAsync(provider, repairPrompt, SystemPromptArchitect, 6144, cancellationToken);
+                var retry = await _text.ChatWithUsageAsync(
+                    modelId,
+                    [new LlmChatMessage { Role = "user", Content = repairPrompt }],
+                    new ChatOptions { ModelId = string.Empty, SystemPrompt = SystemPromptArchitect, MaxTokens = 6144 },
+                    cancellationToken);
                 await RecordWikiUsageAsync(repairPrompt, LlmTokenEstimator.Estimate(repairPrompt), null, project.Id, retry, cancellationToken);
-                plans = ParseOutline(retry.ContentOrThinking());
+                plans = ParseOutline(ContentOrThinking(retry));
                 if (plans.Count == 0)
                     _logger.LogWarning("Wiki 大纲重试后仍无法解析 projectId={ProjectId} raw={Raw}", project.Id, TruncateForLog(retry.Content));
             }
@@ -1036,7 +1054,7 @@ public class WikiService : IWikiService
 
     /// <summary>生成单个主题页：基础资料 +（语义检索的相关代码 或 源码采样）</summary>
     private async Task<WikiDocument> BuildPageAsync(
-        ILLMProvider provider,
+        Guid? modelId,
         ManagedProject project,
         WikiSourceMaterial material,
         WikiPagePlan plan,
@@ -1077,14 +1095,14 @@ public class WikiService : IWikiService
 
         var inputTokens = EstimateBeforeCompression(prompt,
             (material.BaseContext, baseContext), (rawCodeContext, codeContext));
-        var content = await GenerateContinuedAsync(provider, prompt, SystemPromptDocEngineer, inputTokens, plan.Title, project.Id, cancellationToken);
+        var content = await GenerateContinuedAsync(modelId, prompt, SystemPromptDocEngineer, inputTokens, plan.Title, project.Id, cancellationToken);
 
         return new WikiDocument { Title = plan.Title, Brief = plan.Brief, Content = content.Trim() };
     }
 
     /// <summary>生成总览页：项目介绍 + 技术栈 + 架构图 + 真实页面导航</summary>
     private async Task<WikiDocument> GenerateOverviewAsync(
-        ILLMProvider provider,
+        Guid? modelId,
         ManagedProject project,
         WikiSourceMaterial material,
         List<WikiDocument> modulePages,
@@ -1123,7 +1141,7 @@ public class WikiService : IWikiService
         {
             var inputTokens = EstimateBeforeCompression(prompt,
                 (material.BaseContext, baseContext), (rawCodeContext, codeContext));
-            var content = await GenerateContinuedAsync(provider, prompt, SystemPromptDocEngineer, inputTokens, project.Name, project.Id, cancellationToken);
+            var content = await GenerateContinuedAsync(modelId, prompt, SystemPromptDocEngineer, inputTokens, project.Name, project.Id, cancellationToken);
             if (!string.IsNullOrWhiteSpace(content))
                 return new WikiDocument { Title = project.Name, Content = content.Trim() };
         }
@@ -1202,21 +1220,22 @@ public class WikiService : IWikiService
             : material.FallbackSources + "\n";
     }
 
-    private async Task<ILLMProvider?> ResolveProviderAsync(Guid? modelId, CancellationToken cancellationToken)
+    private async Task<Guid?> ResolveModelIdAsync(Guid? modelId, CancellationToken cancellationToken)
     {
         try
         {
-            if (modelId is Guid id)
-                return await _llmProviderFactory.CreateProviderAsync(id, cancellationToken);
-            return await _llmProviderFactory.CreateScenarioProviderAsync("Wiki", cancellationToken)
-                   ?? await _llmProviderFactory.CreateCompletionProviderAsync(cancellationToken)
-                   ?? await _llmProviderFactory.CreateChatProviderAsync(cancellationToken);
+            if (modelId is Guid id) return id;
+            return await _text.ResolveScenarioModelAsync("Wiki", cancellationToken)
+                   ?? await _text.ResolveCompletionModelAsync(cancellationToken);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             return null;
         }
     }
+
+    private static string ContentOrThinking(LlmChatResult result)
+        => !string.IsNullOrWhiteSpace(result.Content) ? result.Content : result.Thinking ?? string.Empty;
 
     private async Task<string?> ResolveModelNameAsync(Guid? modelId, CancellationToken cancellationToken)
     {

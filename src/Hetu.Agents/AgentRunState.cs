@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Hetu.Core.Interfaces;
 using Hetu.Core.Services;
+using Hetu.Core.Services.Tools;
 using Microsoft.Extensions.AI;
 
 namespace Hetu.Agents;
@@ -31,6 +32,8 @@ internal sealed class AgentRunState
 
     public Dictionary<string, AIFunction> Functions { get; } = new(StringComparer.OrdinalIgnoreCase);
     public Dictionary<string, string> ApprovalToolNames { get; } = new(StringComparer.Ordinal);
+    public Dictionary<string, string> ToolCallArguments { get; } = new(StringComparer.Ordinal);
+    public Dictionary<string, WorkToolDecision> PendingToolDecisions { get; } = new(StringComparer.Ordinal);
     public HashSet<string> RecordedToolCallIds { get; } = new(StringComparer.Ordinal);
     public List<string> CoreToolNames { get; set; } = [];
     public List<string> LoadableToolNames { get; set; } = [];

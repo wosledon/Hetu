@@ -114,7 +114,7 @@ public class CompressionPipelineTests
         return new CompressionPipelineService(
             settings,
             Substitute.For<ILogger<CompressionPipelineService>>(),
-            Substitute.For<ILLMProviderFactory>(),
+            Substitute.For<ITextGenerationClient>(),
             Substitute.For<ILlmUsageRecorder>());
     }
 }

@@ -10,16 +10,16 @@ namespace Hetu.Core.Services;
 
 public class ChunkService : IChunkService
 {
-    private readonly ILLMProviderFactory _llmProviderFactory;
+    private readonly ITextGenerationClient _text;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<ChunkService> _logger;
     private const int MaxChunkSize = 1500;  // 每块最大字符数
     private const int MinChunkSize = 200;   // 每块最小字符数
     private const int OverlapSize = 100;    // 块之间的重叠字符数
 
-    public ChunkService(ILLMProviderFactory llmProviderFactory, IUnitOfWork unitOfWork, ILogger<ChunkService> logger)
+    public ChunkService(ITextGenerationClient text, IUnitOfWork unitOfWork, ILogger<ChunkService> logger)
     {
-        _llmProviderFactory = llmProviderFactory;
+        _text = text;
         _unitOfWork = unitOfWork;
         _logger = logger;
     }
@@ -31,11 +31,7 @@ public class ChunkService : IChunkService
 
         if (!string.IsNullOrWhiteSpace(chunkModelId))
         {
-            var llm = await _llmProviderFactory.CreateProviderAsync(Guid.Parse(chunkModelId), cancellationToken);
-            if (llm != null)
-            {
-                return await ChunkByLLMAsync(note, llm, cancellationToken);
-            }
+            return await ChunkByLLMAsync(note, Guid.Parse(chunkModelId), cancellationToken);
         }
 
         // 没有配置 Chunk 模型或模型不可用，使用结构化分块
@@ -101,22 +97,18 @@ public class ChunkService : IChunkService
         var chunkModelId = await GetChunkModelIdAsync(cancellationToken);
         if (!string.IsNullOrWhiteSpace(chunkModelId))
         {
-            var llm = await _llmProviderFactory.CreateProviderAsync(Guid.Parse(chunkModelId), cancellationToken);
-            if (llm != null)
+            try
             {
-                try
-                {
-                    var llmChunks = await LlmChunkAsync(text, llm, cancellationToken);
-                    if (llmChunks.Count > 0)
-                        return llmChunks;
+                var llmChunks = await LlmChunkAsync(text, Guid.Parse(chunkModelId), cancellationToken);
+                if (llmChunks.Count > 0)
+                    return llmChunks;
 
-                    _logger.LogWarning("[Chunk] LLM 分块结果为空，回退到结构化分块");
-                }
-                catch (Exception ex)
-                {
-                    // LLM 失败时回退到结构化分块
-                    _logger.LogWarning(ex, "[Chunk] LLM 分块失败，回退到结构化分块");
-                }
+                _logger.LogWarning("[Chunk] LLM 分块结果为空，回退到结构化分块");
+            }
+            catch (Exception ex)
+            {
+                // LLM 失败时回退到结构化分块
+                _logger.LogWarning(ex, "[Chunk] LLM 分块失败，回退到结构化分块");
             }
         }
 
@@ -124,7 +116,7 @@ public class ChunkService : IChunkService
         return StructureChunkText(text);
     }
 
-    public async Task<List<NoteChunk>> ChunkByLLMAsync(Note note, ILLMProvider llm, CancellationToken cancellationToken = default)
+    public async Task<List<NoteChunk>> ChunkByLLMAsync(Note note, Guid? modelId, CancellationToken cancellationToken = default)
     {
         var content = note.Content;
         if (string.IsNullOrWhiteSpace(content))
@@ -132,7 +124,7 @@ public class ChunkService : IChunkService
 
         try
         {
-            var llmChunks = await LlmChunkAsync(content, llm, cancellationToken);
+            var llmChunks = await LlmChunkAsync(content, modelId, cancellationToken);
             if (llmChunks.Count > 0)
                 return llmChunks;
 
@@ -150,7 +142,7 @@ public class ChunkService : IChunkService
     /// <summary>
     /// 让大模型理解文档，一次性返回结构化的分块+摘要
     /// </summary>
-    private async Task<List<NoteChunk>> LlmChunkAsync(string content, ILLMProvider llm, CancellationToken cancellationToken)
+    private async Task<List<NoteChunk>> LlmChunkAsync(string content, Guid? modelId, CancellationToken cancellationToken)
     {
         var truncated = content.Length > 12000 ? content[..12000] : content;
 
@@ -184,7 +176,7 @@ public class ChunkService : IChunkService
             MaxTokens = 4096
         };
 
-        var result = await llm.ChatAsync(messages, options, cancellationToken);
+        var result = await _text.ChatAsync(modelId, messages, options, cancellationToken);
         if (string.IsNullOrWhiteSpace(result))
             return new List<NoteChunk>();
 

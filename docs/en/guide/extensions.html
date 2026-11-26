@@ -102,8 +102,8 @@
       <div class="table-wrap"><table>
         <thead><tr><th>Item</th><th>Details</th></tr></thead>
         <tbody>
-          <tr><td>Transport</td><td><code>stdio</code>: spawns a child process and speaks JSON-RPC 2.0 (fully supported). <code>sse</code>: configurable, not wired up yet</td></tr>
-          <tr><td>Connection config</td><td>JSON — <code>command</code> / <code>args</code> / <code>env</code> for stdio, or <code>url</code> for sse</td></tr>
+          <tr><td>Transport</td><td><code>stdio</code> and <code>HTTP / SSE</code> are both supported by the official Model Context Protocol SDK; one client is reused per connection config</td></tr>
+          <tr><td>Connection config</td><td>JSON 鈥?<code>command</code> / <code>args</code> / <code>env</code> for stdio, or <code>url</code> for HTTP/SSE</td></tr>
           <tr><td>Tool discovery</td><td>Calls <code>tools/list</code> and merges discovered tools into the chat toolbelt</td></tr>
           <tr><td>Tool invocation</td><td>Calls <code>tools/call</code>; arguments and results render structurally in the message stream</td></tr>
           <tr><td>Enable / disable</td><td>Per server, with ordering</td></tr>
@@ -112,7 +112,7 @@
       <div class="note">MCP tools share the same permission modes and approval policies as built-in tools; run a new server in “ask” mode first if you are unsure what it does.</div>
 
             <h2>Configuration examples</h2>
-      <h3>MCP server (stdio)</h3>
+      <h3>MCP server</h3>
       <div class="code"><button class="copy" aria-label="Copy code"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 5H6a2 2 0 0 0-2 2v9"/></svg></button><pre><code>{
   "command": "npx",
   "args": ["-y", "@modelcontextprotocol/server-filesystem", "E:\\repos"],

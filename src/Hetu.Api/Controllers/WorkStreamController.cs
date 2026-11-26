@@ -14,6 +14,7 @@ using Hetu.Shared.Common;
 using Hetu.Shared.Work;
 using Microsoft.AspNetCore.Mvc;
 using Serilog;
+using AIFunction = Microsoft.Extensions.AI.AIFunction;
 
 namespace Hetu.Api.Controllers;
 
@@ -268,15 +269,15 @@ public class WorkStreamController : ControllerBase
 
         var approvalRules = await _unitOfWork.WorkApprovalRules.FindAsync(r => r.ProjectId == project.Id, ct);
 
-        // 项目挂载的 MCP 服务器 → 注册为本会话运行时工具（ToolExecutionService 会重建子作用域，需显式传递）
-        var runtimeTools = new List<IToolExecutor>();
+        // 项目挂载的 MCP 服务器 → 官方 MCP 工具，直接作为 MAF AIFunction 交给运行时
+        IReadOnlyList<AIFunction> mcpTools = [];
         var mcpToolNames = new List<string>();
         if (request.EnableTools && !string.IsNullOrWhiteSpace(project.McpServerIds))
         {
             try
             {
-                mcpToolNames = await _agentLoop.LoadMcpToolsAsync(ParseGuidList(project.McpServerIds), ct);
-                runtimeTools = _toolRegistry.GetByNames(mcpToolNames).ToList();
+                mcpTools = await _agentLoop.LoadMcpToolsAsync(ParseGuidList(project.McpServerIds), ct);
+                mcpToolNames = mcpTools.Select(tool => tool.Name).ToList();
             }
             catch (Exception ex)
             {
@@ -478,6 +479,7 @@ public class WorkStreamController : ControllerBase
             SystemPrompt = options.SystemPrompt ?? string.Empty,
             Messages = chatMessages,
             ToolNames = allowedToolNames,
+            RuntimeFunctions = mcpTools,
             McpServerIds = new List<Guid>(),
             MaxIterations = profile.MaxAgentIterations,
             MaxToolCallsPerTurn = profile.MaxToolCallsPerTurn,
@@ -509,7 +511,6 @@ public class WorkStreamController : ControllerBase
                 DiagnosticsCommand = project.DiagnosticsCommand,
                 // SSH 项目的文件/命令工具全部走远端执行
                 Runner = runner,
-                RuntimeTools = runtimeTools
             },
         }, ct);
 

@@ -132,8 +132,6 @@ public class WorkTaskTool : IToolExecutor
                     toolNames.Contains(call.Name, StringComparer.OrdinalIgnoreCase)
                         ? new WorkToolDecision(true, ToolApprovalMode.Bypass)
                         : new WorkToolDecision(false, ToolApprovalMode.Bypass, $"子 Agent 不允许调用工具 {call.Name}")),
-                // 嵌套运行：不能清掉外层工具执行作用域里的运行时工具
-                PreserveRuntimeTools = true,
                 WorkScope = new WorkToolScope
                 {
                     ProjectRoot = _context.ProjectRoot,

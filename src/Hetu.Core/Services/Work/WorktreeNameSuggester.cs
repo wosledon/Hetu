@@ -22,15 +22,20 @@ public class WorktreeNameSuggester
 """;
 
     private readonly ILogger<WorktreeNameSuggester> _logger;
+    private readonly ITextGenerationClient _text;
 
-    public WorktreeNameSuggester(ILogger<WorktreeNameSuggester> logger) => _logger = logger;
+    public WorktreeNameSuggester(ILogger<WorktreeNameSuggester> logger, ITextGenerationClient text)
+    {
+        _logger = logger;
+        _text = text;
+    }
 
     /// <summary>建议名字；<paramref name="message"/> 为空或调用失败时用本地回退</summary>
-    public async Task<string> SuggestAsync(string? message, Guid sessionId, ILLMProvider? provider, CancellationToken cancellationToken = default)
+    public async Task<string> SuggestAsync(string? message, Guid sessionId, Guid? modelId, CancellationToken cancellationToken = default)
     {
         var fallback = FallbackName(message, sessionId);
         var text = message?.Trim();
-        if (provider == null || string.IsNullOrEmpty(text)) return fallback;
+        if (string.IsNullOrEmpty(text)) return fallback;
 
         try
         {
@@ -38,7 +43,8 @@ public class WorktreeNameSuggester
             cts.CancelAfter(TimeSpan.FromSeconds(20));
 
             // 预算给足：native 推理模型会把 token 全用在思考上，预算太小则正文为空（拿不到名字）
-            var raw = await provider.CompleteAsync(
+            var raw = await _text.CompleteAsync(
+                modelId,
                 text.Length > 2000 ? text[..2000] : text,
                 new CompletionOptions
                 {

@@ -5,6 +5,7 @@ using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 using OpenAI;
 using OpenAI.Chat;
+using AiChatOptions = Microsoft.Extensions.AI.ChatOptions;
 
 namespace Hetu.Agents;
 
@@ -45,13 +46,7 @@ internal sealed class HetuAgentFactory : IAgentFactory
         AgentRunState state,
         int maxIterations)
     {
-        var credential = new System.ClientModel.ApiKeyCredential(
-            string.IsNullOrWhiteSpace(model.ApiKey) ? "local" : model.ApiKey);
-        var client = new OpenAIClient(credential, new OpenAIClientOptions
-        {
-            Endpoint = new Uri(model.BaseUrl, UriKind.Absolute),
-        });
-        var chatClient = client.GetChatClient(model.Model.ModelId).AsIChatClient();
+        var chatClient = CreateOpenAiClient(model).GetChatClient(model.Model.ModelId).AsIChatClient();
         return BuildPipeline(chatClient, state, maxIterations)
             .AsAIAgent(agentOptions, loggerFactory: _loggerFactory);
     }
@@ -62,17 +57,60 @@ internal sealed class HetuAgentFactory : IAgentFactory
         AgentRunState state,
         int maxIterations)
     {
-        var client = new AnthropicClient
-        {
-            ApiKey = model.ApiKey,
-            BaseUrl = model.Provider.BaseUrl is { Length: > 0 } ? model.BaseUrl : "https://api.anthropic.com",
-        };
-
-        return client.AsAIAgent(
+        return CreateAnthropicClient(model).AsAIAgent(
             agentOptions,
             clientFactory: inner => BuildPipeline(inner, state, maxIterations),
             loggerFactory: _loggerFactory);
     }
+
+    public async Task<AIAgent?> CreateTextAgentAsync(
+        Guid? modelId,
+        string? instructions,
+        AiChatOptions? overrides,
+        CancellationToken ct)
+    {
+        var model = await ResolveAsync(modelId, ct);
+        if (model == null) return null;
+
+        var chatOptions = overrides?.Clone() ?? new AiChatOptions();
+        chatOptions.Instructions = instructions;
+        chatOptions.ModelId = model.Model.ModelId;
+        chatOptions.Tools = null;
+        chatOptions.ToolMode = ChatToolMode.None;
+
+        var agentOptions = new ChatClientAgentOptions
+        {
+            Name = "hetu-text",
+            ChatOptions = chatOptions,
+        };
+
+        return model.ProviderType switch
+        {
+            "anthropic" => CreateAnthropicClient(model).AsAIAgent(agentOptions, loggerFactory: _loggerFactory),
+            "openai" or "foundry" => CreateOpenAiClient(model)
+                .GetChatClient(model.Model.ModelId)
+                .AsIChatClient()
+                .AsAIAgent(agentOptions, loggerFactory: _loggerFactory),
+            _ => throw new NotSupportedException($"不支持的 Provider 类型: {model.Provider.ProviderType}"),
+        };
+    }
+
+    private static OpenAIClient CreateOpenAiClient(ResolvedAgentModel model)
+    {
+        var credential = new System.ClientModel.ApiKeyCredential(
+            string.IsNullOrWhiteSpace(model.ApiKey) ? "local" : model.ApiKey);
+        return new OpenAIClient(credential, new OpenAIClientOptions
+        {
+            Endpoint = new Uri(model.BaseUrl, UriKind.Absolute),
+        });
+    }
+
+    private static AnthropicClient CreateAnthropicClient(ResolvedAgentModel model)
+        => new()
+        {
+            ApiKey = model.ApiKey,
+            BaseUrl = model.Provider.BaseUrl is { Length: > 0 } ? model.BaseUrl : "https://api.anthropic.com",
+        };
 
     private FunctionInvokingChatClient BuildPipeline(
         IChatClient innerClient,

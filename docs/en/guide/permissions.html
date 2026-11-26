@@ -56,7 +56,7 @@
     <aside class="docs-toc" data-docs-toc aria-label="On this page"></aside>
     <div class="docs-body">
       <h1>Permission modes &amp; approvals</h1>
-      <p class="lede">The permission system answers one question: may this tool call run, or must a human be asked first? It has three layers — the <strong>mode</strong> (what the user selected), <strong>project rules</strong> (<code>WorkApprovalRules</code>) and <strong>tool risk</strong> (read / write). Rules always outrank the mode.</p>
+      <p class="lede">The permission system answers one question: may this tool call run, or must a human be asked first? It has three layers 鈥?the <strong>mode</strong> (what the user selected), <strong>project rules</strong> (<code>WorkApprovalRules</code>) and <strong>tool risk</strong> (read / write). Rules always outrank the mode. The final decision goes through the MAF approval pipeline: allow runs automatically, ask pauses in <code>ToolApprovalAgent</code>, deny returns a rejection result immediately.</p>
 
       <h2>The five modes</h2>
       <div class="table-wrap"><table>

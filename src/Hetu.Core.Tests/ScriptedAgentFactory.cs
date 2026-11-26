@@ -13,12 +13,21 @@ using AiChatOptions = Microsoft.Extensions.AI.ChatOptions;
 
 namespace Hetu.Core.Tests;
 
-/// <summary>测试用 Agent 工厂：把脚本化 ILLMProvider 接到 MAF 的 FunctionInvokingChatClient 上。</summary>
+/// <summary>测试用 Agent 工厂：把脚本化模型接到 MAF 的 FunctionInvokingChatClient 上。</summary>
+internal interface IScriptedModel
+{
+    string ProviderType { get; }
+    IAsyncEnumerable<string> ChatStreamAsync(
+        IReadOnlyList<LlmChatMessage> messages,
+        Hetu.Core.Interfaces.ChatOptions options,
+        CancellationToken cancellationToken = default);
+}
+
 internal sealed class ScriptedAgentFactory : IAgentFactory
 {
-    private readonly ILLMProvider _provider;
+    private readonly IScriptedModel _provider;
 
-    public ScriptedAgentFactory(ILLMProvider provider) => _provider = provider;
+    public ScriptedAgentFactory(IScriptedModel provider) => _provider = provider;
 
     public Task<ResolvedAgentModel?> ResolveAsync(Guid? modelId, CancellationToken ct)
     {
@@ -42,7 +51,7 @@ internal sealed class ScriptedAgentFactory : IAgentFactory
         return functionClient.AsAIAgent(agentOptions, loggerFactory: NullLoggerFactory.Instance);
     }
 
-    private sealed class ScriptedChatClient(ILLMProvider provider) : IChatClient
+    private sealed class ScriptedChatClient(IScriptedModel provider) : IChatClient
     {
         public async Task<ChatResponse> GetResponseAsync(
             IEnumerable<AiChatMessage> messages,

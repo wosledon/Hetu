@@ -13,19 +13,19 @@ namespace Hetu.Core.Services;
 public class CompressionPipelineService
 {
     private readonly IAppSettingService _appSettingService;
-    private readonly ILLMProviderFactory? _llmProviderFactory;
+    private readonly ITextGenerationClient _text;
     private readonly ILlmUsageRecorder _usageRecorder;
     private readonly ILogger<CompressionPipelineService> _logger;
 
     public CompressionPipelineService(
         IAppSettingService appSettingService,
         ILogger<CompressionPipelineService> logger,
-        ILLMProviderFactory llmProviderFactory,
+        ITextGenerationClient text,
         ILlmUsageRecorder usageRecorder)
     {
         _appSettingService = appSettingService;
         _logger = logger;
-        _llmProviderFactory = llmProviderFactory;
+        _text = text;
         _usageRecorder = usageRecorder;
     }
 
@@ -243,35 +243,9 @@ public class CompressionPipelineService
 
     private async Task<string> LlmCompressAsync(string input, CompressionPipelineDto config, CancellationToken ct)
     {
-        var factory = _llmProviderFactory;
-        if (factory == null)
-        {
-            _logger.LogWarning("[Compression] LLM 摘要跳过：没有可用的 LLM Provider 工厂");
-            return input;
-        }
-
-        ILLMProvider? provider;
         Guid? configuredModelId = null;
         if (!string.IsNullOrWhiteSpace(config.LlmModelId) && Guid.TryParse(config.LlmModelId, out var modelId))
-        {
-            provider = await factory.CreateProviderAsync(modelId, ct);
-            // 配置里记的模型可能已被删除/重建：回落到默认对话模型，避免压缩静默失效
-            if (provider == null)
-                _logger.LogWarning("[Compression] LLM 摘要模型 {ModelId} 不可用（可能已删除），回落到默认对话模型", modelId);
-            else
-                configuredModelId = modelId;
-        }
-        else
-        {
-            provider = null;
-        }
-
-        provider ??= await factory.CreateChatProviderAsync(ct);
-        if (provider == null)
-        {
-            _logger.LogWarning("[Compression] LLM 摘要跳过：没有可用的对话模型");
-            return input;
-        }
+            configuredModelId = modelId;
 
         var prompt = config.LlmSystemPrompt ?? "压缩以下文本，保留所有关键信息：";
 
@@ -280,7 +254,8 @@ public class CompressionPipelineService
             // 预算下限 1024：推理类模型会先消耗思考 token，给太少会导致正文为空（压缩静默失效）
             var maxTokens = Math.Clamp(input.Length / 2, 1024, 4096);
             var clock = Stopwatch.StartNew();
-            var completion = await provider.ChatWithUsageAsync(
+            var completion = await _text.ChatWithUsageAsync(
+                configuredModelId,
                 [new LlmChatMessage { Role = "user", Content = input }],
                 new ChatOptions { ModelId = string.Empty, SystemPrompt = prompt, MaxTokens = maxTokens },
                 ct);

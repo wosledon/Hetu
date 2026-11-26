@@ -12,7 +12,7 @@ public class SearchQueryRewriter
 {
     private readonly ILogger<SearchQueryRewriter> _logger;
     private readonly ILlmUsageRecorder _usageRecorder;
-    private readonly ILLMProviderFactory _providerFactory;
+    private readonly ITextGenerationClient _text;
 
     // 部分模型（native 推理模式）对 completion 请求只回推理内容、正文为空：
     // 一旦发现就直接降级为原文检索，避免每条消息都白跑一次 LLM 调用
@@ -29,11 +29,11 @@ public class SearchQueryRewriter
 - 提取不出有效信息时，输出用户原文
 """;
 
-    public SearchQueryRewriter(ILogger<SearchQueryRewriter> logger, ILlmUsageRecorder usageRecorder, ILLMProviderFactory providerFactory)
+    public SearchQueryRewriter(ILogger<SearchQueryRewriter> logger, ILlmUsageRecorder usageRecorder, ITextGenerationClient text)
     {
         _logger = logger;
         _usageRecorder = usageRecorder;
-        _providerFactory = providerFactory;
+        _text = text;
     }
 
     /// <summary>返回改写后的关键词列表（至少一个：失败时退化为原文）</summary>
@@ -43,25 +43,13 @@ public class SearchQueryRewriter
         if (string.IsNullOrWhiteSpace(question)) return fallback;
         if (DateTime.UtcNow < _unavailableUntil) return fallback;
 
-        ILLMProvider? provider = null;
-        try
-        {
-            provider = modelId.HasValue
-                ? await _providerFactory.CreateProviderAsync(modelId.Value, cancellationToken)
-                : await _providerFactory.CreateChatProviderAsync(cancellationToken);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogDebug(ex, "查询改写模型解析失败，使用原文");
-        }
-        if (provider == null) return fallback;
-
         try
         {
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             cts.CancelAfter(TimeSpan.FromSeconds(15));
 
-            var completion = await provider.ChatWithUsageAsync(
+            var completion = await _text.ChatWithUsageAsync(
+                modelId,
                 [new LlmChatMessage { Role = "user", Content = question }],
                 new ChatOptions
                 {

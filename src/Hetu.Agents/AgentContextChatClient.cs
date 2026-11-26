@@ -126,13 +126,15 @@ internal sealed class AgentContextChatClient : DelegatingChatClient
                     normalized.Add(reasoning);
                     break;
                 case FunctionCallContent call:
+                    normalized ??= [];
                     if (!toolNames.Contains(call.Name, StringComparer.Ordinal))
                         toolNames.Add(call.Name);
-                    normalized?.Add(item);
+                    normalized.Add(item);
                     break;
                 case UsageContent usageContent:
+                    normalized ??= [];
                     usage = MergeUsage(usage, usageContent.Details);
-                    normalized?.Add(item);
+                    normalized.Add(item);
                     break;
                 default:
                     normalized?.Add(item);

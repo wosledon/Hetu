@@ -9,14 +9,14 @@ namespace Hetu.Core.Services;
 public class SkillService : ISkillService
 {
     private readonly IUnitOfWork _unitOfWork;
-    private readonly ILLMProviderFactory _llmProviderFactory;
+    private readonly ITextGenerationClient _text;
     private readonly ILlmUsageRecorder _usageRecorder;
     private readonly ILocalizer _localizer;
 
-    public SkillService(IUnitOfWork unitOfWork, ILLMProviderFactory llmProviderFactory, ILlmUsageRecorder usageRecorder, ILocalizer localizer)
+    public SkillService(IUnitOfWork unitOfWork, ITextGenerationClient text, ILlmUsageRecorder usageRecorder, ILocalizer localizer)
     {
         _unitOfWork = unitOfWork;
-        _llmProviderFactory = llmProviderFactory;
+        _text = text;
         _usageRecorder = usageRecorder;
         _localizer = localizer;
     }
@@ -134,13 +134,12 @@ public class SkillService : ISkillService
 
         var prompt = promptTemplate.Replace("{{input}}", input);
 
-        var provider = await _llmProviderFactory.CreateChatProviderAsync(cancellationToken);
-        if (provider == null) return ApiResponse<string>.Fail(_localizer.T("model.chatUnavailable"));
-
-        var result = await provider.ChatWithUsageAsync(
+        var result = await _text.ChatWithUsageAsync(
+            null,
             [new LlmChatMessage { Role = "user", Content = prompt }],
             new ChatOptions { ModelId = string.Empty, SystemPrompt = systemPrompt },
             cancellationToken);
+        if (string.IsNullOrWhiteSpace(result.Content)) return ApiResponse<string>.Fail(_localizer.T("model.chatUnavailable"));
 
         await _usageRecorder.RecordAsync(
             LlmUsageSources.Skill, result.Usage,
@@ -159,13 +158,12 @@ public class SkillService : ISkillService
 
         var prompt = promptTemplate.Replace("{{input}}", input);
 
-        var provider = await _llmProviderFactory.CreateChatProviderAsync(cancellationToken);
-        if (provider == null) return ApiResponse<string>.Fail(_localizer.T("model.chatUnavailable"));
-
-        var result = await provider.ChatWithUsageAsync(
+        var result = await _text.ChatWithUsageAsync(
+            null,
             [new LlmChatMessage { Role = "user", Content = prompt }],
             new ChatOptions { ModelId = string.Empty, SystemPrompt = systemPrompt },
             cancellationToken);
+        if (string.IsNullOrWhiteSpace(result.Content)) return ApiResponse<string>.Fail(_localizer.T("model.chatUnavailable"));
 
         await _usageRecorder.RecordAsync(
             LlmUsageSources.Skill, result.Usage,
