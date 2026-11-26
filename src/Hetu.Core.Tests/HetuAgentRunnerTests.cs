@@ -95,6 +95,35 @@ public class HetuAgentRunnerTests
         Assert.Contains(sink.Events, e => e.Contains("\"type\":\"tool_result\"", StringComparison.Ordinal));
     }
 
+    [Fact]
+    public async Task RunAsync_带历史消息_由MAF历史提供者加载完整上下文()
+    {
+        var provider = new ScriptedProvider([[ContentFrame("继续完成"), FinishFrame("stop")]]);
+        await using var services = CreateServices(CreateExecutor("test_tool", ToolApprovalMode.Auto), provider);
+        var runner = services.GetRequiredService<IAgentRunner>();
+        var request = new AgentLoopRequest
+        {
+            Messages =
+            [
+                new LlmChatMessage { Role = "user", Content = "第一轮问题" },
+                new LlmChatMessage { Role = "assistant", Content = "第一轮回答" },
+                new LlmChatMessage { Role = "user", Content = "第二轮问题" },
+            ],
+            CompressHistory = false,
+            SessionId = "history-provider",
+            Sink = new CapturingSink(),
+        };
+
+        var result = await runner.RunAsync(request, CancellationToken.None);
+
+        Assert.Null(result.Error);
+        var received = Assert.Single(provider.ReceivedMessages);
+        Assert.Equal(3, received.Count);
+        Assert.Equal("第一轮问题", received[0].Content);
+        Assert.Equal("第一轮回答", received[1].Content);
+        Assert.Equal("第二轮问题", received[2].Content);
+    }
+
     private static async Task WaitUntilAsync(Func<bool> condition)
     {
         var deadline = DateTime.UtcNow.AddSeconds(5);
@@ -167,6 +196,8 @@ public class HetuAgentRunnerTests
     {
         private readonly Queue<string[]> _turns = new(turns);
 
+        public List<IReadOnlyList<LlmChatMessage>> ReceivedMessages { get; } = [];
+
         public string ProviderType => "test";
 
         public async IAsyncEnumerable<string> ChatStreamAsync(
@@ -174,6 +205,7 @@ public class HetuAgentRunnerTests
             ChatOptions options,
             [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
+            ReceivedMessages.Add(messages);
             var frames = _turns.Count > 0 ? _turns.Dequeue() : [FinishFrame("stop")];
             await Task.Yield();
             foreach (var frame in frames) yield return frame;

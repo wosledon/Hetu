@@ -56,13 +56,13 @@
     <aside class="docs-toc" data-docs-toc aria-label="On this page"></aside>
     <div class="docs-body">
       <h1>Agent loop</h1>
-<p class="lede">Chat, code sessions, the kanban board and workflows all share one kernel: <code>HetuAgentRunner.RunAsync</code>. It composes Microsoft Agent Framework's <code>ChatClientAgent</code>, <code>FunctionInvokingChatClient</code> and <code>ToolApprovalAgent</code> directly, and only handles product events, history compression and result aggregation.</p>
+<p class="lede">Chat, code sessions, the kanban board and workflows all share one kernel: <code>HetuAgentRunner.RunAsync</code>. It composes Microsoft Agent Framework's <code>ChatClientAgent</code>, <code>FunctionInvokingChatClient</code> and <code>ToolApprovalAgent</code> directly, and only handles product events, history-provider integration and result aggregation.</p>
 
       <h2>Order of a single run</h2>
       <ol>
         <li><strong>Resolve the model</strong>: a <code>ModelId</code> on the request creates that provider, otherwise the default chat model is used; if neither exists the run throws instead of silently substituting another model.</li>
         <li><strong>Load tools</strong>: built-in / session tools first, then <code>tools/list</code> from the MCP servers bound to the session; the merged set refreshes the tool schemas and system prompt.</li>
-        <li><strong>Enter the loop</strong> (15 iterations by default): each iteration first drains steering into context, then compresses history per configuration, then calls the model.</li>
+        <li><strong>Enter the loop</strong> (15 iterations by default): each iteration first drains steering into context; history is loaded by <code>InMemoryChatHistoryProvider</code> and compressed by <code>HetuChatReducer</code> before use, then the model is called.</li>
         <li><strong>Handle output</strong>: prose and thinking stream out as events; tool calls go to the caller's decider, which either executes them or requests approval.</li>
         <li><strong>Feed results back</strong>: tool results enter the context and are pushed to the UI; per-iteration prose, thinking, tools and usage accumulate into the run result.</li>
         <li><strong>Finish</strong>: the run ends when no further tool calls arrive. At the iteration cap MAF automatically performs one final request without tools and marks <code>iteration_limit</code>. The caller persists messages, records usage and appends <code>done</code>.</li>
@@ -94,8 +94,8 @@
       <div class="table-wrap"><table>
         <thead><tr><th>Behaviour</th><th>Implementation</th></tr></thead>
         <tbody>
-          <tr><td>Scope</td><td>History compression stops before the current user message to preserve their exact request. Tool output produced by the active turn has a separate deterministic budget: old results are compacted while ToolCallId linkage and recent results are preserved</td></tr>
-          <tr><td>Deduplication</td><td>Already-compressed slices are remembered in <code>compressedIndexes</code>; long sessions never re-compress the same slice</td></tr>
+          <tr><td>Scope</td><td>The current user message is sent directly as this turn's input and is never compressed as history; <code>InMemoryChatHistoryProvider</code> only loads and compresses earlier messages, preserving the exact request. Tool output produced by the active turn has a separate deterministic budget: old results are compacted while ToolCallId linkage and recent results are preserved</td></tr>
+          <tr><td>Deduplication</td><td><code>CompressionPipelineService.PrepareForContextAsync</code> caches compressed content by SHA-256, so the same slice is not recompressed across iterations</td></tr>
           <tr><td>Method</td><td>Calls the full compression pipeline entry (LLM summary allowed, subject to pipeline mode and threshold)</td></tr>
           <tr><td>Cost visibility</td><td>The first iteration estimates system prompt and tool schema character cost and logs it, separating "heavy prompt" from "long history"</td></tr>
         </tbody>
@@ -103,9 +103,9 @@
 
       <h2>Tool loading and MCP</h2>
       <ul>
-        <li>MCP servers that are <strong>missing, disabled or not stdio</strong> are skipped with a warning; a single server failing to load logs an error and continues the turn instead of breaking it.</li>
-        <li>Successfully loaded tools merge with built-ins; name conflicts resolve in favour of built-ins, and the merged schemas feed permission decisions.</li>
-        <li>MCP tools are registered at runtime only and never persisted; server configuration lives in settings.</li>
+        <li>MCP servers that are <strong>missing or disabled</strong> are skipped with a warning; a single server failing to load logs an error and continues the turn instead of breaking it.</li>
+        <li>Both stdio and HTTP/SSE transports are supported; loaded <code>McpClientTool</code> instances are passed directly to MAF as <code>AIFunction</code>s and merged with built-ins, with built-ins winning name conflicts.</li>
+        <li>MCP tools are never persisted; server configuration lives in settings.</li>
       </ul>
 
       <h2>Event outlets</h2>
@@ -144,7 +144,7 @@
       <ul>
         <li>Start with the <code>[AgentLoop]</code> and <code>[Compression]</code> log lines: the first shows iteration counts and tool loading, the second shows before/after sizes of history compression.</li>
         <li>Suspect compression is changing behaviour? Turn <code>CompressHistory</code> off and reproduce.</li>
-        <li>Tool unexpectedly unavailable: check whether the MCP server is disabled or non-stdio, and whether the tool is denied by the permission mode or a project rule.</li>
+        <li>Tool unexpectedly unavailable: check whether the MCP server is disabled, whether its connection config can be parsed (stdio and HTTP/SSE are supported), and whether the tool is denied by the permission mode or a project rule.</li>
       </ul>
     <div class="docs-pager"><a href="index.html">← Docs index</a><a href="architecture.html">Architecture →</a></div>
     </div>

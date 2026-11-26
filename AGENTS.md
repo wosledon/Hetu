@@ -123,6 +123,9 @@ EF Core 的 SQLite provider **不支持在 SQL 中排序或聚合 `DateTimeOffse
   `ChatClientAgent` 与 `ToolApprovalAgent`；不要在 Core 里重新实现模型/工具循环。
 - 运行中引导（`AgentSteeringHub`）通过 `AgentContextChatClient` 中间件注入；权限模式（plan/readonly/ask/auto/bypass）折算为
   MAF 审批管道的放行/询问/拒绝，`ToolApprovalAgent` 负责自动放行，`ask` 通过 `ToolExecutionService` 等待前端。
+- 对话历史由 MAF `InMemoryChatHistoryProvider` 承载：Controller 仍负责按业务规则构建消息（自动摘要、RAG / @ 注入），
+  `HetuAgentRunner` 只把「最后一条 user 消息」作为本轮输入，之前的消息由历史提供者加载；历史压缩通过 `HetuChatReducer`
+  （`ChatReducer`）执行，不要在 Agent 内部再手写一套历史循环。
 - MCP 统一走官方 `ModelContextProtocol`：`McpClientProvider` 复用连接，`McpClientTool` 直接作为 `AIFunction` 交给 MAF；
   不要再新增手写 JSON-RPC / stdio 客户端。
 - 非 Agent 的文本任务（NoteAI / Wiki / Graph / 压缩 / 查询改写等）统一走 `ITextGenerationClient`（内部创建 MAF Agent），
