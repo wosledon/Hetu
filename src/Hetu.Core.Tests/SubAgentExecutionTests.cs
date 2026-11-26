@@ -1,8 +1,8 @@
 using System.Runtime.CompilerServices;
 using System.Text.Json;
+using Hetu.Agents;
 using Hetu.Core.Interfaces;
 using Hetu.Core.Services;
-using Hetu.Core.Services.AgentFramework;
 using Hetu.Core.Services.Tools;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -84,7 +84,7 @@ public class SubAgentExecutionTests
 
             var result = await tool.ExecuteAsync("""{"description":"读文件","prompt":"读 a.ts"}""");
 
-            Assert.False(result.IsError);
+            Assert.False(result.IsError, result.Content);
             Assert.Equal(1, executions);
             Assert.Contains("结论：内容正常", result.Content);
             Assert.Contains("调研 1 步", result.Content);
@@ -151,15 +151,15 @@ public class SubAgentExecutionTests
         services.AddSingleton(Substitute.For<IAppSettingService>());
         services.AddSingleton(factory);
         services.AddSingleton(Substitute.For<ILogger<ToolExecutionService>>());
-        services.AddSingleton(Substitute.For<ILogger<AgentLoopService>>());
         services.AddSingleton(Substitute.For<ILogger<CompressionPipelineService>>());
         services.AddSingleton(Substitute.For<ILogger<ContextCompactionService>>());
         services.AddSingleton(Substitute.For<ILlmUsageRecorder>());
         services.AddSingleton<ToolExecutionService>();
         services.AddSingleton<CompressionPipelineService>();
         services.AddSingleton<ContextCompactionService>();
-        services.AddScoped<MafAgentRunner>();
-        services.AddScoped<AgentLoopService>();
+        services.AddSingleton<IAgentFactory>(new ScriptedAgentFactory(provider));
+        services.AddScoped<HetuAgentRunner>();
+        services.AddScoped<IAgentRunner>(sp => sp.GetRequiredService<HetuAgentRunner>());
         return services.BuildServiceProvider();
     }
 

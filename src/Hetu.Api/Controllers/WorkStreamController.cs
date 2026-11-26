@@ -28,10 +28,9 @@ public class WorkStreamController : ControllerBase
     private readonly IUnitOfWork _unitOfWork;
     private readonly IWorkSessionService _sessionService;
     private readonly IWorkCheckpointService _checkpointService;
-    private readonly ILLMProviderFactory _llmProviderFactory;
     private readonly ToolExecutionService _toolExecution;
     private readonly ToolRegistry _toolRegistry;
-    private readonly AgentLoopService _agentLoop;
+    private readonly IAgentRunner _agentLoop;
     private readonly ILocalSkillService _localSkillService;
     private readonly IWorkCodeIndexRefreshQueue _codeIndexRefreshQueue;
     private readonly IWorkCommandRunnerFactory _commandRunnerFactory;
@@ -48,10 +47,9 @@ public class WorkStreamController : ControllerBase
         IUnitOfWork unitOfWork,
         IWorkSessionService sessionService,
         IWorkCheckpointService checkpointService,
-        ILLMProviderFactory llmProviderFactory,
         ToolExecutionService toolExecution,
         ToolRegistry toolRegistry,
-        AgentLoopService agentLoop,
+        IAgentRunner agentLoop,
         ILocalSkillService localSkillService,
         IWorkCodeIndexRefreshQueue codeIndexRefreshQueue,
         IWorkCommandRunnerFactory commandRunnerFactory,
@@ -67,7 +65,6 @@ public class WorkStreamController : ControllerBase
         _unitOfWork = unitOfWork;
         _sessionService = sessionService;
         _checkpointService = checkpointService;
-        _llmProviderFactory = llmProviderFactory;
         _toolExecution = toolExecution;
         _toolRegistry = toolRegistry;
         _agentLoop = agentLoop;
@@ -299,13 +296,14 @@ public class WorkStreamController : ControllerBase
         }
 
         // 解析模型
-        var (provider, modelId) = await _llmProviderFactory.ResolveAsync(request.ModelId, session.ModelId, ct);
+        var modelInfo = await _agentLoop.ResolveModelAsync(request.ModelId, session.ModelId, ct);
 
-        if (provider == null)
+        if (modelInfo == null)
         {
             await writer.WriteErrorAsync(_localizer.T("chat.modelUnavailable"));
             return;
         }
+        var modelId = (Guid?)modelInfo.ModelId;
 
         // 构建历史 + 工具
         var messagesResult = await _sessionService.GetMessagesAsync(sessionId, ct);
@@ -330,12 +328,12 @@ public class WorkStreamController : ControllerBase
         if (mentionCount > 0) await writer.WriteJsonAsync(new { type = "mentions", count = mentionCount });
 
         // 图片附件（视觉模型多模态输入）：与对话会话共用同一挂载规则
-        ChatContextInjector.AttachImages(request.Images, provider, chatMessages);
+        ChatContextInjector.AttachImages(request.Images, modelInfo.ProviderType, chatMessages);
 
         // 网络搜索 / 知识库 / 记忆：与对话会话共用同一套 RAG 注入与 SSE 事件
         // 记忆作用域：Code 会话按关联的受管项目注入「全局 ∪ 该项目」记忆（未关联项目则只有全局）
         await _contextInjector.InjectRagAsync(
-            request.WebSearch, request.KnowledgeBase, request.Memory, request.Content ?? string.Empty, chatMessages, writer, provider,
+            request.WebSearch, request.KnowledgeBase, request.Memory, request.Content ?? string.Empty, chatMessages, writer, modelInfo.ModelId,
             topicId: null, projectId: project.ManagedProjectId, ct);
 
         var profile = BuiltinProfiles.Work;
@@ -394,7 +392,8 @@ public class WorkStreamController : ControllerBase
         {
             _logger.LogWarning(ex, "[WorkStream] 加载 .github 资产失败，本轮按无资产继续");
             copilotAssets = WorkCopilotAssets.Empty;
-        }        var copilotContext = WorkCopilotAssets.BuildContext(copilotAssets, root);
+        }
+        var copilotContext = WorkCopilotAssets.BuildContext(copilotAssets, root);
         if (!string.IsNullOrWhiteSpace(copilotContext))
             systemPromptParts.Add($"\n{copilotContext}");
 
@@ -482,8 +481,6 @@ public class WorkStreamController : ControllerBase
             McpServerIds = new List<Guid>(),
             MaxIterations = profile.MaxAgentIterations,
             MaxToolCallsPerTurn = profile.MaxToolCallsPerTurn,
-            // 长任务自动续跑两段，避免正常的多步工作频繁撞到单段迭代上限
-            MaxContinuations = 2,
             ReasoningEffort = options.ReasoningEffort,
             ReasoningBudgetTokens = options.ReasoningBudgetTokens,
             MaxTokens = options.MaxTokens,
@@ -1086,30 +1083,30 @@ public class WorkStreamController : ControllerBase
             switch (toolCall.Name)
             {
                 case "work_write_file":
-                {
-                    var path = TryGetStringArgument(toolCall.Arguments, "path");
-                    if (!string.IsNullOrWhiteSpace(path))
-                        planned.Add(new PlannedChange(toolCall.Id, path));
-                    break;
-                }
+                    {
+                        var path = TryGetStringArgument(toolCall.Arguments, "path");
+                        if (!string.IsNullOrWhiteSpace(path))
+                            planned.Add(new PlannedChange(toolCall.Id, path));
+                        break;
+                    }
                 case "work_apply_patch":
                 case "work_delete_file":
-                {
-                    var path = TryGetStringArgument(toolCall.Arguments, "path");
-                    if (!string.IsNullOrWhiteSpace(path))
-                        planned.Add(new PlannedChange(toolCall.Id, path));
-                    break;
-                }
+                    {
+                        var path = TryGetStringArgument(toolCall.Arguments, "path");
+                        if (!string.IsNullOrWhiteSpace(path))
+                            planned.Add(new PlannedChange(toolCall.Id, path));
+                        break;
+                    }
                 case "work_move_file":
-                {
-                    var from = TryGetStringArgument(toolCall.Arguments, "from");
-                    var to = TryGetStringArgument(toolCall.Arguments, "to");
-                    if (!string.IsNullOrWhiteSpace(from))
-                        planned.Add(new PlannedChange(toolCall.Id, from));
-                    if (!string.IsNullOrWhiteSpace(to))
-                        planned.Add(new PlannedChange(toolCall.Id, to));
-                    break;
-                }
+                    {
+                        var from = TryGetStringArgument(toolCall.Arguments, "from");
+                        var to = TryGetStringArgument(toolCall.Arguments, "to");
+                        if (!string.IsNullOrWhiteSpace(from))
+                            planned.Add(new PlannedChange(toolCall.Id, from));
+                        if (!string.IsNullOrWhiteSpace(to))
+                            planned.Add(new PlannedChange(toolCall.Id, to));
+                        break;
+                    }
             }
         }
         return planned;

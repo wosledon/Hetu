@@ -39,7 +39,7 @@ public class ChatContextInjector
     /// topicId / projectId 决定记忆检索的作用域：全局 ∪ 当前会话 ∪ 当前项目。</summary>
     public async Task<RagResult> InjectRagAsync(
         bool webSearch, bool knowledgeBase, bool memory, string content,
-        List<LlmChatMessage> messages, SseStreamWriter writer, ILLMProvider provider,
+        List<LlmChatMessage> messages, SseStreamWriter writer, Guid? modelId,
         Guid? topicId, Guid? projectId, CancellationToken ct)
     {
         string? searchJson = null, kbJson = null, memJson = null;
@@ -47,7 +47,7 @@ public class ChatContextInjector
         if (webSearch)
         {
             // 查询改写：口语化原文直接搜很难命中，先提炼关键词再搜（复用当前会话模型，失败则用原文）
-            var queries = await _queryRewriter.RewriteAsync(content ?? string.Empty, provider, ct);
+            var queries = await _queryRewriter.RewriteAsync(content ?? string.Empty, modelId, ct);
 
             var merged = new List<WebSearchResultDto>();
             var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -111,7 +111,7 @@ public class ChatContextInjector
     }
 
     /// <summary>把图片附件挂到最后一条用户消息上（视觉模型多模态输入）。</summary>
-    public static void AttachImages(List<ImageAttachment>? images, ILLMProvider provider, List<LlmChatMessage> messages)
+    public static void AttachImages(List<ImageAttachment>? images, string providerType, List<LlmChatMessage> messages)
     {
         if (images is not { Count: > 0 }) return;
 
@@ -124,7 +124,7 @@ public class ChatContextInjector
             parts.Add(new LlmContentPart { Type = "text", Text = existing });
         foreach (var img in images)
         {
-            if (provider.ProviderType == "anthropic")
+            if (string.Equals(providerType, "anthropic", StringComparison.OrdinalIgnoreCase))
             {
                 var b64 = img.Data.Contains(',') ? img.Data[(img.Data.IndexOf(',') + 1)..] : img.Data;
                 parts.Add(new LlmContentPart { Type = "image_url", ImageUrl = b64, MediaType = img.MimeType });

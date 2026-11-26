@@ -10,15 +10,15 @@ namespace Hetu.Core.Services.Workflows.NodeExecutors;
 /// <summary>
 /// Agent 节点：node.AgentId 引用智能体页面维护的 PromptPreset（仅取 Content 作系统提示词）,
 /// modelId/toolNames/mcpServerIds/toolApprovals/迭代次数等执行参数全部来自节点 config JSON。
-/// 调用 AgentLoopService 执行 LLM+工具循环，输出 LLM 最终内容。
+/// 调用 <see cref="Hetu.Core.Interfaces.IAgentRunner"/> 执行 LLM+工具循环，输出 LLM 最终内容。
 /// </summary>
 public class AgentNodeExecutor : INodeExecutor
 {
     private readonly IUnitOfWork _unitOfWork;
-    private readonly AgentLoopService _agentLoopService;
+    private readonly IAgentRunner _agentLoopService;
     private readonly ILogger<AgentNodeExecutor> _logger;
     private readonly ILocalizer _localizer;
-    public AgentNodeExecutor(IUnitOfWork unitOfWork, AgentLoopService agentLoopService, ILogger<AgentNodeExecutor> logger, ILocalizer localizer)
+    public AgentNodeExecutor(IUnitOfWork unitOfWork, IAgentRunner agentLoopService, ILogger<AgentNodeExecutor> logger, ILocalizer localizer)
     {
         _unitOfWork = unitOfWork;
         _agentLoopService = agentLoopService;

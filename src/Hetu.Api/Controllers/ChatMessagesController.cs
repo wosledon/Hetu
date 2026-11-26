@@ -25,7 +25,6 @@ public class ChatMessagesController : ControllerBase
 {
     private readonly IChatMessageService _chatMessageService;
     private readonly IChatTopicService _chatTopicService;
-    private readonly ILLMProviderFactory _llmProviderFactory;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILocalSkillService _localSkillService;
     private readonly MentionContextBuilder _mentionContext;
@@ -33,7 +32,7 @@ public class ChatMessagesController : ControllerBase
     private readonly ToolRegistry _toolRegistry;
     private readonly PromptComposer _promptComposer;
     private readonly ToolExecutionService _toolExecution;
-    private readonly AgentLoopService _agentLoop;
+    private readonly IAgentRunner _agentLoop;
     private readonly ContextCompactionService _contextCompaction;
     private readonly ILogger<ChatMessagesController> _logger;
     private readonly ILocalizer _localizer;
@@ -44,7 +43,6 @@ public class ChatMessagesController : ControllerBase
     public ChatMessagesController(
         IChatMessageService chatMessageService,
         IChatTopicService chatTopicService,
-        ILLMProviderFactory llmProviderFactory,
         IUnitOfWork unitOfWork,
         ILocalSkillService localSkillService,
         MentionContextBuilder mentionContext,
@@ -52,7 +50,7 @@ public class ChatMessagesController : ControllerBase
         ToolRegistry toolRegistry,
         PromptComposer promptComposer,
         ToolExecutionService toolExecution,
-        AgentLoopService agentLoop,
+        IAgentRunner agentLoop,
         ContextCompactionService contextCompaction,
         ILogger<ChatMessagesController> logger,
         ILocalizer localizer,
@@ -62,7 +60,6 @@ public class ChatMessagesController : ControllerBase
     {
         _chatMessageService = chatMessageService;
         _chatTopicService = chatTopicService;
-        _llmProviderFactory = llmProviderFactory;
         _unitOfWork = unitOfWork;
         _localSkillService = localSkillService;
         _mentionContext = mentionContext;
@@ -221,10 +218,10 @@ public class ChatMessagesController : ControllerBase
 
         var agentPreset = await ResolveAgentPresetAsync(request.AgentId, ct);
         // 专业智能体可绑定模型：请求未指定模型时，优先于话题默认模型
-        (ILLMProvider? Provider, Guid? ModelId) resolved;
+        AgentModelInfo? modelInfo;
         try
         {
-            resolved = await _llmProviderFactory.ResolveAsync(
+            modelInfo = await _agentLoop.ResolveModelAsync(
                 request.ModelId, agentPreset?.ModelId ?? topic.ModelId, ct);
         }
         catch (Exception ex)
@@ -233,10 +230,10 @@ public class ChatMessagesController : ControllerBase
             await writer.WriteErrorAsync(ex.Message.Split('\n')[0]);
             return;
         }
-        var (provider, modelId) = resolved;
-        if (provider == null) { await writer.WriteErrorAsync(_localizer.T("chat.modelUnavailable")); return; }
+        if (modelInfo == null) { await writer.WriteErrorAsync(_localizer.T("chat.modelUnavailable")); return; }
+        var modelId = (Guid?)modelInfo.ModelId;
 
-        var (chatMessages, autoCompacted) = await BuildChatHistoryAsync(topicId, request, provider, ct);
+        var (chatMessages, autoCompacted) = await BuildChatHistoryAsync(topicId, request, modelInfo.ProviderType, ct);
         if (autoCompacted)
         {
             await writer.WriteJsonAsync(new { type = "notice", kind = "compacted", text = _localizer.T("chat.contextCompacted") });
@@ -262,7 +259,7 @@ public class ChatMessagesController : ControllerBase
             }
         }
 
-        var (searchJson, kbJson, memJson) = await InjectRagAsync(topicId, request, chatMessages, writer, provider, ct);
+        var (searchJson, kbJson, memJson) = await InjectRagAsync(topicId, request, chatMessages, writer, modelInfo.ModelId, ct);
         await InjectMentionsAsync(request, chatMessages, writer, ct);
 
         var profile = BuiltinProfiles.Knowledge;
@@ -282,8 +279,6 @@ public class ChatMessagesController : ControllerBase
             McpServerIds = new List<Guid>(),
             MaxIterations = profile.MaxAgentIterations,
             MaxToolCallsPerTurn = profile.MaxToolCallsPerTurn,
-            // 长任务自动续跑两段，避免正常的多步工作频繁撞到单段迭代上限
-            MaxContinuations = 2,
             ReasoningEffort = options.ReasoningEffort,
             ReasoningBudgetTokens = options.ReasoningBudgetTokens,
             MaxTokens = options.MaxTokens,
@@ -443,7 +438,7 @@ public class ChatMessagesController : ControllerBase
     /// 最后按会话级上下文预算裁剪最早的若干条。
     /// </summary>
     private async Task<(List<LlmChatMessage> Messages, bool AutoCompacted)> BuildChatHistoryAsync(
-        Guid topicId, SendMessageRequest request, ILLMProvider provider, CancellationToken ct)
+        Guid topicId, SendMessageRequest request, string providerType, CancellationToken ct)
     {
         int? ctxSize = null;
         var ctxSetting = await _unitOfWork.AppSettings.GetByKeyAsync("ContextWindowSize", ct);
@@ -498,7 +493,7 @@ public class ChatMessagesController : ControllerBase
 
         if (request.Images is { Count: > 0 })
         {
-            ChatContextInjector.AttachImages(request.Images, provider, messages);
+            ChatContextInjector.AttachImages(request.Images, providerType, messages);
         }
         return (messages, autoCompacted);
     }
@@ -751,11 +746,11 @@ public class ChatMessagesController : ControllerBase
     }
 
     private async Task<(string? search, string? knowledge, string? memory)> InjectRagAsync(
-        Guid topicId, SendMessageRequest request, List<LlmChatMessage> messages, SseStreamWriter writer, ILLMProvider provider, CancellationToken ct)
+        Guid topicId, SendMessageRequest request, List<LlmChatMessage> messages, SseStreamWriter writer, Guid modelId, CancellationToken ct)
     {
         // 对话会话：记忆作用域 = 全局 ∪ 当前会话（对话话题没有项目绑定）
         var result = await _contextInjector.InjectRagAsync(
-            request.WebSearch, request.KnowledgeBase, request.Memory, request.Content ?? string.Empty, messages, writer, provider,
+            request.WebSearch, request.KnowledgeBase, request.Memory, request.Content ?? string.Empty, messages, writer, modelId,
             topicId, projectId: null, ct);
         return (result.SearchJson, result.KnowledgeJson, result.MemoryJson);
     }

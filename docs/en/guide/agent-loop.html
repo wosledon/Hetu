@@ -56,7 +56,7 @@
     <aside class="docs-toc" data-docs-toc aria-label="On this page"></aside>
     <div class="docs-body">
       <h1>Agent loop</h1>
-      <p class="lede">Chat, code sessions, the kanban board and workflows all share one kernel: <code>AgentLoopService.RunAsync</code>. It turns messages, tools, approvals, compression and the event stream into a single turn; business semantics stay with each caller.</p>
+<p class="lede">Chat, code sessions, the kanban board and workflows all share one kernel: <code>HetuAgentRunner.RunAsync</code>. It composes Microsoft Agent Framework's <code>ChatClientAgent</code>, <code>FunctionInvokingChatClient</code> and <code>ToolApprovalAgent</code> directly, and only handles product events, history compression and result aggregation.</p>
 
       <h2>Order of a single run</h2>
       <ol>
@@ -65,7 +65,7 @@
         <li><strong>Enter the loop</strong> (15 iterations by default): each iteration first drains steering into context, then compresses history per configuration, then calls the model.</li>
         <li><strong>Handle output</strong>: prose and thinking stream out as events; tool calls go to the caller's decider, which either executes them or requests approval.</li>
         <li><strong>Feed results back</strong>: tool results enter the context and are pushed to the UI; per-iteration prose, thinking, tools and usage accumulate into the run result.</li>
-        <li><strong>Finish</strong>: the run ends when no further tool calls arrive. At the iteration cap it first auto-continues for <code>MaxContinuations</code> segments (context and progress preserved); only after those are exhausted does it perform one <code>tools=none</code> progress summary and mark <code>iteration_limit</code>. The caller persists messages, records usage and appends <code>done</code>.</li>
+        <li><strong>Finish</strong>: the run ends when no further tool calls arrive. At the iteration cap MAF automatically performs one final request without tools and marks <code>iteration_limit</code>. The caller persists messages, records usage and appends <code>done</code>.</li>
       </ol>
 
       <h2>Key parameters</h2>
@@ -74,8 +74,7 @@
         <tbody>
           <tr><td><code>MaxIterations</code></td><td>15</td><td>Iteration cap; a value ≤ 0 falls back to 15 to prevent infinite loops</td></tr>
           <tr><td><code>MaxToolCallsPerTurn</code></td><td>5</td><td>Per-turn tool budget; excess calls are skipped with an error result (the run continues and the model can retry in smaller batches)</td></tr>
-          <tr><td><code>MaxContinuations</code></td><td>1 (2 for chat / Code)</td><td>Auto-continued segments after the iteration cap; each segment gets a fresh <code>MaxIterations</code> budget and stops early when it produced no successful tool call</td></tr>
-          <tr><td><code>ProviderMaxRetries</code></td><td>2</td><td>Retries for transient provider failures (connection / 429 / 5xx) before any output is produced, with linear backoff</td></tr>
+
           <tr><td><code>ToolTimeout</code></td><td>10 minutes</td><td>Default per-tool execution cap; the shorter of this and the tool's own <code>Timeout</code> wins, and it cancels the tool's own token</td></tr>
           <tr><td><code>CompressHistory</code></td><td>true</td><td>Set false to skip history compression when debugging compression side effects</td></tr>
           <tr><td><code>EnableTools</code></td><td>true</td><td>When off, no tool schemas are sent — plain conversation mode</td></tr>

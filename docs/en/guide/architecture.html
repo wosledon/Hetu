@@ -241,7 +241,7 @@ Hetu.Shared          DTOs, enums, constants (the frontend/backend contract)</cod
         <tbody>
           <tr><td>App wiring / middleware</td><td><code>src/Hetu.Api/Program.cs</code> (DI, response caching, health probe, Scalar)</td></tr>
           <tr><td>SSE entry points</td><td><code>src/Hetu.Api/Controllers/WorkStreamController.cs</code> · <code>ChatMessagesController.cs</code></td></tr>
-          <tr><td>Agent loop</td><td><code>src/Hetu.Core/Services/AgentLoopService.cs</code> (steering, checkpoints, approvals)</td></tr>
+              <tr><td>Agent runtime</td><td><code>src/Hetu.Agents/HetuAgentRunner.cs</code> (MAF <code>AIAgent</code> / tool loop / approvals / steering)</td></tr>
           <tr><td>Repositories</td><td><code>src/Hetu.Infrastructure/Repositories/</code> (<code>EfRepository</code> provides paging / aggregation / prune primitives)</td></tr>
           <tr><td>DbContext and migrations</td><td><code>src/Hetu.Infrastructure/Data/</code> and <code>src/Hetu.Infrastructure.PostgresMigrations/</code></td></tr>
           <tr><td>Git / worktrees / PR</td><td><code>src/Hetu.Api/Services/WorkGitService.cs</code> · <code>src/Hetu.Core/Services/Work/WorkWorktreeService.cs</code></td></tr>
