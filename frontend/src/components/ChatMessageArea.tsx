@@ -1,7 +1,7 @@
 import { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback, lazy, Suspense } from 'react'
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { Bot, FileText, Search, GitBranch, X, Globe, Database, ChevronDown, ArrowDown, Loader2, Zap, AlertCircle, Eraser, Gauge } from 'lucide-react'
+import { Bot, FileText, Search, SearchX, GitBranch, X, Globe, Database, ChevronDown, ArrowDown, Loader2, Zap, AlertCircle, Eraser, Gauge } from 'lucide-react'
 import i18n from '../i18n'
 import { chatMessageService, chatTopicService, promptPresetService } from '../services/chatService'
 import { settingService } from '../services/settingService'
@@ -43,8 +43,10 @@ import { loadTopicSettings, saveTopicSettings } from '../utils/topicSettings'
 import { wrapLongTextBlock } from '../utils/longText'
 import { useStickToBottom } from '../hooks/useStickToBottom'
 import { consumeSseStream } from '../utils/sse'
+import { formatDateTime } from '../utils/locale'
+import { POPOVER_PANEL_CLASS } from '../utils/styles'
 import type { IChatMessage, IChatTopic, IPagedResult, IPromptPreset, ISkill } from '../types'
-import { Button, Card, IconButton, SearchInput } from './ui'
+import { Button, Card, IconButton } from './ui'
 
 const InlineWorkflowPanel = lazy(() => import('./workflow/InlineWorkflowPanel'))
 
@@ -145,7 +147,12 @@ export default function ChatMessageArea({ topic, onTopicUpdated, projectId }: Ch
   const [selectedPreset, setSelectedPreset] = useState<IPromptPreset | null>(null)
   const [showSearch, setShowSearch] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
-  const [searchResults, setSearchResults] = useState<ChatMessageSearchResult[]>([])
+  /** 已完成搜索的响应（记录回包对应的查询词）：只有回包词与当前输入一致才算「结果就绪」 */
+  const [searchResponse, setSearchResponse] = useState<{ query: string; results: ChatMessageSearchResult[] } | null>(null)
+  const [searchActiveIndex, setSearchActiveIndex] = useState(0)
+  const [jumpFlashId, setJumpFlashId] = useState<string | null>(null)
+  const searchInputRef = useRef<HTMLInputElement>(null)
+  const searchToggleRef = useRef<HTMLButtonElement>(null)
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null)
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null)
   const [editingContent, setEditingContent] = useState('')
@@ -499,13 +506,92 @@ export default function ChatMessageArea({ topic, onTopicUpdated, projectId }: Ch
     setSelectedPreset(prev => prev?.id === preset.id ? null : preset)
   }
 
-  const handleSearch = async () => {
-    if (!searchQuery.trim() || !topic) return
-    try {
-      const results = await chatMessageService.search(searchQuery.trim(), topic.id)
-      setSearchResults(results)
-    } catch {
-      setSearchResults([])
+  // ---- 对话内搜索：输入停顿自动查询，命中项点击/回车跳转到原消息 ----
+  const searchTerm = searchQuery.trim()
+  const searchResults = searchResponse?.results ?? []
+  // 只有回包词与当前输入一致才算就绪；回包前保留上一次结果，避免逐字清空闪屏
+  const searchReady = !!searchResponse && searchResponse.query === searchTerm
+  const searchInFlight = showSearch && searchTerm.length > 0 && !searchReady
+  const activeSearchIndex = searchResults.length > 0 ? Math.min(searchActiveIndex, searchResults.length - 1) : -1
+
+  const closeSearch = useCallback(() => {
+    setShowSearch(false)
+    setSearchQuery('')
+    setSearchResponse(null)
+    setSearchActiveIndex(0)
+    requestAnimationFrame(() => searchToggleRef.current?.focus())
+  }, [])
+
+  const toggleSearch = useCallback(() => {
+    if (showSearch) closeSearch()
+    else setShowSearch(true)
+  }, [showSearch, closeSearch])
+
+  // 打开面板即把焦点放进输入框
+  useEffect(() => {
+    if (showSearch) searchInputRef.current?.focus()
+  }, [showSearch])
+
+  useEffect(() => {
+    if (!showSearch || !topic?.id) return
+    const keyword = searchQuery.trim()
+    if (!keyword) return
+    let cancelled = false
+    const timer = window.setTimeout(() => {
+      void chatMessageService.search(keyword, topic.id)
+        .then((results) => { if (!cancelled) setSearchResponse({ query: keyword, results }) })
+        .catch(() => { if (!cancelled) setSearchResponse({ query: keyword, results: [] }) })
+    }, 300)
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [showSearch, searchQuery, topic?.id])
+
+  const scrollToMessageAnchor = useCallback((id: string) => {
+    const anchor = scrollRef.current?.querySelector<HTMLElement>(`[data-message-anchor="${id}"]`)
+    if (!anchor) return false
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    anchor.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' })
+    setJumpFlashId(id)
+    window.setTimeout(() => setJumpFlashId((cur) => (cur === id ? null : cur)), 1800)
+    return true
+  }, [scrollRef])
+
+  const jumpToSearchResult = useCallback(async (id: string) => {
+    if (scrollToMessageAnchor(id)) return
+    if (!topic) return
+    const topicId = topic.id
+    // 目标在更早的历史里：逐段扩大窗口，等每段数据挂到 DOM 后再判断
+    let size = messagePageSize
+    while (size < totalMessages) {
+      size = Math.min(totalMessages, size + 100)
+      try {
+        await queryClient.fetchQuery({
+          queryKey: ['chatMessages', topicId, size],
+          queryFn: () => chatMessageService.getByTopicPage(topicId, 1, size),
+        })
+      } catch {
+        return
+      }
+      setMessagePageSize(size)
+      await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
+      if (scrollToMessageAnchor(id)) return
+    }
+  }, [scrollToMessageAnchor, messagePageSize, totalMessages, topic, queryClient])
+
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (searchResults.length === 0) return
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setSearchActiveIndex(Math.min(activeSearchIndex + 1, searchResults.length - 1))
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setSearchActiveIndex(Math.max(activeSearchIndex - 1, 0))
+    } else if (e.key === 'Enter') {
+      e.preventDefault()
+      const target = searchResults[Math.max(0, activeSearchIndex)]
+      if (target) void jumpToSearchResult(target.id)
     }
   }
 
@@ -907,7 +993,8 @@ export default function ChatMessageArea({ topic, onTopicUpdated, projectId }: Ch
             </IconButton>
           )}
           <button
-            onClick={() => { setShowSearch(!showSearch); if (showSearch) { setSearchQuery(''); setSearchResults([]) } }}
+            ref={searchToggleRef}
+            onClick={toggleSearch}
             className={`p-2 rounded-lg transition-colors ${showSearch ? 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-300' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300'}`}
             title={t('common:search')}
           >
@@ -926,36 +1013,102 @@ export default function ChatMessageArea({ topic, onTopicUpdated, projectId }: Ch
       </div>
 
       {showSearch && (
-        <div className="relative z-10 shrink-0 border-b border-gray-200/80 bg-white/35 px-4 py-3 dark:border-white/[0.07] dark:bg-slate-950/20 sm:px-6">
-          <div className="flex gap-2 mb-2">
-            <div className="relative flex-1">
-              <SearchInput tone="indigo" size="sm"
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') handleSearch() }}
-                placeholder={t('messageArea.searchPlaceholder')}
-                className="w-full"
-              />
-            </div>
-            <Button variant="primary" tone="indigo" className="rounded-lg bg-indigo-600 px-4 py-1.5 text-sm text-white shadow-sm hover:bg-indigo-500" onClick={handleSearch}>{t('common:search')}</Button>
-          </div>
-          {searchResults.length > 0 && (
-            <div className="mt-2 max-h-56 space-y-1.5 overflow-y-auto">
-              {searchResults.map(r => (
-                <div key={r.id} className="rounded-xl border border-gray-200/70 bg-white/75 p-3 text-xs shadow-sm transition-colors hover:border-indigo-200 dark:border-white/[0.07] dark:bg-gray-900/60 dark:hover:border-indigo-400/25">
-                  <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400">
-                    <span className={`rounded-md px-1.5 py-0.5 text-[10px] font-medium ${r.role === 'user' ? 'bg-indigo-100 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-300' : 'bg-blue-100 text-blue-600 dark:bg-blue-500/15 dark:text-blue-300'}`}>{r.role === 'user' ? t('messageArea.roleMe') : 'AI'}</span>
-                    <span className="truncate">{r.topicTitle}</span>
-                  </div>
-                  <p className="mt-1.5 line-clamp-2 leading-5 text-gray-600 dark:text-gray-300">{r.contentSnippet}</p>
+        <div className="relative z-20 shrink-0 px-4 pb-1 pt-1 sm:px-6">
+          <div className="mx-auto w-full max-w-4xl">
+            <div
+              role="search"
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') {
+                  e.preventDefault()
+                  closeSearch()
+                }
+              }}
+              className={`overflow-hidden ${POPOVER_PANEL_CLASS}`}
+            >
+              {/* 输入行：无边框输入 + 就绪数 / 搜索中 / 清空 */}
+              <div className="flex items-center gap-2 px-3 py-2">
+                <Search size={14} className="shrink-0 text-gray-400 dark:text-gray-500" />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={handleSearchKeyDown}
+                  placeholder={t('messageArea.searchPlaceholder')}
+                  aria-label={t('messageArea.searchPlaceholder')}
+                  className="min-w-0 flex-1 bg-transparent text-[13px] leading-5 text-gray-800 caret-indigo-500 outline-none placeholder:text-gray-400 dark:text-gray-100 dark:placeholder:text-gray-500"
+                />
+                {searchInFlight ? (
+                  <Loader2 size={13} className="shrink-0 animate-spin text-gray-300 dark:text-gray-600" />
+                ) : searchReady && searchResults.length > 0 ? (
+                  <span className="shrink-0 text-[10px] tabular-nums text-gray-400 dark:text-gray-500">
+                    {t('messageArea.searchResultCount', { count: searchResults.length })}
+                  </span>
+                ) : null}
+                {searchTerm ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery('')
+                      searchInputRef.current?.focus()
+                    }}
+                    aria-label={t('messageArea.searchClear')}
+                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-gray-300 transition-colors hover:bg-gray-100 hover:text-gray-500 dark:text-gray-600 dark:hover:bg-white/[0.06] dark:hover:text-gray-300"
+                  >
+                    <X size={12} />
+                  </button>
+                ) : (
+                  <kbd className="hidden shrink-0 rounded border border-gray-200/80 px-1 py-0.5 text-[9px] font-medium text-gray-300 sm:inline-block dark:border-white/10 dark:text-gray-600">
+                    Esc
+                  </kbd>
+                )}
+              </div>
+
+              {/* 命中列表：扁平行 + 命中词高亮，回车/点击跳到原消息 */}
+              {searchTerm && searchResults.length > 0 ? (
+                <div className="max-h-[min(42vh,340px)] overflow-y-auto border-t border-gray-100/90 p-1.5 dark:border-white/[0.06]">
+                  {searchResults.map((r, index) => {
+                    const active = index === activeSearchIndex
+                    return (
+                      <button
+                        key={r.id}
+                        type="button"
+                        onClick={() => void jumpToSearchResult(r.id)}
+                        onMouseEnter={() => setSearchActiveIndex(index)}
+                        className={`flex w-full items-start gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors ${
+                          active
+                            ? 'bg-gray-50 dark:bg-white/[0.05]'
+                            : 'hover:bg-gray-50/70 dark:hover:bg-white/[0.035]'
+                        }`}
+                      >
+                        <span className={`mt-px flex h-5 shrink-0 items-center rounded-md px-1.5 text-[10px] font-semibold ${
+                          r.role === 'user'
+                            ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-300'
+                            : 'bg-sky-50 text-sky-600 dark:bg-sky-500/15 dark:text-sky-300'
+                        }`}>
+                          {r.role === 'user' ? t('messageArea.roleMe') : 'AI'}
+                        </span>
+                        <span className="line-clamp-2 min-w-0 flex-1 text-[12px] leading-5 text-gray-600 dark:text-gray-300">
+                          {highlightSearchMatches(plainSearchSnippet(r.contentSnippet), searchResponse?.query ?? '')}
+                        </span>
+                        <span
+                          title={formatDateTime(r.createdAt)}
+                          className="shrink-0 pt-0.5 text-[10px] tabular-nums text-gray-400 dark:text-gray-500"
+                        >
+                          {formatDateTime(r.createdAt, { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </button>
+                    )
+                  })}
                 </div>
-              ))}
+              ) : searchReady && searchTerm ? (
+                <div className="border-t border-gray-100/90 px-4 py-6 text-center dark:border-white/[0.06]">
+                  <SearchX size={16} className="mx-auto mb-1.5 text-gray-300 dark:text-gray-600" />
+                  <p className="text-[11px] text-gray-400 dark:text-gray-500">{t('messageArea.noMatchingMessages')}</p>
+                </div>
+              ) : null}
             </div>
-          )}
-          {searchQuery && searchResults.length === 0 && (
-            <p className="text-xs text-gray-500">{t('messageArea.noMatchingMessages')}</p>
-          )}
+          </div>
         </div>
       )}
 
@@ -974,7 +1127,15 @@ export default function ChatMessageArea({ topic, onTopicUpdated, projectId }: Ch
             </div>
           )}
           {messages.map((message) => (
-            <div key={message.id} data-message-anchor={message.id} className="scroll-mt-4 [content-visibility:auto] [contain-intrinsic-size:auto_120px]">
+            <div
+              key={message.id}
+              data-message-anchor={message.id}
+              className={`scroll-mt-4 [content-visibility:auto] [contain-intrinsic-size:auto_120px] transition-colors duration-500 ${
+                jumpFlashId === message.id
+                  ? '-mx-2 rounded-xl bg-indigo-50/60 px-2 dark:bg-indigo-400/[0.06]'
+                  : ''
+              }`}
+            >
             <ChatMessageItem
               message={message}
               isEditing={editingMessageId === message.id}
@@ -1033,25 +1194,25 @@ export default function ChatMessageArea({ topic, onTopicUpdated, projectId }: Ch
 
         {/* 对话进行中：挂在会话末尾的声波动画——本轮还没有任何输出时也能看到「还在跑」 */}
         {isStreaming && <AgentWorkingIndicator />}
-        </div>
 
+        {/* 报错与上下文提示和消息同宽（挂在 max-w-4xl 列内），不要占满滚动区 */}
         {streamError && (
-          <div className="mt-5 flex items-start gap-2.5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300">
+          <div className="flex items-start gap-2.5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300">
             <AlertCircle size={16} className="mt-0.5 shrink-0" />
-            <span>{streamError}</span>
-            <button onClick={() => setStreamError('')} className="ml-auto shrink-0 text-red-400 hover:text-red-600 dark:hover:text-red-300"><X size={14} /></button>
+            <span className="min-w-0 flex-1">{streamError}</span>
+            <button onClick={() => setStreamError('')} className="shrink-0 text-red-400 hover:text-red-600 dark:hover:text-red-300"><X size={14} /></button>
           </div>
         )}
 
         {/* 上下文提示：自动压缩 / /compress 结果 */}
         {contextNotice && (
-          <div className="mt-2 flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-700 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+          <div className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-700 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
             <Gauge size={14} className="mt-0.5 shrink-0" />
             <span className="min-w-0 flex-1">{contextNotice}</span>
             <Button variant="link" tone="amber" className="shrink-0 text-amber-500 hover:text-amber-700 dark:hover:text-amber-200" onClick={() => setContextNotice(null)}><X size={13} /></Button>
           </div>
         )}
-
+        </div>
         </div>
         {!following && (
           <button
@@ -1076,9 +1237,9 @@ export default function ChatMessageArea({ topic, onTopicUpdated, projectId }: Ch
           </div>
         )}
         {/* 智能体 / 工作流的选中状态由输入框工具栏的选择器展示，这里不再重复渲染提示条 */}
-        {/* 工作流独立面板：流程图 + 状态 + 交互（选中状态由输入框工具栏展示，这里不重复） */}
+        {/* 工作流独立面板：流程图 + 状态 + 交互（与输入框同宽，选中状态由输入框工具栏展示，这里不重复） */}
         {runningWorkflow && workflowNodes.length > 0 && (
-          <div className="mb-3">
+          <div className="mx-auto mb-3 w-full max-w-4xl">
             <Suspense fallback={null}>
               <InlineWorkflowPanel
                 workflow={runningWorkflow}
@@ -1381,3 +1542,29 @@ export default function ChatMessageArea({ topic, onTopicUpdated, projectId }: Ch
 
 
 
+
+/** 在搜索结果片段中高亮命中词（大小写不敏感，正则特殊字符按字面量匹配） */
+function highlightSearchMatches(text: string, keyword: string): React.ReactNode {
+  const query = keyword.trim()
+  if (!query) return text
+  const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const parts = text.split(new RegExp(`(${escaped})`, 'gi'))
+  if (parts.length === 1) return text
+  const lower = query.toLowerCase()
+  return parts.map((part, index) => part.toLowerCase() === lower
+    ? <mark key={index} className="rounded-[3px] bg-amber-200/70 px-0.5 text-inherit dark:bg-amber-300/25">{part}</mark>
+    : part)
+}
+
+/** 搜索结果片段去 Markdown 标记：让两行摘要更干净，命中词仍可高亮 */
+function plainSearchSnippet(text: string): string {
+  return text
+    .replace(/```[\s\S]*?```/g, ' ')
+    .replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/^#{1,6}\s+/gm, '')
+    .replace(/^>\s?/gm, '')
+    .replace(/[*`~|]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
