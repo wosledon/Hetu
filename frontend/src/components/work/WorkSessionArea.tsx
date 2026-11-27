@@ -32,9 +32,9 @@ import AgentFileChangeRow from '../agent/AgentFileChangeRow'
 import AgentCheckpointRow from '../agent/AgentCheckpointRow'
 import AgentInputBox from '../agent/AgentInputBox'
 import AgentModelPicker from '../agent/AgentModelPicker'
+import AgentPlusMenu from '../agent/AgentPlusMenu'
 import AgentPicker from '../agent/AgentPicker'
 import AgentPermissionSelect from '../agent/AgentPermissionSelect'
-import AgentModeSelect from '../agent/AgentModeSelect'
 import AgentContextUsage from '../agent/AgentContextUsage'
 import WorkSessionWorkspacePicker from './WorkSessionWorkspacePicker'
 import AgentQueueBar, { type PendingMessage } from '../agent/AgentQueueBar'
@@ -694,7 +694,7 @@ export default function WorkSessionArea({
     saveTopicSettings(session.id, { webSearch, knowledgeBase, deepThinking, reasoningEffort })
   }, [session, webSearch, knowledgeBase, deepThinking, reasoningEffort])
 
-  // Agent 模式：交互式 / 托管执行（autopilot 下写操作不再逐步确认）。以服务端会话值为准，本地仅做乐观覆盖
+  // Agent 交互方式：交互式 / 托管执行（autopilot 下写操作不再逐步确认）。与权限模式共用一个面板，语义互相独立
   const [agentModeOverride, setAgentModeOverride] = useState<{ sessionId: string; value: AgentRunMode } | null>(null)
   const agentMode = session
     ? (agentModeOverride?.sessionId === session.id ? agentModeOverride.value : parseAgentMode(session.agentMode))
@@ -1105,6 +1105,22 @@ export default function WorkSessionArea({
     void runStream(buildContent(text), permissionMode)
   }
 
+  /** 「+」面板插入 @ / 触发符：与主对话一致，光标落在触发符后并打开浮层 */
+  const insertInputTrigger = (trigger: '@' | '/') => {
+    const el = textareaRef.current
+    const start = el?.selectionStart ?? input.length
+    const end = el?.selectionEnd ?? input.length
+    setInput(input.slice(0, start) + trigger + input.slice(end))
+    setInputMenu({ kind: trigger === '@' ? 'mention' : 'slash', query: '' })
+    requestAnimationFrame(() => {
+      const target = textareaRef.current
+      if (!target) return
+      target.focus()
+      const pos = start + 1
+      target.setSelectionRange(pos, pos)
+    })
+  }
+
   /** 重新生成：重跑最后一条用户消息，不重复落库该消息 */
   const retryLast = async () => {
     if (!session || isStreaming) return
@@ -1358,7 +1374,7 @@ export default function WorkSessionArea({
           mentions: selectedMentions.length > 0 ? selectedMentions.map((m) => ({ type: m.type, id: m.id })) : undefined,
           // 会话级上下文上限（选择更小的窗口时后端按预算裁剪历史）
           contextWindow,
-          // Agent 模式：交互式逐步确认 / autopilot 自动执行
+          // Agent 交互方式：与权限共用面板下发（交互式逐步确认 / autopilot 自动执行）
           agentMode,
           // 与对话会话共用同一套开关语义：网络搜索 / 知识库 / 记忆 / 深度思考
           webSearch,
@@ -1889,28 +1905,94 @@ export default function WorkSessionArea({
               {!interactionInRail && <ToolInteractionDrawer streamKey={session.id} streaming={isStreaming} />}
             </>
           ) : undefined}
-          trailing={
-            <div className="flex min-w-0 flex-wrap items-center justify-end gap-1">
-              {!sessionStarted && <WorkSessionWorkspacePicker session={session} onChanged={onSessionUpdated} />}
-              <WorkGitSyncControl session={session} />
+          toolbarTrailing={
+            <>
+              {isStreaming && <AgentUsageBadge usage={usageTotal} compact />}
               <AgentContextUsage
                 usage={contextUsage}
                 onRefresh={refreshContextUsage}
                 onCompact={() => void compactContext()}
                 compacting={compacting}
               />
-            </div>
-          }
-          footerLeading={session ? (
-            <>
-              {/* Agent 模式 + 审批模式：放在聊天框下方（左下角） */}
-              <AgentModeSelect value={agentMode} onChange={(v) => setAgentMode(v as AgentRunMode)} />
-              <AgentPermissionSelect
-                value={permissionMode}
-                onChange={(v) => setPermissionMode(v as WorkPermissionMode)}
+              <AgentModelPicker
+                models={aiModels
+                  .filter((m) => m.purpose === 'chat' && m.providerId)
+                  .map((m) => ({
+                    id: m.id,
+                    displayName: m.displayName,
+                    providerId: m.providerId,
+                    contextWindow: m.contextWindow,
+                    reasoningMode: m.reasoningMode,
+                    reasoningEffort: m.reasoningEffort,
+                    reasoningEfforts: m.reasoningEfforts,
+                    isDefault: m.isDefault,
+                  }))}
+                providers={providers.map((p) => ({ id: p.id, name: p.name }))}
+                modelId={selectedModelId}
+                onModelChange={(id) => { setSelectedModelId(id); setEffortOverride(null); setContextOverride(null) }}
+                effort={reasoningEffort}
+                onEffortChange={(v) => session && setEffortOverride({ sessionId: session.id, value: v })}
+                contextWindow={contextWindow}
+                onContextWindowChange={setContextWindow}
               />
             </>
-          ) : undefined}
+          }
+          forehead={
+            <div className="flex items-center gap-0.5">
+              {/* 与主对话一致的额头快捷开关：联网 / 知识库 / 推理强度 / 诊断（交互方式已并入审批档位） */}
+              <button
+                onClick={() => setWebSearch(!webSearch)}
+                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md transition-colors ${
+                  webSearch
+                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
+                    : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700/50 dark:hover:text-gray-300'
+                }`}
+                title={t('session.webSearch')}
+                aria-label={t('session.webSearch')}
+                aria-pressed={webSearch}
+              >
+                <Globe size={13} />
+              </button>
+              <button
+                onClick={() => setKnowledgeBase(!knowledgeBase)}
+                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md transition-colors ${
+                  knowledgeBase
+                    ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
+                    : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700/50 dark:hover:text-gray-300'
+                }`}
+                title={t('session.knowledgeBase')}
+                aria-label={t('session.knowledgeBase')}
+                aria-pressed={knowledgeBase}
+              >
+                <Database size={13} />
+              </button>
+              <AgentReasoningSelect
+                value={reasoningEffort}
+                onChange={(v) => session && setEffortOverride({ sessionId: session.id, value: v })}
+                reasoningMode={currentReasoningMode === 'tag' ? 'tag' : 'none'}
+                model={currentModel}
+                enabled={deepThinking}
+                onEnabledChange={setDeepThinking}
+              />
+              {project && (
+                <button
+                  onClick={() => sendPreset(`运行构建诊断${project.diagnosticsCommand ? `（${project.diagnosticsCommand}）` : ''}，汇总错误与警告并给出修复建议`)}
+                  disabled={isStreaming}
+                  className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 disabled:opacity-40 dark:hover:bg-gray-700/50 dark:hover:text-gray-300"
+                  title={t('session.runDiagnosticsHint')}
+                  aria-label={t('session.runDiagnostics')}
+                >
+                  <Stethoscope size={13} />
+                </button>
+              )}
+            </div>
+          }
+          trailing={
+            <div className="flex min-w-0 flex-wrap items-center justify-end gap-1">
+              {!sessionStarted && <WorkSessionWorkspacePicker session={session} onChanged={onSessionUpdated} />}
+              <WorkGitSyncControl session={session} />
+            </div>
+          }
           placeholder={t('session.inputPlaceholder')}
           streaming={isStreaming}
           onStop={() => {
@@ -1932,9 +2014,12 @@ export default function WorkSessionArea({
           history={inputHistory}
           toolbar={
             <>
-              {/* 图片附件：不放入口按钮，直接粘贴图片即可（非视觉模型的粘贴会带感叹号划掉） */}
-
-              {/* 智能体 / 模型 / 推理强度：与对话页共用同一套选择器（Agent 模式与审批模式已移到输入框下方） */}
+              {/* 与主对话一致：左侧「+」面板 / 智能体 / 审批模式，右侧上下文占用与模型选择 */}
+              <AgentPlusMenu
+                onFiles={(files) => setAttachedFiles((prev) => [...prev, ...files])}
+                onMention={() => insertInputTrigger('@')}
+                onSlash={() => insertInputTrigger('/')}
+              />
               <AgentPicker
                 items={[
                   ...presetAgents.map((a) => ({ id: a.id, name: a.name, description: a.content?.slice(0, 120), icon: 'bot' as const })),
@@ -1965,73 +2050,12 @@ export default function WorkSessionArea({
                 }}
                 placeholder={t('session.defaultAgent')}
               />
-              <AgentModelPicker
-                models={aiModels
-                  .filter((m) => m.purpose === 'chat' && m.providerId)
-                  .map((m) => ({
-                    id: m.id,
-                    displayName: m.displayName,
-                    providerId: m.providerId,
-                    contextWindow: m.contextWindow,
-                    reasoningMode: m.reasoningMode,
-                    reasoningEffort: m.reasoningEffort,
-                    reasoningEfforts: m.reasoningEfforts,
-                    isDefault: m.isDefault,
-                  }))}
-                providers={providers.map((p) => ({ id: p.id, name: p.name }))}
-                modelId={selectedModelId}
-                onModelChange={(id) => { setSelectedModelId(id); setEffortOverride(null); setContextOverride(null) }}
-                effort={reasoningEffort}
-                onEffortChange={(v) => session && setEffortOverride({ sessionId: session.id, value: v })}
-                contextWindow={contextWindow}
-                onContextWindowChange={setContextWindow}
+              <AgentPermissionSelect
+                value={permissionMode}
+                onChange={(v) => setPermissionMode(v as WorkPermissionMode)}
+                agentMode={agentMode}
+                onAgentModeChange={setAgentMode}
               />
-              <AgentReasoningSelect
-                value={reasoningEffort}
-                onChange={(v) => session && setEffortOverride({ sessionId: session.id, value: v })}
-                reasoningMode={currentReasoningMode === 'tag' ? 'tag' : 'none'}
-                model={currentModel}
-                enabled={deepThinking}
-                onEnabledChange={setDeepThinking}
-              />
-
-              <div className="mx-0.5 h-4 w-px bg-gray-200 dark:bg-gray-700" />
-
-              {/* 与对话页一致的开关：网络搜索 / 知识库 / 记忆 */}
-              <button
-                onClick={() => setWebSearch(!webSearch)}
-                title={t('session.webSearch')}
-                aria-label={t('session.webSearch')}
-                className={`flex h-[27px] shrink-0 items-center gap-1 rounded-lg px-1.5 text-[11px] font-medium transition-colors ${
-                  webSearch
-                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
-                    : 'text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700/50'
-                }`}
-              >
-                <Globe size={13} />{t('session.webSearch')}
-              </button>
-              <button
-                onClick={() => setKnowledgeBase(!knowledgeBase)}
-                title={t('session.knowledgeBase')}
-                aria-label={t('session.knowledgeBase')}
-                className={`flex h-[27px] shrink-0 items-center gap-1 rounded-lg px-1.5 text-[11px] font-medium transition-colors ${
-                  knowledgeBase
-                    ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
-                    : 'text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700/50'
-                }`}
-              >
-                <Database size={13} />{t('session.knowledgeBase')}
-              </button>
-
-              {/* 诊断：仅在打开了项目（Code 上下文）时提供 */}
-              {project && (
-                <Button variant="soft" tone="gray" className="flex h-[27px] shrink-0 items-center gap-1 rounded-lg border border-gray-200 bg-gray-50 px-1.5 text-[11px] font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 disabled:opacity-40 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700/60" onClick={() => sendPreset(`运行构建诊断${project.diagnosticsCommand ? `（${project.diagnosticsCommand}）` : ''}，汇总错误与警告并给出修复建议`)}
-                  disabled={isStreaming}
-                  title={t('session.runDiagnosticsHint')}
-                  aria-label={t('session.runDiagnostics')}>
-                  <Stethoscope size={12} />{t('session.diagnostics')}
-                </Button>
-              )}
             </>
           }
         />

@@ -96,6 +96,10 @@ public class AgentLoopRequest
     public int MaxIterations { get; set; } = 15;
     /// <summary>达到单段迭代上限后自动续跑的段数；0 表示到上限直接收尾</summary>
     public int MaxContinuations { get; set; } = 1;
+    /// <summary>托管执行（Code 自动巡航）：有进展时按托管预算继续，并自动通过 plan 计划确认</summary>
+    public bool Autopilot { get; set; }
+    /// <summary>托管执行的续跑段数（仅在 <see cref="Autopilot"/> 时生效，且不缩小 MaxContinuations）</summary>
+    public int AutopilotMaxContinuations { get; set; } = Tools.AgentModePolicy.DefaultContinuationBudget;
     public int MaxToolCallsPerTurn { get; set; } = 5;
     public int? ContextWindowTokens { get; set; }
     public int ProviderMaxRetries { get; set; } = 2;

@@ -114,11 +114,14 @@ export default {
     title: 'Permission mode: {{label}}',
     panelTitle: 'Permission mode',
     panelHint: 'Applies immediately to subsequent tool calls',
+    agentModeTitle: 'Interaction',
+    agentModeHint: 'Autopilot auto-runs writes, continues past iteration limits and auto-approves plans; Plan / Read-only stay enforced and questions still need you.',
+    agentModeAutopilot: 'Autopilot',
   },
   mode: {
     title: 'Agent mode: {{label}} ({{hint}})',
     interactive: { label: 'Interactive', description: 'Every write is confirmed per the approval mode before running' },
-    autopilot: { label: 'Autopilot', description: 'Runs writes automatically without step-by-step confirmation' },
+    autopilot: { label: 'Autopilot', description: 'Runs writes automatically, continues past iteration limits, auto-approves plans (questions still need you)' },
   },
   contextUsage: {
     trigger: 'Session info: context usage',

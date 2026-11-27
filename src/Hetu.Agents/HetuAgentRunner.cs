@@ -133,6 +133,10 @@ internal sealed class HetuAgentRunner : IAgentRunner
             var runOptions = new ChatClientAgentRunOptions();
             var input = inputMessages;
             var continuation = 0;
+            // 托管执行：有进展时按更大的续跑预算继续，直到任务收尾或预算耗尽
+            var maxContinuations = Math.Max(0, request.Autopilot
+                ? Math.Max(request.MaxContinuations, request.AutopilotMaxContinuations)
+                : request.MaxContinuations);
 
             while (true)
             {
@@ -218,7 +222,7 @@ internal sealed class HetuAgentRunner : IAgentRunner
                     && state.SegmentProgress
                     && !state.ContextFull
                     && !state.IsStalled
-                    && continuation < Math.Max(0, request.MaxContinuations))
+                    && continuation < maxContinuations)
                 {
                     continuation++;
                     state.Result.ContinuationCount = continuation;

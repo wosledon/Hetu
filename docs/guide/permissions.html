@@ -93,7 +93,7 @@
       <h2>运行模式对权限的影响</h2>
       <ul>
         <li><code>interactive</code>：保持所选模式，逐步确认。</li>
-        <li><code>autopilot</code>：把 <code>ask</code> 提升为 <code>auto</code>（少打断），但 <code>plan</code> / <code>readonly</code> <strong>不会</strong>被提升——强约束不被托管执行绕过。</li>
+        <li><code>autopilot</code>：把 <code>ask</code> 提升为 <code>auto</code>（少打断），达到单段迭代上限时按托管预算自动续跑，并自动通过 <code>plan</code> 计划；<code>plan</code> / <code>readonly</code> 档位 <strong>不会被提升</strong>，<code>ask_question</code> 仍需用户回答。</li>
       </ul>
 
       <h2>会话进行中切换档位</h2>

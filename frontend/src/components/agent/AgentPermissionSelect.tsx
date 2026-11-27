@@ -1,12 +1,16 @@
 import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Check, ChevronDown, ClipboardList, Eye, ShieldCheck, ShieldOff, Sparkles } from 'lucide-react'
+import { Check, ChevronDown, ClipboardList, Eye, MessagesSquare, Rocket, ShieldCheck, ShieldOff, Sparkles } from 'lucide-react'
 import { useAgentPermissionModes } from '../../hooks/useAgentPermissionModes'
 import { POPOVER_PANEL_CLASS } from '../../utils/styles'
+import { AGENT_MODES, type AgentRunMode } from '../../utils/agentMode'
 
 export interface AgentPermissionSelectProps {
   value: string
   onChange: (value: string) => void
+  /** Code 会话：交互方式与权限同面板展示（交互式 / 自动巡航），两者语义互相独立 */
+  agentMode?: AgentRunMode
+  onAgentModeChange?: (value: AgentRunMode) => void
   className?: string
 }
 
@@ -73,8 +77,9 @@ const FALLBACK_VISUAL = MODE_VISUALS.ask
 /**
  * 权限模式选择器。对话框式面板：顶部说明当前档位与生效方式，
  * 下方五档各带图标、名称与影响说明；名称/说明来自后端，前端只负责展示。
+ * Code 会话额外在面板底部列出交互方式（交互式 / 自动巡航），一个入口管理两项策略。
  */
-export default function AgentPermissionSelect({ value, onChange, className }: AgentPermissionSelectProps) {
+export default function AgentPermissionSelect({ value, onChange, agentMode, onAgentModeChange, className }: AgentPermissionSelectProps) {
   const { t } = useTranslation('agent')
   const { data: modes = [] } = useAgentPermissionModes()
   const [open, setOpen] = useState(false)
@@ -107,6 +112,11 @@ export default function AgentPermissionSelect({ value, onChange, className }: Ag
         className={`flex h-[26px] max-w-[150px] shrink-0 items-center gap-1 rounded-md px-1.5 text-[11px] text-gray-600 outline-none transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700/50 ${className ?? ''}`}
       >
         <CurrentIcon size={13} className={`shrink-0 ${currentVisual.iconColor}`} />
+        {agentMode === 'autopilot' && (
+          <span className="flex shrink-0 items-center" title={t('permission.agentModeAutopilot')}>
+            <Rocket size={11} className="text-emerald-500 dark:text-emerald-400" />
+          </span>
+        )}
         <span className="truncate font-medium">{current?.label ?? value}</span>
         <ChevronDown size={11} className={`shrink-0 opacity-60 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
@@ -129,10 +139,46 @@ export default function AgentPermissionSelect({ value, onChange, className }: Ag
             </p>
           </div>
 
+          {onAgentModeChange && (
+            <div className="border-b border-gray-100 px-2.5 pb-2 pt-2 dark:border-white/[0.06]">
+              <div
+                role="radiogroup"
+                aria-label={t('permission.agentModeTitle')}
+                className="flex items-center gap-0.5 rounded-lg bg-gray-100/80 p-0.5 dark:bg-white/[0.05]"
+              >
+                {AGENT_MODES.map((mode) => {
+                  const active = mode.value === agentMode
+                  const Icon = mode.value === 'autopilot' ? Rocket : MessagesSquare
+                  return (
+                    <button
+                      key={mode.value}
+                      type="button"
+                      role="radio"
+                      aria-checked={active}
+                      onClick={() => onAgentModeChange(mode.value)}
+                      title={t(mode.descriptionKey)}
+                      className={`flex flex-1 items-center justify-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium transition-colors ${
+                        active
+                          ? 'bg-white text-gray-800 shadow-sm dark:bg-white/[0.12] dark:text-gray-100'
+                          : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+                      }`}
+                    >
+                      <Icon size={12} className={mode.value === 'autopilot' ? 'text-emerald-500 dark:text-emerald-400' : 'text-sky-500 dark:text-sky-400'} />
+                      {t(mode.labelKey)}
+                    </button>
+                  )
+                })}
+              </div>
+              {agentMode === 'autopilot' && (
+                <p className="mt-1.5 text-[10px] leading-4 text-gray-400 dark:text-gray-500">{t('permission.agentModeHint')}</p>
+              )}
+            </div>
+          )}
+
           <div
             role="menu"
             aria-label={t('permission.panelTitle')}
-            className="max-h-[min(56vh,344px)] overflow-y-auto p-1.5"
+            className="max-h-[min(64vh,420px)] overflow-y-auto p-1.5"
           >
             {options.map((opt) => {
               const visual = MODE_VISUALS[opt.value] ?? FALLBACK_VISUAL
@@ -180,6 +226,7 @@ export default function AgentPermissionSelect({ value, onChange, className }: Ag
                 </button>
               )
             })}
+
           </div>
         </div>
       )}

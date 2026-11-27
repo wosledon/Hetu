@@ -32,6 +32,48 @@ public class WorkToolPolicyTests
     }
 
     [Fact]
+    public void Apply_交互式保持询问档位()
+        => Assert.Equal(WorkPermissionMode.Ask, AgentModePolicy.Apply(AgentModePolicy.Interactive, WorkPermissionMode.Ask));
+
+    [Fact]
+    public void Apply_自动巡航把询问提升为自动执行()
+        => Assert.Equal(WorkPermissionMode.Auto, AgentModePolicy.Apply(AgentModePolicy.Autopilot, WorkPermissionMode.Ask));
+
+    [Theory]
+    [InlineData(WorkPermissionMode.Plan)]
+    [InlineData(WorkPermissionMode.ReadOnly)]
+    public void Apply_自动巡航不绕过计划与只读(WorkPermissionMode mode)
+        => Assert.Equal(mode, AgentModePolicy.Apply(AgentModePolicy.Autopilot, mode));
+
+    [Theory]
+    [InlineData(WorkPermissionMode.Auto)]
+    [InlineData(WorkPermissionMode.Bypass)]
+    public void Apply_自动巡航对已自动档位无额外影响(WorkPermissionMode mode)
+        => Assert.Equal(mode, AgentModePolicy.Apply(AgentModePolicy.Autopilot, mode));
+
+    [Theory]
+    [InlineData("autopilot", true)]
+    [InlineData("AUTOPILOT", true)]
+    [InlineData("interactive", true)]
+    [InlineData("other", false)]
+    [InlineData(null, false)]
+    public void IsValid_只接受两种交互方式(string? value, bool valid)
+        => Assert.Equal(valid, AgentModePolicy.IsValid(value));
+
+    [Fact]
+    public void ContinuationBudget_普通模式沿用调用方上限()
+        => Assert.Equal(2, AgentModePolicy.ContinuationBudget(AgentModePolicy.Interactive, 2));
+
+    [Fact]
+    public void ContinuationBudget_自动巡航使用托管预算()
+        => Assert.Equal(AgentModePolicy.DefaultContinuationBudget,
+            AgentModePolicy.ContinuationBudget(AgentModePolicy.Autopilot, 2));
+
+    [Fact]
+    public void ContinuationBudget_托管预算不会缩小调用方上限()
+        => Assert.Equal(12, AgentModePolicy.ContinuationBudget(AgentModePolicy.Autopilot, 12));
+
+    [Fact]
     public void Decide_询问模式写工具需要确认()
         => Assert.Equal(ToolApprovalMode.Ask,
             WorkToolPolicy.Decide(WriteTool, WriteTool.Name, null, WorkPermissionMode.Ask, null).Mode);

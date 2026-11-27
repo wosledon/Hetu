@@ -36,6 +36,16 @@ public static class AgentModePolicy
     /// </summary>
     public static WorkPermissionMode Apply(string? agentMode, WorkPermissionMode mode)
         => Normalize(agentMode) == Autopilot && mode == WorkPermissionMode.Ask ? WorkPermissionMode.Auto : mode;
+
+    /// <summary>托管执行的默认续跑段数（每段都需要有实际进展才会继续）</summary>
+    public const int DefaultContinuationBudget = 8;
+
+    /// <summary>
+    /// 达到单段迭代上限后的续跑段数：普通模式沿用调用方上限；
+    /// 自动巡航使用托管预算（不会比普通上限更小）。
+    /// </summary>
+    public static int ContinuationBudget(string? agentMode, int normalLimit, int autopilotLimit = DefaultContinuationBudget)
+        => Normalize(agentMode) == Autopilot ? Math.Max(normalLimit, autopilotLimit) : normalLimit;
 }
 
 /// <summary>单个工具调用的审批决策</summary>

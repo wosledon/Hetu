@@ -93,7 +93,7 @@
       <h2>How run modes interact</h2>
       <ul>
         <li><code>interactive</code>: keeps the selected mode and confirms step by step.</li>
-        <li><code>autopilot</code>: promotes <code>ask</code> to <code>auto</code> (fewer interruptions) but never promotes <code>plan</code> / <code>readonly</code> — hard limits are not bypassed by unattended runs.</li>
+        <li><code>autopilot</code>: promotes <code>ask</code> to <code>auto</code> (fewer interruptions), keeps running past the per-segment iteration limit with the autopilot budget, and auto-approves <code>plan</code>; it never promotes <code>plan</code> / <code>readonly</code> — hard limits are not bypassed, and <code>ask_question</code> still waits for the user.</li>
       </ul>
 
       <h2>Switching modes mid-run</h2>

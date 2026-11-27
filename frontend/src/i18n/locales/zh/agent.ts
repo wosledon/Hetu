@@ -114,11 +114,14 @@ export default {
     title: '权限模式：{{label}}',
     panelTitle: '权限模式',
     panelHint: '切换后立即对后续工具调用生效',
+    agentModeTitle: '交互方式',
+    agentModeHint: '自动巡航：写入自动执行、到上限自动续跑、计划自动通过；计划 / 只读约束保留，提问仍需回答。',
+    agentModeAutopilot: '自动巡航',
   },
   mode: {
     title: 'Agent 模式：{{label}}（{{hint}}）',
     interactive: { label: '交互式', description: '每个写操作都按审批模式确认后再执行' },
-    autopilot: { label: '托管执行', description: '自动执行写操作，不再逐步确认（Autopilot）' },
+    autopilot: { label: '自动巡航', description: '写入自动执行、到迭代上限自动续跑、计划自动通过（提问仍需回答）' },
   },
   contextUsage: {
     trigger: '会话信息：上下文占用',

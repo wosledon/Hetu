@@ -235,9 +235,9 @@ public class WorkStreamController : ControllerBase
 
         // 权限模式：请求 > 会话持久值；请求里带了就顺带持久化
         // Agent 模式：autopilot 下询问档位提升为自动执行（计划/只读为用户显式约束，保持）
-        var permissionMode = AgentModePolicy.Apply(
-            request.AgentMode ?? session.AgentMode,
-            ResolvePermissionMode(request, session));
+        var agentModeValue = AgentModePolicy.Normalize(request.AgentMode ?? session.AgentMode);
+        var isAutopilot = string.Equals(agentModeValue, AgentModePolicy.Autopilot, StringComparison.OrdinalIgnoreCase);
+        var permissionMode = AgentModePolicy.Apply(agentModeValue, ResolvePermissionMode(request, session));
         if (WorkToolPolicy.IsValidValue(request.PermissionMode) &&
             !string.Equals(WorkToolPolicy.ToValue(permissionMode), session.PermissionMode, StringComparison.OrdinalIgnoreCase))
         {
@@ -504,6 +504,8 @@ public class WorkStreamController : ControllerBase
             McpServerIds = new List<Guid>(),
             MaxIterations = profile.MaxAgentIterations,
             MaxContinuations = 2,
+            // 自动巡航：有进展时按托管预算自动续跑，直到任务收尾
+            Autopilot = isAutopilot,
             MaxToolCallsPerTurn = profile.MaxToolCallsPerTurn,
             ReasoningEffort = options.ReasoningEffort,
             ReasoningBudgetTokens = options.ReasoningBudgetTokens,
@@ -526,6 +528,9 @@ public class WorkStreamController : ControllerBase
                     _toolRegistry,
                     new AgentPolicyContext { Mode = permissionMode, Rules = approvalRules, ResolveMode = ResolveLiveModeAsync })
                 : null,
+            // 自动巡航：计划自动通过（ask_question 仍需用户回答，不能替用户臆造答案）
+            PlanHandler = isAutopilot ? static _ => Task.FromResult(new PlanDecision(true, "")) : null,
+            ProviderMaxRetries = isAutopilot ? 4 : 2,
             WorkScope = new WorkToolScope
             {
                 ProjectRoot = root,
