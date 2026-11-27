@@ -125,7 +125,8 @@ public static class HetuServiceCollectionExtensions
         services.AddScoped<IAiModelService, AiModelService>();
         services.AddSingleton<IModelCatalogService, ModelCatalogService>();
         services.AddScoped<IEmbeddingProviderFactory, EmbeddingProviderFactory>();
-        services.AddScoped<VectorStore, HetuChatHistoryVectorStore>();
+        services.AddScoped<HetuChatHistoryVectorStore>();
+        services.AddScoped<VectorStore>(sp => sp.GetRequiredService<HetuChatHistoryVectorStore>());
         services.AddScoped<INoteEmbeddingService, NoteEmbeddingService>();
         services.AddScoped<IWikiKnowledgeSyncService, WikiKnowledgeSyncService>();
         services.AddScoped<IChunkService, ChunkService>();
@@ -183,6 +184,7 @@ public static class HetuServiceCollectionExtensions
         services.AddScoped<IBackgroundTaskCoordinator, BackgroundTaskCoordinator>();
         services.AddHostedService<BackgroundTaskProcessor>();
         services.AddHostedService<TrashCleanupService>();
+        services.AddHostedService<AgentMemoryCleanupService>();
         services.AddHostedService<LanguageWarmupService>();
         services.AddHostedService<DreamMemoryService>();
         services.AddHostedService<ScheduledTaskRunner>();

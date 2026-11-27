@@ -19,17 +19,20 @@ internal sealed class HetuAgentSkillsSource : AgentSkillsSource
     private readonly ILocalSkillService _localSkills;
     private readonly IReadOnlyList<string> _skillIds;
     private readonly IReadOnlyList<string> _extraDirectories;
+    private readonly AgentFileSkillScriptRunner? _scriptRunner;
 
     public HetuAgentSkillsSource(
         IUnitOfWork unitOfWork,
         ILocalSkillService localSkills,
         IReadOnlyList<string> skillIds,
-        IReadOnlyList<string>? extraDirectories = null)
+        IReadOnlyList<string>? extraDirectories = null,
+        AgentFileSkillScriptRunner? scriptRunner = null)
     {
         _unitOfWork = unitOfWork;
         _localSkills = localSkills;
         _skillIds = skillIds;
         _extraDirectories = extraDirectories ?? [];
+        _scriptRunner = scriptRunner;
     }
 
     public override Task<IList<AgentSkill>> GetSkillsAsync(
@@ -76,7 +79,7 @@ internal sealed class HetuAgentSkillsSource : AgentSkillsSource
 
         if (context is not null && directories.Count > 0)
         {
-            using var fileSource = new AgentFileSkillsSource(directories);
+            using var fileSource = new AgentFileSkillsSource(directories, _scriptRunner);
             var fileSkills = await fileSource.GetSkillsAsync(context, cancellationToken);
             foreach (var skill in fileSkills)
             {

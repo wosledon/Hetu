@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 using Hetu.Core.Interfaces;
@@ -475,6 +476,67 @@ internal sealed class HetuAgentRunner : IAgentRunner
         });
     }
 
+    private static async Task<object?> RunSkillScriptAsync(
+        AgentFileSkill skill,
+        AgentFileSkillScript script,
+        JsonElement? arguments,
+        IServiceProvider? serviceProvider,
+        CancellationToken ct)
+    {
+        var path = script.FullPath;
+        var extension = Path.GetExtension(path).ToLowerInvariant();
+        var (command, prefix) = extension switch
+        {
+            ".ps1" => ("pwsh", new[] { "-NoProfile", "-ExecutionPolicy", "Bypass", "-File" }),
+            ".sh" => ("bash", []),
+            ".py" => (OperatingSystem.IsWindows() ? "python" : "python3", []),
+            ".js" => ("node", []),
+            _ => (path, Array.Empty<string>()),
+        };
+
+        var psi = new ProcessStartInfo
+        {
+            FileName = command,
+            WorkingDirectory = Path.GetDirectoryName(path) ?? AppContext.BaseDirectory,
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            CreateNoWindow = true,
+        };
+        foreach (var item in prefix) psi.ArgumentList.Add(item);
+        if (!string.Equals(command, path, StringComparison.Ordinal)) psi.ArgumentList.Add(path);
+        if (arguments is { ValueKind: JsonValueKind.Array } array)
+        {
+            foreach (var item in array.EnumerateArray())
+                psi.ArgumentList.Add(item.GetString() ?? item.GetRawText());
+        }
+        else if (arguments is { ValueKind: JsonValueKind.Object } obj)
+        {
+            psi.ArgumentList.Add(obj.GetRawText());
+        }
+
+        using var process = Process.Start(psi)
+                            ?? throw new InvalidOperationException($"无法启动技能脚本 {skill.Frontmatter.Name}/{script.Name}");
+        var stdoutTask = process.StandardOutput.ReadToEndAsync(ct);
+        var stderrTask = process.StandardError.ReadToEndAsync(ct);
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeout.CancelAfter(TimeSpan.FromMinutes(5));
+        try
+        {
+            await process.WaitForExitAsync(timeout.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            try { process.Kill(entireProcessTree: true); } catch { }
+            throw;
+        }
+
+        var stdout = await stdoutTask;
+        var stderr = await stderrTask;
+        var result = string.IsNullOrWhiteSpace(stderr) ? stdout : $"{stdout}\n[stderr]\n{stderr}";
+        return process.ExitCode == 0 ? result : $"[exit {process.ExitCode}]\n{result}";
+    }
+
     private async Task<AIContextProvider?> CreateHistoryMemoryProviderAsync(
         AgentLoopRequest request,
         ResolvedAgentModel model,
@@ -534,12 +596,13 @@ internal sealed class HetuAgentRunner : IAgentRunner
         {
             contextProviders.Add(new AgentSkillsProvider(
                 new HetuAgentSkillsSource(
-                    _unitOfWork, localSkills, request.SkillIds ?? [], request.SkillDirectories),
+                    _unitOfWork, localSkills, request.SkillIds ?? [], request.SkillDirectories,
+                    scriptRunner: RunSkillScriptAsync),
                 new AgentSkillsProviderOptions
                 {
                     DisableLoadSkillApproval = true,
                     DisableReadSkillResourceApproval = true,
-                    DisableRunSkillScriptApproval = true,
+                    DisableRunSkillScriptApproval = false,
                 }));
         }
 

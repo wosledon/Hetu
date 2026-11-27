@@ -279,6 +279,18 @@ export default {
     running: 'Consolidating…',
     runOnce: 'Run Dream',
   },
+  agentMemory: {
+    title: 'Agent session memory',
+    hint: 'Controls MAF session-history recall and session snapshots; database messages remain when this is off',
+    historyRecall: 'History vector recall',
+    historyRecallDesc: 'Enable ChatHistoryMemoryProvider to recall related history semantically',
+    perService: 'Persist history per model call',
+    perServiceDesc: 'Load/save history around every inner model call; useful for long tool chains',
+    retention: 'Retention',
+    retentionDesc: 'A daily worker removes vectors and session snapshots older than this',
+    days: 'days',
+    conflictHint: 'Do not enable history vector recall and per-model-call persistence together; vectors would be written twice',
+  },
   memoryUsage: {
     title: 'Memory usage',
     hint: 'Each conversation surface decides on its own whether memory is enabled (recall + consolidation); the in-session switches have moved here',

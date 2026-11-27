@@ -281,6 +281,13 @@ public class ChatMessagesController : ControllerBase
             "true", StringComparison.OrdinalIgnoreCase);
         var skillIds = agentPreset is null ? [] : ParseStringList(agentPreset.SkillIds);
         if (!string.IsNullOrWhiteSpace(request.SkillName)) skillIds.Add(request.SkillName);
+        if (skillIds.Count > 0)
+        {
+            approvalOverrides["run_skill_script"] =
+                permissionMode is WorkPermissionMode.Auto or WorkPermissionMode.Bypass
+                    ? ToolApprovalMode.Auto
+                    : ToolApprovalMode.Ask;
+        }
 
         var sw = Stopwatch.StartNew();
         int estimatedInput = 0, estimatedCompressed = 0;

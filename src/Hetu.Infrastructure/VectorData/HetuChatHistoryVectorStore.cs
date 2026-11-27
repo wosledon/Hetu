@@ -17,12 +17,14 @@ namespace Hetu.Infrastructure.VectorData;
 /// </summary>
 public sealed class HetuChatHistoryVectorStore : VectorStore
 {
-    private const string DefaultCollection = "agent_chat_history";
+    public const string DefaultCollectionName = "agent_chat_history";
     private readonly HetuDbContext _context;
     private readonly IEmbeddingProviderFactory _embeddingFactory;
     private readonly DatabaseProviderInfo _database;
     private readonly ILogger<HetuChatHistoryVectorStore> _logger;
     private readonly ConcurrentDictionary<string, VectorStoreCollection<object, Dictionary<string, object?>>> _collections = new(StringComparer.Ordinal);
+    private readonly SemaphoreSlim _dimensionGate = new(1, 1);
+    private int? _dimensions;
 
     public HetuChatHistoryVectorStore(
         HetuDbContext context,
@@ -45,14 +47,14 @@ public sealed class HetuChatHistoryVectorStore : VectorStore
         string name,
         VectorStoreCollectionDefinition definition)
         => _collections.GetOrAdd(
-            string.IsNullOrWhiteSpace(name) ? DefaultCollection : name,
+            string.IsNullOrWhiteSpace(name) ? DefaultCollectionName : name,
             value => new HetuChatHistoryCollection(this, value));
 
     public override async IAsyncEnumerable<string> ListCollectionNamesAsync(
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         await Task.CompletedTask;
-        yield return DefaultCollection;
+        yield return DefaultCollectionName;
     }
 
     public override async Task<bool> CollectionExistsAsync(string name, CancellationToken cancellationToken = default)
@@ -86,23 +88,84 @@ public sealed class HetuChatHistoryVectorStore : VectorStore
     {
         var connection = _context.Database.GetDbConnection();
         await connection.OpenAsync(cancellationToken);
-        await using var command = connection.CreateCommand();
-        command.CommandText = $"""
-            CREATE TABLE IF NOT EXISTS {Quote(TableName(name))} (
-                "Key" TEXT PRIMARY KEY,
-                "Role" TEXT,
-                "MessageId" TEXT,
-                "AuthorName" TEXT,
-                "ApplicationId" TEXT,
-                "AgentId" TEXT,
-                "UserId" TEXT,
-                "SessionId" TEXT,
-                "Content" TEXT,
-                "CreatedAt" TEXT,
-                "EmbeddingJson" TEXT
-            )
-            """;
-        await command.ExecuteNonQueryAsync(cancellationToken);
+        var dimensions = await GetDimensionsAsync(cancellationToken);
+        var metadataTable = Quote(TableName(name));
+
+        await using (var command = connection.CreateCommand())
+        {
+            command.CommandText = _database.IsPostgreSql
+                ? $"""
+                    CREATE EXTENSION IF NOT EXISTS vector;
+                    CREATE TABLE IF NOT EXISTS {metadataTable} (
+                        "Key" TEXT PRIMARY KEY,
+                        "Role" TEXT,
+                        "MessageId" TEXT,
+                        "AuthorName" TEXT,
+                        "ApplicationId" TEXT,
+                        "AgentId" TEXT,
+                        "UserId" TEXT,
+                        "SessionId" TEXT,
+                        "Content" TEXT,
+                        "CreatedAt" TEXT,
+                        "EmbeddingJson" TEXT,
+                        "Embedding" vector
+                    );
+                    ALTER TABLE {metadataTable} ADD COLUMN IF NOT EXISTS "Embedding" vector;
+                    """
+                : $"""
+                    CREATE TABLE IF NOT EXISTS {metadataTable} (
+                        "Key" TEXT PRIMARY KEY,
+                        "Role" TEXT,
+                        "MessageId" TEXT,
+                        "AuthorName" TEXT,
+                        "ApplicationId" TEXT,
+                        "AgentId" TEXT,
+                        "UserId" TEXT,
+                        "SessionId" TEXT,
+                        "Content" TEXT,
+                        "CreatedAt" TEXT,
+                        "EmbeddingJson" TEXT
+                    );
+                    """;
+            await command.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        if (_database.IsSqlite)
+        {
+            try
+            {
+                await using var vecCommand = connection.CreateCommand();
+                vecCommand.CommandText = $"""
+                    CREATE VIRTUAL TABLE IF NOT EXISTS {Quote(VecTableName(name))} USING vec0(
+                        key TEXT PRIMARY KEY,
+                        embedding float[{dimensions}]
+                    )
+                    """;
+                await vecCommand.ExecuteNonQueryAsync(cancellationToken);
+            }
+            catch
+            {
+                // sqlite-vec 不可用时保留内存余弦兜底
+            }
+        }
+    }
+
+    private async Task<int> GetDimensionsAsync(CancellationToken ct)
+    {
+        if (_dimensions is > 0) return _dimensions.Value;
+        await _dimensionGate.WaitAsync(ct);
+        try
+        {
+            if (_dimensions is > 0) return _dimensions.Value;
+            var provider = await _embeddingFactory.CreateEmbeddingProviderAsync(ct)
+                           ?? throw new InvalidOperationException("没有可用的 Embedding 模型");
+            _dimensions = Math.Max(1, provider.Dimensions);
+            return _dimensions.Value;
+        }
+        finally
+        {
+            _dimensionGate.Release();
+        }
     }
 
     internal async Task UpsertAsync(string name, IReadOnlyList<Dictionary<string, object?>> records, CancellationToken ct)
@@ -142,6 +205,9 @@ public sealed class HetuChatHistoryVectorStore : VectorStore
         var embedding = await _embeddingFactory.CreateEmbeddingProviderAsync(ct)
                         ?? throw new InvalidOperationException("没有可用的 Embedding 模型，无法检索会话记忆");
         var query = await embedding.EmbedAsync(queryText, ct);
+        var native = await SearchNativeAsync(name, query, Math.Max(1, top), filter, ct);
+        if (native is not null) return native;
+
         var rows = await LoadAllAsync(name, filter, ct);
         var results = new List<(Dictionary<string, object?>, double?)>(rows.Count);
         foreach (var row in rows)
@@ -156,6 +222,115 @@ public sealed class HetuChatHistoryVectorStore : VectorStore
             .ToList();
     }
 
+    private async Task<IReadOnlyList<(Dictionary<string, object?>, double?)>?> SearchNativeAsync(
+        string name,
+        float[] query,
+        int top,
+        Expression<Func<Dictionary<string, object?>, bool>>? filter,
+        CancellationToken ct)
+    {
+        try
+        {
+            await EnsureCollectionExistsAsync(name, ct);
+            var connection = _context.Database.GetDbConnection();
+            await connection.OpenAsync(ct);
+            var predicate = filter?.Compile();
+            var limit = Math.Max(top * 5, 20);
+
+            if (_database.IsPostgreSql)
+            {
+                await using var command = connection.CreateCommand();
+                command.CommandText = $"""
+                    SELECT "Key","Role","MessageId","AuthorName","ApplicationId","AgentId","UserId","SessionId","Content","CreatedAt","EmbeddingJson",("Embedding" <=> @vector) AS distance
+                    FROM {Quote(TableName(name))}
+                    ORDER BY distance
+                    LIMIT @limit
+                    """;
+                AddParameter(command, "@vector", new Pgvector.Vector(query));
+                AddParameter(command, "@limit", limit);
+                var results = new List<(Dictionary<string, object?>, double?)>();
+                await using var reader = await command.ExecuteReaderAsync(ct);
+                while (await reader.ReadAsync(ct))
+                {
+                    var row = ReadRow(reader);
+                    if (predicate is not null && !predicate(row)) continue;
+                    results.Add((row, 1.0 - reader.GetDouble(11)));
+                    if (results.Count >= top) break;
+                }
+                return results;
+            }
+
+            var keys = new List<(string Key, double Score)>();
+            await using (var command = connection.CreateCommand())
+            {
+                command.CommandText = $"SELECT key, distance FROM {Quote(VecTableName(name))} WHERE embedding MATCH @query AND k = @k ORDER BY distance LIMIT @limit";
+                AddParameter(command, "@query", $"[{string.Join(",", query)}]");
+                AddParameter(command, "@k", limit);
+                AddParameter(command, "@limit", limit);
+                await using var reader = await command.ExecuteReaderAsync(ct);
+                while (await reader.ReadAsync(ct))
+                    keys.Add((reader.GetString(0), 1.0 - reader.GetDouble(1)));
+            }
+            if (keys.Count == 0) return null;
+
+            var rows = await LoadByKeysAsync(name, keys.Select(item => item.Key).ToList(), ct);
+            var byKey = rows.ToDictionary(GetKey, StringComparer.Ordinal);
+            var ordered = keys
+                .Where(item => byKey.ContainsKey(item.Key))
+                .Select(item => (Record: byKey[item.Key], Score: (double?)item.Score))
+                .Where(item => predicate is null || predicate(item.Record))
+                .Take(top)
+                .ToList();
+            return ordered.Count > 0 ? ordered : null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private async Task<List<Dictionary<string, object?>>> LoadByKeysAsync(
+        string name,
+        IReadOnlyList<string> keys,
+        CancellationToken ct)
+    {
+        if (keys.Count == 0) return [];
+        var connection = _context.Database.GetDbConnection();
+        await connection.OpenAsync(ct);
+        await using var command = connection.CreateCommand();
+        var parameters = new List<string>(keys.Count);
+        for (var i = 0; i < keys.Count; i++)
+        {
+            parameters.Add($"@key{i}");
+            AddParameter(command, $"@key{i}", keys[i]);
+        }
+        command.CommandText = $"""
+            SELECT "Key","Role","MessageId","AuthorName","ApplicationId","AgentId","UserId","SessionId","Content","CreatedAt","EmbeddingJson"
+            FROM {Quote(TableName(name))}
+            WHERE "Key" IN ({string.Join(",", parameters)})
+            """;
+        var rows = new List<Dictionary<string, object?>>(keys.Count);
+        await using var reader = await command.ExecuteReaderAsync(ct);
+        while (await reader.ReadAsync(ct)) rows.Add(ReadRow(reader));
+        return rows;
+    }
+
+    private static Dictionary<string, object?> ReadRow(DbDataReader reader)
+        => new(StringComparer.Ordinal)
+        {
+            ["Key"] = reader.GetString(0),
+            ["Role"] = reader.IsDBNull(1) ? null : reader.GetString(1),
+            ["MessageId"] = reader.IsDBNull(2) ? null : reader.GetString(2),
+            ["AuthorName"] = reader.IsDBNull(3) ? null : reader.GetString(3),
+            ["ApplicationId"] = reader.IsDBNull(4) ? null : reader.GetString(4),
+            ["AgentId"] = reader.IsDBNull(5) ? null : reader.GetString(5),
+            ["UserId"] = reader.IsDBNull(6) ? null : reader.GetString(6),
+            ["SessionId"] = reader.IsDBNull(7) ? null : reader.GetString(7),
+            ["Content"] = reader.IsDBNull(8) ? null : reader.GetString(8),
+            ["CreatedAt"] = reader.IsDBNull(9) ? null : reader.GetString(9),
+            ["EmbeddingJson"] = reader.IsDBNull(10) ? null : reader.GetString(10),
+        };
+
     internal async Task<IReadOnlyList<Dictionary<string, object?>>> LoadAsync(
         string name,
         Expression<Func<Dictionary<string, object?>, bool>>? filter,
@@ -166,17 +341,65 @@ public sealed class HetuChatHistoryVectorStore : VectorStore
         return top is > 0 ? rows.Take(top.Value).ToList() : rows;
     }
 
+    public async Task<int> PruneAsync(DateTimeOffset cutoff, CancellationToken ct = default)
+    {
+        // 全新数据库没有向量表时直接跳过：清理服务不应因为未配置 Embedding 模型而报错。
+        if (!await CollectionExistsAsync(DefaultCollectionName, ct)) return 0;
+
+        var connection = _context.Database.GetDbConnection();
+        await connection.OpenAsync(ct);
+        var keys = new List<string>();
+        await using (var select = connection.CreateCommand())
+        {
+            select.CommandText = $"SELECT \"Key\" FROM {Quote(TableName(DefaultCollectionName))} WHERE \"CreatedAt\" < @cutoff";
+            AddParameter(select, "@cutoff", cutoff.ToUniversalTime().ToString("O"));
+            await using var reader = await select.ExecuteReaderAsync(ct);
+            while (await reader.ReadAsync(ct)) keys.Add(reader.GetString(0));
+        }
+        if (keys.Count == 0) return 0;
+
+        await DeleteAsync(DefaultCollectionName, keys, ct);
+        return keys.Count;
+    }
+
     internal async Task DeleteAsync(string name, IReadOnlyCollection<string> keys, CancellationToken ct)
     {
         if (keys.Count == 0) return;
         var connection = _context.Database.GetDbConnection();
         await connection.OpenAsync(ct);
-        await using var command = connection.CreateCommand();
-        var placeholders = string.Join(",", keys.Select((_, i) => $"@k{i}"));
-        command.CommandText = $"DELETE FROM {Quote(TableName(name))} WHERE \"Key\" IN ({placeholders})";
-        var index = 0;
-        foreach (var key in keys) AddParameter(command, $"@k{index++}", key);
-        await command.ExecuteNonQueryAsync(ct);
+        await using (var command = connection.CreateCommand())
+        {
+            var placeholders = string.Join(",", keys.Select((_, i) => $"@k{i}"));
+            command.CommandText = $"DELETE FROM {Quote(TableName(name))} WHERE \"Key\" IN ({placeholders})";
+            var index = 0;
+            foreach (var key in keys) AddParameter(command, $"@k{index++}", key);
+            await command.ExecuteNonQueryAsync(ct);
+        }
+
+        if (_database.IsSqlite) await DeleteVecKeysAsync(connection, name, keys, ct);
+    }
+
+    private async Task DeleteVecKeysAsync(
+        DbConnection connection,
+        string name,
+        IReadOnlyCollection<string> keys,
+        CancellationToken ct)
+    {
+        foreach (var key in keys)
+        {
+            try
+            {
+                await using var command = connection.CreateCommand();
+                command.CommandText = $"DELETE FROM {Quote(VecTableName(name))} WHERE key = @key";
+                AddParameter(command, "@key", key);
+                await command.ExecuteNonQueryAsync(ct);
+            }
+            catch
+            {
+                // vec 表可能不存在或当前版本不支持按 key 删除，保留内存兜底即可。
+                return;
+            }
+        }
     }
 
     private async Task UpsertOneAsync(
@@ -197,27 +420,56 @@ public sealed class HetuChatHistoryVectorStore : VectorStore
             await delete.ExecuteNonQueryAsync(ct);
         }
 
-        await using var insert = connection.CreateCommand();
-        insert.Transaction = transaction;
-        insert.CommandText = $"""
-            INSERT INTO {table} (
-                "Key","Role","MessageId","AuthorName","ApplicationId","AgentId","UserId","SessionId","Content","CreatedAt","EmbeddingJson"
-            ) VALUES (
-                @key,@role,@messageId,@authorName,@applicationId,@agentId,@userId,@sessionId,@content,@createdAt,@embedding
-            )
-            """;
-        AddParameter(insert, "@key", key);
-        AddParameter(insert, "@role", GetString(record, "Role"));
-        AddParameter(insert, "@messageId", GetString(record, "MessageId"));
-        AddParameter(insert, "@authorName", GetString(record, "AuthorName"));
-        AddParameter(insert, "@applicationId", GetString(record, "ApplicationId"));
-        AddParameter(insert, "@agentId", GetString(record, "AgentId"));
-        AddParameter(insert, "@userId", GetString(record, "UserId"));
-        AddParameter(insert, "@sessionId", GetString(record, "SessionId"));
-        AddParameter(insert, "@content", GetContent(record));
-        AddParameter(insert, "@createdAt", GetString(record, "CreatedAt"));
-        AddParameter(insert, "@embedding", JsonSerializer.Serialize(vector));
-        await insert.ExecuteNonQueryAsync(ct);
+        await using (var insert = connection.CreateCommand())
+        {
+            insert.Transaction = transaction;
+            var embeddingJson = JsonSerializer.Serialize(vector);
+            insert.CommandText = _database.IsPostgreSql
+                ? $"""
+                    INSERT INTO {table} (
+                        "Key","Role","MessageId","AuthorName","ApplicationId","AgentId","UserId","SessionId","Content","CreatedAt","EmbeddingJson","Embedding"
+                    ) VALUES (
+                        @key,@role,@messageId,@authorName,@applicationId,@agentId,@userId,@sessionId,@content,@createdAt,@embedding,@vector
+                    )
+                    """
+                : $"""
+                    INSERT INTO {table} (
+                        "Key","Role","MessageId","AuthorName","ApplicationId","AgentId","UserId","SessionId","Content","CreatedAt","EmbeddingJson"
+                    ) VALUES (
+                        @key,@role,@messageId,@authorName,@applicationId,@agentId,@userId,@sessionId,@content,@createdAt,@embedding
+                    )
+                    """;
+            AddParameter(insert, "@key", key);
+            AddParameter(insert, "@role", GetString(record, "Role"));
+            AddParameter(insert, "@messageId", GetString(record, "MessageId"));
+            AddParameter(insert, "@authorName", GetString(record, "AuthorName"));
+            AddParameter(insert, "@applicationId", GetString(record, "ApplicationId"));
+            AddParameter(insert, "@agentId", GetString(record, "AgentId"));
+            AddParameter(insert, "@userId", GetString(record, "UserId"));
+            AddParameter(insert, "@sessionId", GetString(record, "SessionId"));
+            AddParameter(insert, "@content", GetContent(record));
+            AddParameter(insert, "@createdAt", GetString(record, "CreatedAt"));
+            AddParameter(insert, "@embedding", embeddingJson);
+            if (_database.IsPostgreSql) AddParameter(insert, "@vector", new Pgvector.Vector(vector));
+            await insert.ExecuteNonQueryAsync(ct);
+        }
+
+        if (_database.IsSqlite)
+        {
+            try
+            {
+                await using var vecInsert = connection.CreateCommand();
+                vecInsert.Transaction = transaction;
+                vecInsert.CommandText = $"INSERT OR REPLACE INTO {Quote(VecTableName(name))} (key, embedding) VALUES (@key, @embedding)";
+                AddParameter(vecInsert, "@key", key);
+                AddParameter(vecInsert, "@embedding", $"[{string.Join(",", vector)}]");
+                await vecInsert.ExecuteNonQueryAsync(ct);
+            }
+            catch
+            {
+                // sqlite-vec 不可用时只保留内存兜底
+            }
+        }
     }
 
     private async Task<List<Dictionary<string, object?>>> LoadAllAsync(
@@ -297,6 +549,9 @@ public sealed class HetuChatHistoryVectorStore : VectorStore
 
     private static string TableName(string name)
         => "AgentChatHistoryVectors_" + new string(name.Where(char.IsLetterOrDigit).ToArray());
+
+    private static string VecTableName(string name)
+        => "vec_agent_chat_history_" + new string(name.Where(char.IsLetterOrDigit).ToArray()).ToLowerInvariant();
 
     private static string Quote(string identifier) => $"\"{identifier}\"";
 

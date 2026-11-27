@@ -131,13 +131,16 @@ EF Core 的 SQLite provider **不支持在 SQL 中排序或聚合 `DateTimeOffse
   不要在 Agent 内部再手写一套历史循环。
 - RAG / steering / @ 引用等消息类 `AIContextProvider` 注册在 chat client 管道（`UseAIContextProviders`），
   每次模型调用前执行；`AgentSkillsProvider` 必须留在 agent 级（它要注入工具，不能被 `AgentContextChatClient` 覆盖）。
-- 技能广告走 MAF `AgentSkillsProvider` + 自定义 `AgentSkillsSource`，不要再把技能清单手工拼进 system prompt。
+- 技能广告走 MAF `AgentSkillsProvider` + 自定义 `AgentSkillsSource`，不要再把技能清单手工拼进 system prompt；
+  技能脚本由 `AgentFileSkillScriptRunner` 执行（pwsh / bash / python / node，5 分钟超时），执行前必须经过审批管道。
 - 子 Agent 使用 `AIAgent.AsAIFunction`（agent-as-tool）暴露给父 Agent；业务进度仍通过 `IAgentLoopSink` 转发。
 - 非 Agent 文本任务需要 JSON 时使用 `ITextGenerationClient.ChatJsonWithUsageAsync<T>` / `ChatResponseFormatJson`，
   `LlmJsonExtractor` 只作为不支持 JSON Schema 的 Provider 的兜底。
 - Agent 管道用 `AIAgentBuilder.UseOpenTelemetry` 包裹，保留 MAF 原生 tracing；不要另建一套调用链追踪。
 - 会话状态用 `AIAgent.SerializeSessionAsync` 落 `AppSettings`（key 前缀 `agent-session:`）；Chat / Code 会话默认启用。
 - 会话历史向量召回由 `ChatHistoryMemoryProvider` + `HetuChatHistoryVectorStore` 提供，受 AppSetting `EnableHistoryMemory` 控制；
+  SQLite 用 `sqlite-vec` 的 `MATCH`、PostgreSQL 用 `pgvector` 的 `<=>` 做原生近邻检索，扩展不可用时回退内存余弦；
+  `HistoryMemoryRetentionDays` 由 `AgentMemoryCleanupService` 每日清理（含 sqlite-vec 虚拟表）。
   `UsePerServiceCallHistoryPersistence` 控制 MAF 每服务调用的历史持久化。两者不要同时开启（会重复写入向量表）。
 - Agent 消息契约使用 MEAI `ChatMessage`；`LlmChatMessage` 只保留在数据库/文本任务边界，转换集中在 `ChatMessageConversion`。
 - 工具执行器仍是 `IToolExecutor` 业务抽象；交给 MAF 的边界统一为 `AIFunction`（`HetuAIFunction` / 原生 `McpClientTool`），

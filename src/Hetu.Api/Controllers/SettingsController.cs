@@ -45,6 +45,33 @@ public class SettingsController : ControllerBase
     public Task<ApiResponse> Set([FromBody] UpdateAppSettingRequest request, CancellationToken cancellationToken)
         => _appSettingService.SetAsync(request, cancellationToken);
 
+    [HttpGet("agent-memory")]
+    public async Task<ApiResponse<AgentMemorySettingsDto>> GetAgentMemorySettings(CancellationToken ct)
+    {
+        var enable = await _appSettingService.GetAsync("EnableHistoryMemory", ct);
+        var perService = await _appSettingService.GetAsync("UsePerServiceCallHistoryPersistence", ct);
+        var retention = await _appSettingService.GetAsync("HistoryMemoryRetentionDays", ct);
+        return ApiResponse<AgentMemorySettingsDto>.Ok(new AgentMemorySettingsDto
+        {
+            EnableHistoryMemory = string.Equals(enable.Data?.Value, "true", StringComparison.OrdinalIgnoreCase),
+            UsePerServiceCallHistoryPersistence = string.Equals(perService.Data?.Value, "true", StringComparison.OrdinalIgnoreCase),
+            RetentionDays = int.TryParse(retention.Data?.Value, out var days) ? Math.Clamp(days, 1, 3650) : 30,
+        });
+    }
+
+    [HttpPut("agent-memory")]
+    public async Task<ApiResponse> SetAgentMemorySettings([FromBody] AgentMemorySettingsDto config, CancellationToken ct)
+    {
+        config ??= new AgentMemorySettingsDto();
+        await SetSettingAsync("EnableHistoryMemory", config.EnableHistoryMemory ? "true" : "false", ct);
+        await SetSettingAsync("UsePerServiceCallHistoryPersistence", config.UsePerServiceCallHistoryPersistence ? "true" : "false", ct);
+        await SetSettingAsync("HistoryMemoryRetentionDays", Math.Clamp(config.RetentionDays, 1, 3650).ToString(), ct);
+        return ApiResponse.Ok();
+    }
+
+    private Task<ApiResponse> SetSettingAsync(string key, string value, CancellationToken ct)
+        => _appSettingService.SetAsync(new UpdateAppSettingRequest { Key = key, Value = value }, ct);
+
     [HttpGet("compression")]
     public async Task<ApiResponse<CompressionPipelineDto>> GetCompressionConfig(CancellationToken ct)
     {
