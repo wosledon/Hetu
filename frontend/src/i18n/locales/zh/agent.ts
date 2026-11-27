@@ -99,20 +99,6 @@ export default {
   },
   permission: {
     title: '权限模式：{{label}}',
-    modes: {
-      plan: { label: '计划（只调研）', description: '只读调研，先产出计划，由你确认后再执行' },
-      readonly: { label: '只读', description: '只允许读取，拒绝一切写入与命令执行' },
-      ask: { label: '写入需确认', description: '写文件 / 跑命令前逐个询问你的确认' },
-      auto: { label: '自动执行', description: '写操作直接执行，不再逐个询问' },
-      bypass: { label: '全部放行', description: '包括高风险操作在内全部直接执行' },
-    },
-    meta: {
-      plan: '计划模式',
-      readonly: '只读模式',
-      ask: '写入需确认',
-      auto: '自动执行',
-      bypass: '全部放行',
-    },
   },
   mode: {
     title: 'Agent 模式：{{label}}（{{hint}}）',

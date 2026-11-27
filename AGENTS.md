@@ -147,6 +147,8 @@ EF Core 的 SQLite provider **不支持在 SQL 中排序或聚合 `DateTimeOffse
   不要再建第二套工具循环或工具定义协议（token 估算直接用 `ToolRegistry.EstimateSchemaChars`，不要为估算再造工具定义对象）。
 - 工作流 Agent 节点的权限统一走运行级 `permissionMode`（五档）→ `AgentToolPolicy` → `DecideToolCall`；
   节点配置的 `toolApprovals` 只作显式覆盖。不要再新增运行级审批字符串参数（旧的 `toolApprovalMode` 已移除）。
+- 权限模式清单（值 / 名称 / 说明）由后端 `/api/agent/permission-modes` 下发，前端只保留图标与配色映射；
+  不要在两端各维护一份档位列表。
 - `LlmStreamParser` 只解析文本形式的 `<thinking>` / `<tool_call>` 标签，是没有原生 function calling 的模型兼容层；
   原生工具调用走 `FunctionCallContent`，不要让它进入文本解析路径。
 - RAG / 记忆检索封装为 `AIContextProvider`（`RagContextProvider`），通过 `AgentLoopRequest.ContextProviders` 交给 MAF；

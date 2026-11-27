@@ -99,20 +99,6 @@ export default {
   },
   permission: {
     title: 'Permission mode: {{label}}',
-    modes: {
-      plan: { label: 'Plan (research only)', description: 'Read-only research; produces a plan for you to approve before execution' },
-      readonly: { label: 'Read-only', description: 'Reading only; all writes and command execution are denied' },
-      ask: { label: 'Confirm writes', description: 'Asks for your confirmation before each file write or command' },
-      auto: { label: 'Auto-run', description: 'Writes run directly without asking each time' },
-      bypass: { label: 'Bypass all', description: 'Runs everything directly, including high-risk operations' },
-    },
-    meta: {
-      plan: 'Plan mode',
-      readonly: 'Read-only mode',
-      ask: 'Confirm writes',
-      auto: 'Auto-run',
-      bypass: 'Bypass all',
-    },
   },
   mode: {
     title: 'Agent mode: {{label}} ({{hint}})',

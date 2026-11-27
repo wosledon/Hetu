@@ -52,7 +52,20 @@ public static class WorkToolPolicy
 {
     public const string DefaultMode = "ask";
 
-    private static readonly string[] ModeValues = ["plan", "readonly", "ask", "auto", "bypass"];
+    /// <summary>
+    /// 权限模式展示顺序（对话页与编码会话共用）。前端通过 <c>/api/agent/permission-modes</c> 获取，
+    /// 新增或调整档位只改后端，避免两端清单漂移。
+    /// </summary>
+    public static readonly IReadOnlyList<WorkPermissionMode> AllModes =
+    [
+        WorkPermissionMode.Plan,
+        WorkPermissionMode.ReadOnly,
+        WorkPermissionMode.Ask,
+        WorkPermissionMode.Auto,
+        WorkPermissionMode.Bypass,
+    ];
+
+    private static readonly string[] ModeValues = AllModes.Select(ToValue).ToArray();
 
     public const string PlanDenyMessage =
         "当前处于计划模式：本次不执行任何写操作。请先输出一份可执行的计划（目标、涉及文件、步骤、验证方式），由用户确认后再执行。";

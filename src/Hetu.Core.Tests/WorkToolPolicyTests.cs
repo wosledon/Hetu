@@ -69,6 +69,12 @@ public class WorkToolPolicyTests
     public void Parse_五档权限模式_非法值回落为Ask(string value, WorkPermissionMode expected)
         => Assert.Equal(expected, WorkToolPolicy.Parse(value));
 
+    [Fact]
+    public void AllModes_按展示顺序覆盖五档()
+        => Assert.Equal(
+            [WorkPermissionMode.Plan, WorkPermissionMode.ReadOnly, WorkPermissionMode.Ask, WorkPermissionMode.Auto, WorkPermissionMode.Bypass],
+            WorkToolPolicy.AllModes);
+
     private static readonly JsonElement Schema = JsonDocument.Parse("""{"type":"object"}""").RootElement;
 
     private static readonly IToolExecutor WriteTool = new FakeTool("work_write_file", ToolRisk.Write);

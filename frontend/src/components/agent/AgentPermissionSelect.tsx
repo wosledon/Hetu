@@ -1,10 +1,7 @@
 import { ClipboardList, Eye, ShieldCheck, ShieldOff, Sparkles } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import AgentToolbarSelect from './AgentToolbarSelect'
-import {
-  AGENT_PERMISSION_MODES,
-  permissionModeMeta,
-} from '../../utils/agentPermission'
+import { useAgentPermissionModes } from '../../hooks/useAgentPermissionModes'
 
 export interface AgentPermissionSelectProps {
   value: string
@@ -12,7 +9,7 @@ export interface AgentPermissionSelectProps {
   className?: string
 }
 
-/** 每档配一个图标，与触发器前的小图标保持一致 */
+/** 图标与配色属于前端展示层；名称与说明由后端 /api/agent/permission-modes 下发 */
 const MODE_ICONS: Record<string, typeof ShieldCheck> = {
   plan: ClipboardList,
   readonly: Eye,
@@ -21,29 +18,45 @@ const MODE_ICONS: Record<string, typeof ShieldCheck> = {
   bypass: ShieldOff,
 }
 
+const MODE_CLASSES: Record<string, string> = {
+  plan: 'text-sky-500',
+  readonly: 'text-gray-400',
+  ask: 'text-amber-500',
+  auto: 'text-emerald-500',
+  bypass: 'text-rose-500',
+}
+
+const DEFAULT_CLASS = 'text-amber-500'
+
 /**
- * 权限模式选择器。对话页与编码会话共用五档：
- * plan（只调研）/ readonly（只读）/ ask（写入需确认）/ auto（自动执行）/ bypass（全部放行）。
+ * 权限模式选择器。对话页与编码会话共用；选项列表、名称与说明全部来自后端，
+ * 前端只保留图标与配色映射。
  */
 export default function AgentPermissionSelect({ value, onChange, className }: AgentPermissionSelectProps) {
   const { t } = useTranslation('agent')
-  const meta = permissionModeMeta(value)
+  const { data: modes = [] } = useAgentPermissionModes()
+  const current = modes.find((m) => m.value === value)
+  const CurrentIcon = MODE_ICONS[value] ?? ShieldCheck
+  // 首次加载时先用原始值占位，避免工具栏短暂显示“无”
+  const options = modes.length > 0
+    ? modes.map((m) => {
+        const Icon = MODE_ICONS[m.value] ?? ShieldCheck
+        return {
+          value: m.value,
+          label: m.label,
+          description: m.description,
+          icon: <Icon size={13} className={MODE_CLASSES[m.value] ?? DEFAULT_CLASS} />,
+        }
+      })
+    : [{ value, label: value, icon: <CurrentIcon size={13} className={MODE_CLASSES[value] ?? DEFAULT_CLASS} /> }]
 
   return (
     <div className={`flex shrink-0 items-center gap-1 ${className ?? ''}`}>
       <AgentToolbarSelect
         value={value}
         onChange={onChange}
-        title={t('permission.title', { label: meta.label })}
-        options={AGENT_PERMISSION_MODES.map((m) => ({
-          value: m.value,
-          label: t(m.labelKey),
-          description: t(m.descriptionKey),
-          icon: (() => {
-            const OptIcon = MODE_ICONS[m.value] ?? ShieldCheck
-            return <OptIcon size={13} className={permissionModeMeta(m.value).cls} />
-          })(),
-        }))}
+        title={t('permission.title', { label: current?.label ?? value })}
+        options={options}
       />
     </div>
   )

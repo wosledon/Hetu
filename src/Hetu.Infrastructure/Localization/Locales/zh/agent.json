@@ -1,0 +1,12 @@
+{
+  "agentPermission.plan.label": "计划（只调研）",
+  "agentPermission.plan.description": "只读调研，先产出计划，由你确认后再执行",
+  "agentPermission.readonly.label": "只读",
+  "agentPermission.readonly.description": "只允许读取，拒绝一切写入与命令执行",
+  "agentPermission.ask.label": "写入需确认",
+  "agentPermission.ask.description": "写文件 / 跑命令前逐个询问你的确认",
+  "agentPermission.auto.label": "自动执行",
+  "agentPermission.auto.description": "写操作直接执行，不再逐个询问",
+  "agentPermission.bypass.label": "全部放行",
+  "agentPermission.bypass.description": "包括高风险操作在内全部直接执行"
+}

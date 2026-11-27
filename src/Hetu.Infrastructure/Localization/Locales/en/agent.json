@@ -1,0 +1,12 @@
+{
+  "agentPermission.plan.label": "Plan (research only)",
+  "agentPermission.plan.description": "Read-only research; produces a plan for you to approve before execution",
+  "agentPermission.readonly.label": "Read-only",
+  "agentPermission.readonly.description": "Reading only; all writes and command execution are denied",
+  "agentPermission.ask.label": "Confirm writes",
+  "agentPermission.ask.description": "Asks for your confirmation before each file write or command",
+  "agentPermission.auto.label": "Auto-run",
+  "agentPermission.auto.description": "Writes run directly without asking each time",
+  "agentPermission.bypass.label": "Bypass all",
+  "agentPermission.bypass.description": "Runs everything directly, including high-risk operations"
+}
