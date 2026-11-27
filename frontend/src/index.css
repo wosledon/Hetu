@@ -280,6 +280,25 @@ button {
   background-color: rgba(129, 140, 248, 0.16);
 }
 
+/* ===== 模型设置：包裹式档位滑条（推理强度 / 上下文） ===== */
+@keyframes starFlow {
+  0% { left: 106%; opacity: 0; transform: scale(0.5) rotate(0deg); }
+  10% { opacity: 1; transform: scale(1) rotate(30deg); }
+  50% { opacity: 1; transform: scale(1.2) rotate(80deg); }
+  90% { opacity: 1; }
+  100% { left: -10%; opacity: 0; transform: scale(0.7) rotate(140deg); }
+}
+
+.slider-star {
+  position: absolute;
+  background: #fff;
+  clip-path: polygon(50% 0, 60% 40%, 100% 50%, 60% 60%, 50% 100%, 40% 60%, 0 50%, 40% 40%);
+  filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.95)) drop-shadow(0 0 7px rgba(255, 255, 255, 0.6));
+  animation-name: starFlow;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
 /* ===== 记忆星空：入场 / 微光 / Dream 夜波 ===== */
 @keyframes starIn {
   from { opacity: 0; transform: scale(0.3); }

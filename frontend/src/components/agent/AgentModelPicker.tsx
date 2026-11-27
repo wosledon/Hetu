@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Check, ChevronDown, Cpu } from 'lucide-react'
-import { reasoningEffortLabel, reasoningEffortOptions } from '../../utils/agentReasoning'
-import { POPOVER_EMPTY_CLASS, POPOVER_PANEL_CLASS, popoverItemClass, segmentButtonClass } from '../../utils/styles'
+import { reasoningEffortDefault, reasoningEffortLabel, reasoningEffortOptions } from '../../utils/agentReasoning'
+import { POPOVER_EMPTY_CLASS, POPOVER_PANEL_CLASS } from '../../utils/styles'
 import { SearchInput } from '../ui'
 
 export interface ModelPickerModel {
@@ -43,16 +43,98 @@ const CTX_PRESETS_K = [512, 256, 128]
 const toK = (tokens: number) => Math.round(tokens / 1000)
 /** 1000k 及以上显示为 1m / 1.5m ... */
 const formatK = (k: number) => (k >= 1000 ? `${+(k / 1000).toFixed(k % 1000 === 0 ? 0 : 1)}m` : `${k}k`)
-/** 胶囊滑动 tab：外层分段容器 + 内层选中态填充 */
-const segmentGroupClass =
-  'flex flex-wrap items-center gap-0.5 rounded-full bg-gray-100/80 p-0.5 dark:bg-white/[0.06]'
-const segmentItemClass = (active: boolean) =>
-  `rounded-full px-2 py-0.5 text-[11px] font-medium transition-all ${segmentButtonClass(active)}`
+
+interface EnclosedSliderProps {
+  labels: string[]
+  index: number
+  onChange: (index: number) => void
+  ariaLabel: string
+  tone: 'violet' | 'blue'
+  className?: string
+}
+
+const SLIDER_TONES = {
+  violet: {
+    fill: 'from-emerald-500 via-teal-500 to-sky-600',
+    focusRing: 'focus-within:ring-emerald-400/25',
+  },
+  blue: {
+    fill: 'from-sky-500 via-blue-500 to-violet-600',
+    focusRing: 'focus-within:ring-blue-400/25',
+  },
+} as const
+
+const SLIDER_STARS = [
+  { top: 20, size: 4.0, delay: -0.2, duration: 3.2 },
+  { top: 60, size: 3.0, delay: -1.1, duration: 3.8 },
+  { top: 34, size: 5.0, delay: -2.3, duration: 3.0 },
+  { top: 68, size: 3.0, delay: -0.7, duration: 4.2 },
+  { top: 26, size: 3.5, delay: -3.0, duration: 3.5 },
+  { top: 54, size: 4.5, delay: -1.7, duration: 3.9 },
+  { top: 42, size: 3.0, delay: -2.7, duration: 3.1 },
+  { top: 66, size: 3.5, delay: -0.4, duration: 3.6 },
+  { top: 30, size: 2.5, delay: -2.0, duration: 3.3 },
+  { top: 48, size: 5.0, delay: -1.4, duration: 3.7 },
+  { top: 72, size: 2.5, delay: -2.9, duration: 3.4 },
+  { top: 38, size: 4.0, delay: -0.9, duration: 4.0 },
+]
 
 /**
- * 模型 + 推理强度 + 上下文 三合一选择器（对话与 Code 共用）：
- * 左侧按供应商 tab 选模型，右侧对当前（悬停/选中）模型用胶囊选择推理强度与上下文大小；
- * 触发按钮展示为「模型 · 推理强度 · 上下文大小」。
+ * 包裹式档位滑条：胶囊轨道包住整条滑条，白色圆形滑块落在当前档位。
+ * 已选强度用绿→蓝渐变填充，轨道内有星光闪烁与自右向左的流光；档位越高流光越快。
+ */
+function EnclosedSlider({ labels, index, onChange, ariaLabel, tone, className }: EnclosedSliderProps) {
+  const palette = SLIDER_TONES[tone]
+  const count = Math.max(1, labels.length)
+  const active = Math.min(Math.max(0, index), count - 1)
+  const pct = count > 1 ? (active / (count - 1)) * 100 : 100
+  // 滑块左边缘在 [0, 轨道宽-滑块宽] 之间移动：两端外沿贴住轨道，不越界
+  const thumbLeft = `calc((100% - 32px) * ${pct / 100})`
+  // 星星自右向左流动；档位越高，流动越快
+  const starSpeedFactor = Math.max(0.55, 1.15 - (pct / 100) * 0.55)
+
+  return (
+    <div className={`relative mx-1 mt-2 h-9 select-none rounded-full bg-gray-200/70 ring-1 ring-inset ring-black/5 transition-shadow dark:bg-white/10 dark:ring-white/10 ${palette.focusRing} focus-within:ring-2 ${className ?? ''}`}>
+      <div
+        className={`absolute inset-y-0 left-0 overflow-hidden rounded-full bg-gradient-to-r ${palette.fill} transition-[width] duration-200`}
+        style={{ width: `calc(32px + (100% - 32px) * ${pct / 100})` }}
+      >
+        {SLIDER_STARS.map((s, i) => (
+          <span
+            key={i}
+            className="slider-star"
+            style={{
+              top: `${s.top}%`,
+              width: s.size,
+              height: s.size,
+              animationDelay: `${s.delay}s`,
+              animationDuration: `${Math.max(1.2, s.duration * starSpeedFactor)}s`,
+            }}
+          />
+        ))}
+      </div>
+      <span
+        className="absolute top-1/2 h-8 w-8 -translate-y-1/2 rounded-full bg-white shadow-[0_2px_10px_rgba(15,23,42,0.28)] ring-1 ring-black/5 transition-[left] duration-200 dark:bg-gray-50 dark:ring-white/10"
+        style={{ left: thumbLeft }}
+      />
+      <input
+        type="range"
+        min={0}
+        max={Math.max(0, count - 1)}
+        step={1}
+        value={active}
+        onChange={(e) => onChange(Number(e.target.value))}
+        aria-label={ariaLabel}
+        aria-valuetext={labels[active]}
+        className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
+      />
+    </div>
+  )
+}
+
+/**
+ * 模型选择器（对话与 Code 共用）：触发按钮展示模型 + 强度 + 上下文；
+ * 弹窗左侧按供应商筛选模型，右侧对当前模型调推理强度（拖拽条）与上下文窗口。
  */
 export default function AgentModelPicker({
   models,
@@ -67,40 +149,28 @@ export default function AgentModelPicker({
 }: AgentModelPickerProps) {
   const { t } = useTranslation('agent')
   const modelLabel = placeholder ?? t('modelPicker.model')
-  // 统一模型设置面板：模型列表 / 推理强度 / 上下文大小
-  const [menu, setMenu] = useState<'model' | 'effort' | 'context' | null>(null)
+  const [open, setOpen] = useState(false)
   // 手动切换过的供应商 tab；未手动切换时跟随当前模型所在供应商
   const [pickedProvider, setPickedProvider] = useState<string | null>(null)
   const [query, setQuery] = useState('')
-  // 悬停的模型：模型列表右侧的推理/上下文面板优先跟随它
-  const [hoveredId, setHoveredId] = useState<string | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
-  const toggleMenu = (kind: 'model' | 'effort' | 'context') => {
-    if (menu === kind) {
-      setMenu(null)
-      return
-    }
-    if (kind === 'model') {
-      setPickedProvider(null)
-      setQuery('')
-      setHoveredId(null)
-    }
-    setMenu(kind)
-  }
 
   const current = models.find((m) => m.id === modelId) ?? models.find((m) => m.isDefault) ?? models.find((m) => m.providerId) ?? models[0]
   // 未显式选择模型时，回退展示的模型同样视作选中
   const effectiveModelId = modelId || current?.id || ''
-  const currentEffort = (effort || current?.reasoningEffort || '').trim().toLowerCase()
+  const currentEffort = current?.reasoningMode === 'native'
+    ? (effort || current.reasoningEffort || reasoningEffortDefault(current)).trim().toLowerCase()
+    : ''
   const currentCtxK = contextWindow && contextWindow > 0 ? toK(contextWindow) : current?.contextWindow ? toK(current.contextWindow) : undefined
+  const currentProvider = providers.find((p) => p.id === current?.providerId)
 
   useEffect(() => {
-    if (!menu) return
+    if (!open) return
     const onMouseDown = (e: MouseEvent) => {
-      if (!containerRef.current?.contains(e.target as Node)) setMenu(null)
+      if (!containerRef.current?.contains(e.target as Node)) setOpen(false)
     }
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setMenu(null)
+      if (e.key === 'Escape') setOpen(false)
     }
     document.addEventListener('mousedown', onMouseDown)
     document.addEventListener('keydown', onKeyDown)
@@ -108,7 +178,7 @@ export default function AgentModelPicker({
       document.removeEventListener('mousedown', onMouseDown)
       document.removeEventListener('keydown', onKeyDown)
     }
-  }, [menu])
+  }, [open])
 
   /** 供应商 tab：仅有模型的供应商，保持 providers 顺序 */
   const tabs = useMemo(
@@ -116,32 +186,13 @@ export default function AgentModelPicker({
     [providers, models],
   )
   const activeProvider = pickedProvider ?? current?.providerId ?? tabs[0]?.id ?? ''
-
   const visibleModels = useMemo(() => {
     const q = query.trim().toLowerCase()
     if (q) return models.filter((m) => m.displayName.toLowerCase().includes(q) || m.id.toLowerCase().includes(q))
     return models.filter((m) => m.providerId === activeProvider)
   }, [models, activeProvider, query])
 
-  const flyoutModel = models.find((m) => m.id === hoveredId) ?? current ?? visibleModels[0]
-  const flyoutSelected = flyoutModel?.id === effectiveModelId
-
-  // 右侧推理/上下文面板纵向对齐当前（悬停）模型行：以行中心对齐面板中心，并夹在容器内
-  const flyoutRef = useRef<HTMLDivElement>(null)
-  const modelCardRef = useRef<HTMLDivElement>(null)
-  const [flyoutTop, setFlyoutTop] = useState(0)
-  const trackFlyout = (row: HTMLElement) => {
-    const wrap = flyoutRef.current
-    const card = modelCardRef.current
-    if (!wrap || !card) return
-    const inner = wrap.firstElementChild as HTMLElement | null
-    if (!inner) return
-    const rowRect = row.getBoundingClientRect()
-    const wrapRect = wrap.getBoundingClientRect()
-    const centered = rowRect.top - wrapRect.top + rowRect.height / 2 - inner.offsetHeight / 2
-    const max = Math.max(0, card.offsetHeight - inner.offsetHeight)
-    setFlyoutTop(Math.max(0, Math.min(centered, max)))
-  }
+  const providerName = (id: string) => providers.find((p) => p.id === id)?.name ?? ''
 
   /** 模型可用上下文档位：模型上限 + 不超过上限的 512k/256k/128k */
   const ctxOptions = (model: ModelPickerModel): number[] => {
@@ -150,193 +201,231 @@ export default function AgentModelPicker({
     return [maxK, ...presets]
   }
 
+  // 强度：模型可用档位（默认档直接落到模型默认强度）；上下文：从小到大的滑条，最右侧 = 模型上限
+  const effortValues = reasoningEffortOptions(current)
+  const effortIndex = Math.max(0, effortValues.indexOf(currentEffort))
+  const effortLabels = effortValues.map((v) => reasoningEffortLabel(v))
+  const ctxValuesK = current ? [...ctxOptions(current)].reverse() : []
+  const ctxIndex = ctxValuesK.length === 0
+    ? 0
+    : (() => {
+        if (!contextWindow) return ctxValuesK.length - 1
+        const found = ctxValuesK.indexOf(toK(contextWindow))
+        return found >= 0 ? found : ctxValuesK.length - 1
+      })()
+  const ctxLabels = ctxValuesK.map((k) => formatK(k))
+
   const triggerTitle = [
     current?.displayName ?? modelLabel,
     currentEffort ? t('reasoning.effortLevel', { label: reasoningEffortLabel(currentEffort) }) : null,
     currentCtxK ? formatK(currentCtxK) : null,
   ].filter(Boolean).join(' · ')
 
-  /** 推理强度胶囊滑动 tab */
-  const effortGroup = (target: ModelPickerModel, selected: boolean) => (
-    <div className={segmentGroupClass}>
-      {['', ...reasoningEffortOptions(target)].map((l) => (
-        <button
-          key={l || 'default'}
-          onClick={() => {
-            if (!selected) onModelChange(target.id)
-            onEffortChange(l)
-          }}
-          className={segmentItemClass(selected ? effort === l : l === '')}
-        >
-          {l ? t('reasoning.effortLevel', { label: reasoningEffortLabel(l) }) : t('common:default')}
-        </button>
-      ))}
-    </div>
-  )
-
-  /** 上下文大小胶囊滑动 tab */
-  const contextGroup = (target: ModelPickerModel, selected: boolean) => (
-    <div className={segmentGroupClass}>
-      {ctxOptions(target).map((k, idx) => {
-        const isMax = idx === 0
-        const active = selected && !contextWindow ? isMax : selected && toK(contextWindow ?? 0) === k
-        return (
-          <button
-            key={k}
-            onClick={() => {
-              if (!selected) onModelChange(target.id)
-              onContextWindowChange(isMax ? undefined : k * 1000)
-            }}
-            title={isMax ? t('modelPicker.contextMax') : t('modelPicker.contextLimit', { value: formatK(k) })}
-            className={segmentItemClass(active)}
-          >
-            {formatK(k)}
-          </button>
-        )
-      })}
-    </div>
-  )
-
-  const triggerSegmentClass = (active: boolean) =>
-    `flex items-center gap-1 rounded-md px-1.5 py-1 text-[11px] font-medium transition-colors ${
-      active
-        ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300'
-        : 'text-gray-500 hover:bg-gray-100 hover:text-gray-600 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-300'
-    }`
-  const panelTitleClass = 'mb-2 truncate text-[11px] font-medium text-gray-500 dark:text-gray-400'
-  const groupTitleClass = 'mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400'
-  const modelSettings = (target: ModelPickerModel, selected: boolean) => (
-    <div className="flex flex-col gap-2.5">
-      {target.reasoningMode === 'native' && (
-        <div>
-          <div className={groupTitleClass}>{t('reasoning.effort')}</div>
-          {effortGroup(target, selected)}
-        </div>
-      )}
-      {target.reasoningMode === 'tag' && <div className="text-[10px] text-gray-400">{t('reasoning.tagHint')}</div>}
-      <div>
-        <div className={groupTitleClass}>{t('modelPicker.context')}</div>
-        {contextGroup(target, selected)}
-        <p className="mt-1.5 text-[10px] leading-relaxed text-gray-400">{t('modelPicker.contextHint')}</p>
-      </div>
-    </div>
-  )
+  const toggleOpen = () => {
+    if (!open) {
+      setQuery('')
+      setPickedProvider(null)
+    }
+    setOpen((v) => !v)
+  }
 
   return (
     <div className="relative" ref={containerRef}>
-      <div className="flex items-center gap-0.5">
-        <button onClick={() => toggleMenu('model')} title={menu === 'model' ? undefined : triggerTitle} data-tooltip-owner={menu === 'model' ? '' : undefined} className={triggerSegmentClass(menu === 'model')}>
-          <Cpu size={14} className="shrink-0" />
-          <span className="max-w-40 truncate">{current?.displayName ?? modelLabel}</span>
-          <ChevronDown size={10} className="shrink-0" />
-        </button>
-
+      <button
+        type="button"
+        onClick={toggleOpen}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        title={open ? undefined : triggerTitle}
+        data-tooltip-owner={open ? '' : undefined}
+        className={`flex h-[26px] max-w-[240px] items-center gap-1 rounded-md px-1.5 text-[11px] font-medium transition-colors ${
+          open
+            ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300'
+            : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700/50 dark:hover:text-gray-200'
+        }`}
+      >
+        <Cpu size={13} className="shrink-0 text-indigo-500 dark:text-indigo-300" />
+        <span className="truncate">{current?.displayName ?? modelLabel}</span>
         {currentEffort && (
-          <>
-            <span className="text-gray-300 dark:text-gray-600">·</span>
-            <button onClick={() => toggleMenu('effort')} title={menu === 'effort' ? undefined : t('reasoning.effort')} data-tooltip-owner={menu === 'effort' ? '' : undefined} className={triggerSegmentClass(menu === 'effort')}>
-              {t('reasoning.effortLevel', { label: reasoningEffortLabel(currentEffort) })}
-            </button>
-          </>
+          <span className="shrink-0 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-medium text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-300">
+            {reasoningEffortLabel(currentEffort)}
+          </span>
         )}
+        {currentCtxK && <span className="shrink-0 text-[9px] tabular-nums text-gray-400 dark:text-gray-500">{formatK(currentCtxK)}</span>}
+        <ChevronDown size={10} className={`shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
 
-        {currentCtxK && (
-          <>
-            <span className="text-gray-300 dark:text-gray-600">·</span>
-            <button onClick={() => toggleMenu('context')} title={menu === 'context' ? undefined : t('modelPicker.context')} data-tooltip-owner={menu === 'context' ? '' : undefined} className={triggerSegmentClass(menu === 'context')}>
-              {formatK(currentCtxK)}
-            </button>
-          </>
-        )}
-      </div>
+      {open && (
+        <div
+          className={`absolute bottom-full right-0 z-50 mb-2 w-[560px] max-w-[calc(100vw-2rem)] overflow-hidden ${POPOVER_PANEL_CLASS}`}
+        >
+          <div className="border-b border-gray-100 px-3.5 pb-2.5 pt-3 dark:border-white/[0.06]">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs font-semibold text-gray-700 dark:text-gray-100">{t('modelPicker.title')}</span>
+              <span className="max-w-[220px] truncate rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-500 dark:bg-white/[0.06] dark:text-gray-400">
+                {current?.displayName ?? modelLabel}
+              </span>
+            </div>
+            <p className="mt-1 text-[11px] leading-4 text-gray-400 dark:text-gray-500">{t('modelPicker.subtitle')}</p>
+          </div>
 
-      {menu && (
-        <div className={`absolute bottom-full left-0 z-50 mb-2 flex max-w-[calc(100vw-3rem)] items-start overflow-hidden ${POPOVER_PANEL_CLASS}`}>
-          {/* 一张卡片：左侧供应商纵列 + 右侧搜索与模型列表 */}
-          <div
-            ref={modelCardRef}
-            className="flex"
-          >
-            <div className="hidden w-28 shrink-0 flex-col overflow-y-auto border-r border-gray-100 bg-gray-50/55 py-1.5 dark:border-white/[0.06] dark:bg-white/[0.02] min-[480px]:flex">
+          {tabs.length > 1 && (
+            <div className="flex gap-1 overflow-x-auto border-b border-gray-100 px-2.5 py-2 dark:border-white/[0.06]">
               {tabs.map((p) => {
-                const active = !query && activeProvider === p.id
+                const active = !query.trim() && activeProvider === p.id
+                const count = models.filter((m) => m.providerId === p.id).length
                 return (
                   <button
                     key={p.id}
-                    onClick={() => { setPickedProvider(p.id); setQuery(''); setHoveredId(null); setFlyoutTop(0) }}
-                    title={p.name}
-                    className={`flex items-center gap-1.5 px-2.5 py-2 text-left text-[11px] font-medium transition-colors ${
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => {
+                      setPickedProvider(p.id)
+                      setQuery('')
+                    }}
+                    className={`flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
                       active
-                        ? 'bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-200'
-                        : 'text-gray-500 hover:bg-white/80 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/[0.045] dark:hover:text-gray-200'
+                        ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300'
+                        : 'text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-white/[0.05]'
                     }`}
                   >
-                    <span className={`h-3.5 w-0.5 shrink-0 rounded-full ${active ? 'bg-blue-500' : 'bg-transparent'}`} />
-                    <span className="truncate">{p.name}</span>
-                    <span className="ml-auto shrink-0 text-[10px] tabular-nums text-gray-400">
-                      {models.filter((m) => m.providerId === p.id).length}
+                    {p.name}
+                    <span className={`rounded-full px-1.5 text-[9px] tabular-nums ${
+                      active
+                        ? 'bg-indigo-200/70 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-200'
+                        : 'bg-gray-100 text-gray-500 dark:bg-white/[0.06] dark:text-gray-400'
+                    }`}>
+                      {count}
                     </span>
                   </button>
                 )
               })}
             </div>
+          )}
 
-            <div className="flex w-60 shrink-0 flex-col">
-              <div className="relative border-b border-gray-100 p-2 dark:border-white/[0.06]">
-                <SearchInput tone="indigo" size="sm"
-                  autoFocus
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder={t('modelPicker.search')}
-                  className="w-full"
-                />
-              </div>
+          <div className="border-b border-gray-100 p-2 dark:border-white/[0.06]">
+            <SearchInput
+              tone="indigo"
+              size="sm"
+              autoFocus
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={t('modelPicker.search')}
+              className="w-full"
+            />
+          </div>
 
-              <div className="max-h-60 min-h-48 overflow-y-auto p-1.5 min-[1536px]:max-h-80 min-[1536px]:min-h-56">
+          <div className="flex min-h-0">
+            <div className="w-[46%] min-w-0 border-r border-gray-100 dark:border-white/[0.06]">
+              <div className="max-h-[min(46vh,300px)] overflow-y-auto p-1.5">
                 {visibleModels.length === 0 && <div className={POPOVER_EMPTY_CLASS}>{t('modelPicker.empty')}</div>}
                 {visibleModels.map((m) => {
                   const selected = m.id === effectiveModelId
                   return (
                     <button
                       key={m.id}
-                      onMouseEnter={(e) => { setHoveredId(m.id); trackFlyout(e.currentTarget) }}
-                      onFocus={(e) => { setHoveredId(m.id); trackFlyout(e.currentTarget) }}
-                      onClick={(e) => {
+                      type="button"
+                      onClick={() => {
                         onModelChange(m.id)
                         onEffortChange('')
                         onContextWindowChange(undefined)
-                        setHoveredId(m.id)
-                        trackFlyout(e.currentTarget)
                       }}
-                      className={`${popoverItemClass(selected)} items-center`}
+                      className={`flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left transition-colors ${
+                        selected
+                          ? 'bg-indigo-50/70 ring-1 ring-inset ring-indigo-500/15 dark:bg-indigo-500/[0.08] dark:ring-indigo-400/20'
+                          : 'hover:bg-gray-50 dark:hover:bg-white/[0.045]'
+                      }`}
                     >
-                      <span className={`min-w-0 flex-1 truncate text-xs font-medium ${selected ? 'text-blue-700 dark:text-blue-200' : 'text-gray-800 dark:text-gray-200'}`}>
-                        {m.displayName}
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 ring-1 ring-inset ring-indigo-500/15 dark:bg-indigo-500/10 dark:text-indigo-300 dark:ring-indigo-400/20">
+                        <Cpu size={14} />
                       </span>
-                      {selected && <Check size={13} className="shrink-0 text-blue-500 dark:text-blue-300" />}
+                      <span className="min-w-0 flex-1">
+                        <span className={`block truncate text-xs font-medium ${selected ? 'text-indigo-700 dark:text-indigo-200' : 'text-gray-800 dark:text-gray-100'}`}>
+                          {m.displayName}
+                        </span>
+                        {query.trim().length > 0 && (
+                          <span className="mt-0.5 block truncate text-[10px] text-gray-400 dark:text-gray-500">{providerName(m.providerId)}</span>
+                        )}
+                      </span>
+                      {selected && <Check size={13} className="shrink-0 text-indigo-500 dark:text-indigo-300" />}
                     </button>
                   )
                 })}
               </div>
-              {current && (
-                <div className="border-t border-gray-100 p-3 dark:border-white/[0.06] min-[1536px]:hidden">
-                  <div className={panelTitleClass}>{current.displayName}</div>
-                  {modelSettings(current, true)}
-                </div>
-              )}
             </div>
-          </div>
 
-          {/* 右侧：推理强度 / 上下文，纵向对齐当前模型行 */}
-          <div ref={flyoutRef} className="relative hidden w-56 shrink-0 border-l border-gray-100 bg-gray-50/45 dark:border-white/[0.06] dark:bg-white/[0.02] min-[1536px]:block">
-            <div className="absolute inset-x-0 p-3" style={{ top: flyoutTop }}>
-              {!flyoutModel ? (
-                <div className="text-[11px] text-gray-400">{t('modelPicker.pickModelHint')}</div>
-              ) : (
+            <div className="w-[54%] min-w-0 p-3">
+              {current ? (
                 <>
-                  <div className={panelTitleClass}>{flyoutModel.displayName}</div>
-                  {modelSettings(flyoutModel, flyoutSelected)}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="truncate text-xs font-semibold text-gray-800 dark:text-gray-100">{current.displayName}</div>
+                      <div className="mt-0.5 truncate text-[10px] text-gray-400 dark:text-gray-500">
+                        {currentProvider?.name}
+                        {current.contextWindow ? ` · ${formatK(toK(current.contextWindow))}` : ''}
+                      </div>
+                    </div>
+                    <span className="shrink-0 rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-medium text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-300">
+                      {t('modelPicker.current')}
+                    </span>
+                  </div>
+
+                  {current.reasoningMode === 'native' && (
+                    <div className="mt-4">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                          {t('reasoning.effort')}
+                        </span>
+                        <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-300">
+                          {reasoningEffortLabel(currentEffort)}
+                        </span>
+                      </div>
+                      <EnclosedSlider
+                        className="mt-2"
+                        tone="violet"
+                        ariaLabel={t('reasoning.effort')}
+                        labels={effortLabels}
+                        index={effortIndex}
+                        onChange={(i) => onEffortChange(effortValues[i] ?? '')}
+                      />
+                    </div>
+                  )}
+
+                  {current.reasoningMode === 'tag' && (
+                    <div className="mt-4 rounded-xl bg-gray-50 px-2.5 py-2 text-[10px] leading-4 text-gray-400 dark:bg-white/[0.04] dark:text-gray-500">
+                      {t('reasoning.tagHint')}
+                    </div>
+                  )}
+
+                  <div className="mt-4">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                        {t('modelPicker.context')}
+                      </span>
+                      <span className="text-[10px] tabular-nums text-gray-400 dark:text-gray-500">
+                        {currentCtxK ? formatK(currentCtxK) : '—'}
+                      </span>
+                    </div>
+                    <div className="mt-2">
+                      {ctxValuesK.length > 1 ? (
+                        <EnclosedSlider
+                          tone="blue"
+                          ariaLabel={t('modelPicker.context')}
+                          labels={ctxLabels}
+                          index={ctxIndex}
+                          onChange={(i) => onContextWindowChange(i === ctxValuesK.length - 1 ? undefined : ctxValuesK[i] * 1000)}
+                        />
+                      ) : (
+                        <div className="rounded-2xl border border-gray-200/80 bg-gray-50/80 px-3 py-2 text-[11px] font-medium text-gray-500 dark:border-white/10 dark:bg-white/[0.035] dark:text-gray-400">
+                          {ctxLabels[0] ?? '—'}
+                        </div>
+                      )}
+                    </div>
+                    <p className="mt-1.5 text-[10px] leading-relaxed text-gray-400 dark:text-gray-500">{t('modelPicker.contextHint')}</p>
+                  </div>
                 </>
+              ) : (
+                <div className="text-[11px] text-gray-400 dark:text-gray-500">{t('modelPicker.pickModelHint')}</div>
               )}
             </div>
           </div>

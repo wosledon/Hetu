@@ -22,9 +22,19 @@ export default {
     removeBlock: 'Remove long text',
     stop: 'Stop generating',
     send: 'Send',
+    plus: {
+      title: 'Add',
+      addToChat: 'Add to chat',
+      addImage: 'Add images',
+      mention: 'Mention a note',
+      slash: 'Skill / prompt',
+    },
   },
   picker: {
     title: 'Agent / Workflow',
+    subtitle: 'Pick an agent, project agent, or workflow for this turn',
+    noneSelected: 'None selected',
+    tabAll: 'All',
     agent: 'Agent',
     agentGroup: 'Agents',
     projectGroup: 'Project',
@@ -72,6 +82,9 @@ export default {
   },
   modelPicker: {
     model: 'Model',
+    title: 'Model settings',
+    subtitle: 'Pick a model and tune reasoning effort and context window',
+    current: 'Current',
     search: 'Search models...',
     empty: 'No models yet',
     context: 'Context size',
@@ -99,6 +112,8 @@ export default {
   },
   permission: {
     title: 'Permission mode: {{label}}',
+    panelTitle: 'Permission mode',
+    panelHint: 'Applies immediately to subsequent tool calls',
   },
   mode: {
     title: 'Agent mode: {{label}} ({{hint}})',

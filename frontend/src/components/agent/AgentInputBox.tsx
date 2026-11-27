@@ -49,12 +49,16 @@ export interface AgentInputBoxProps {
   chips?: AgentInputChip[]
   /** 各端自有控件（附件/智能体/模型/工具开关 或 权限模式/Agent/模型/推理强度） */
   toolbar?: ReactNode
-  /** 右下角发送键左侧的控件（如会话信息：上下文占用） */
+  /** 输入框内、发送键左侧的控件（如推理强度 / 联网开关 / 上下文占用） */
+  toolbarTrailing?: ReactNode
+  /** 输入框下方右侧控件（如分支 / 同步状态） */
   trailing?: ReactNode
   /** 聊天框下方左侧控件（如 Agent 模式 / 审批模式），与右侧的 trailing 同一行 */
   footerLeading?: ReactNode
   /** 输入框上方的插槽（工具交互抽屉等） */
   aboveInput?: ReactNode
+  /** 输入框“额头”：独立悬浮在输入框上方的状态条（快速开关），右侧对齐 */
+  forehead?: ReactNode
   /**
    * 折叠的长文本块（粘贴的超长文本）。与输入框里的文字是两份内容：
    * 输入框始终可正常打字，长文本以块的形式挂在上面，发送时由调用方拼进正文。
@@ -107,9 +111,11 @@ export default function AgentInputBox({
   menu,
   chips = [],
   toolbar,
+  toolbarTrailing,
   trailing,
   footerLeading,
   aboveInput,
+  forehead,
   block = '',
   onBlockChange,
   placeholder,
@@ -162,21 +168,23 @@ export default function AgentInputBox({
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     // 浮层打开时：导航与选择优先
     if (showMenu && menu) {
-      if (e.key === 'ArrowDown') {
-        e.preventDefault()
-        setMenuIndex((i) => (i + 1) % menuItems.length)
-        return
-      }
-      if (e.key === 'ArrowUp') {
-        e.preventDefault()
-        setMenuIndex((i) => (i - 1 + menuItems.length) % menuItems.length)
-        return
-      }
-      if ((e.key === 'Enter' && !e.shiftKey) || e.key === 'Tab') {
-        e.preventDefault()
-        menu.onSelect(menuItems[menuIndex])
-        setMenuIndex(0)
-        return
+      if (menuItems.length > 0) {
+        if (e.key === 'ArrowDown') {
+          e.preventDefault()
+          setMenuIndex((i) => (i + 1) % menuItems.length)
+          return
+        }
+        if (e.key === 'ArrowUp') {
+          e.preventDefault()
+          setMenuIndex((i) => (i - 1 + menuItems.length) % menuItems.length)
+          return
+        }
+        if ((e.key === 'Enter' && !e.shiftKey) || e.key === 'Tab') {
+          e.preventDefault()
+          menu.onSelect(menuItems[menuIndex])
+          setMenuIndex(0)
+          return
+        }
       }
       if (e.key === 'Escape') {
         e.preventDefault()
@@ -217,9 +225,18 @@ export default function AgentInputBox({
     <div className="bg-transparent dark:bg-transparent">
       <div className="relative mx-auto w-full max-w-4xl">
         {aboveInput}
-        {/* 流式中：焦点态那套淡蓝描边 + 光晕会和绕行的流光互相打架（边框还被它染成蓝），
-            流光本身就足以表明"正在生成"，此时不再叠加焦点样式 */}
-        <div className={`relative rounded-2xl border bg-white/95 shadow-[0_16px_44px_-20px_rgba(15,23,42,0.35)] transition-all dark:bg-gray-900/95 ${
+        {/* 外框（额头）+ 内嵌输入卡：两层各有独立边框 */}
+        <div className={forehead
+          ? 'rounded-2xl border border-gray-200/90 bg-gray-50/80 px-0 pb-0 pt-2 shadow-[0_16px_44px_-20px_rgba(15,23,42,0.35)] dark:border-white/10 dark:bg-white/[0.03]'
+          : ''}>
+          {forehead && (
+            <div className="flex items-center justify-end gap-1 px-2.5 pb-2 pt-0.5">
+              {forehead}
+            </div>
+          )}
+          {/* 流式中：焦点态那套淡蓝描边 + 光晕会和绕行的流光互相打架（边框还被它染成蓝），
+              流光本身就足以表明"正在生成"，此时不再叠加焦点样式 */}
+          <div className={`relative border bg-white/95 transition-all dark:bg-gray-900/95 ${forehead ? 'rounded-2xl shadow-none' : 'rounded-2xl shadow-[0_16px_44px_-20px_rgba(15,23,42,0.35)]'} ${
           streaming
             ? 'border-transparent dark:border-transparent'
             : 'border-gray-200/90 focus-within:border-blue-400 focus-within:shadow-[0_16px_44px_-18px_rgba(59,130,246,0.3)] focus-within:ring-4 focus-within:ring-blue-500/[0.07] dark:border-white/10 dark:focus-within:border-blue-400/60'
@@ -298,9 +315,10 @@ export default function AgentInputBox({
             className="w-full resize-none bg-transparent px-4 pb-3 pt-4 text-[14px] leading-6 text-gray-800 outline-none placeholder:text-gray-400 dark:text-gray-100 dark:placeholder:text-gray-500"
           />
 
-          <div className="flex flex-wrap items-center gap-1 rounded-b-[15px] border-t border-gray-100/90 bg-gray-50/60 px-2 py-2 dark:border-white/[0.06] dark:bg-white/[0.025]">
+          <div className={`flex flex-wrap items-center gap-1 px-2 ${forehead ? 'pb-2 pt-1' : 'rounded-b-[15px] border-t border-gray-100/90 bg-gray-50/60 py-2 dark:border-white/[0.06] dark:bg-white/[0.025]'}`}>
             {toolbar}
-            <div className="ml-auto">
+            <div className="ml-auto flex flex-wrap items-center justify-end gap-1">
+              {toolbarTrailing}
               {streaming ? (
                 <Button variant="danger" className="flex h-8 w-8 items-center justify-center rounded-xl p-0 bg-red-500 text-white shadow-sm transition-all hover:bg-red-600 active:scale-95" onClick={onStop}
                   title={t('input.stop')}
@@ -317,6 +335,7 @@ export default function AgentInputBox({
               )}
             </div>
           </div>
+        </div>
         </div>
 
         {/* 聊天框下方：左侧 Agent 模式/审批模式，中间提示文字，右侧会话信息（分支/同步/上下文占用） */}

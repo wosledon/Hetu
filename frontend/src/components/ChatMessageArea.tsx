@@ -20,6 +20,7 @@ import RetrievalResultCard from './RetrievalResultCard'
 import AgentWorkingIndicator from './agent/AgentWorkingIndicator'
 import AgentInputBox from './agent/AgentInputBox'
 import AgentPermissionSelect from './agent/AgentPermissionSelect'
+import AgentPlusMenu from './agent/AgentPlusMenu'
 import AgentContextUsage from './agent/AgentContextUsage'
 import type { IContextUsage } from '../types/context'
 import AgentReasoningSelect from './agent/AgentReasoningSelect'
@@ -42,14 +43,13 @@ import { loadTopicSettings, saveTopicSettings } from '../utils/topicSettings'
 import { wrapLongTextBlock } from '../utils/longText'
 import { useStickToBottom } from '../hooks/useStickToBottom'
 import { consumeSseStream } from '../utils/sse'
-import type { IChatTopic, IPromptPreset, IChatGroup, ISkill } from '../types'
+import type { IChatTopic, IPromptPreset, ISkill } from '../types'
 import { Button, Card, IconButton, SearchInput } from './ui'
 
 const InlineWorkflowPanel = lazy(() => import('./workflow/InlineWorkflowPanel'))
 
 interface ChatMessageAreaProps {
   topic?: IChatTopic
-  group?: IChatGroup
   onTopicUpdated?: (topic: IChatTopic) => void
   /** 页面当前打开的项目（Code 视图挂载的 Work 项目）：用于按需加载其 .github 智能体 / 技能 / 模板 */
   projectId?: string
@@ -89,7 +89,7 @@ async function consumeChatStream(topicId: string, startRequest: (signal: AbortSi
   return !controller.signal.aborted && !failed && !streamError
 }
 
-export default function ChatMessageArea({ topic, group, onTopicUpdated, projectId }: ChatMessageAreaProps) {
+export default function ChatMessageArea({ topic, onTopicUpdated, projectId }: ChatMessageAreaProps) {
   const { t } = useTranslation('chat')
   const queryClient = useQueryClient()
   const confirm = useConfirm()
@@ -141,7 +141,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
   const [showReasoningPicker, setShowReasoningPicker] = useState(false)
   const [webSearch, setWebSearch] = useState(() => cachedSettings.webSearch ?? false)
   const [knowledgeBase, setKnowledgeBase] = useState(() => cachedSettings.knowledgeBase ?? false)
-  const [toolCalling, setToolCalling] = useState(() => cachedSettings.toolCalling ?? true)
+  const [toolCalling, setToolCalling] = useState(() => cachedSettings.toolCalling ?? false)
   const [permissionMode, setPermissionMode] = useState<string>(() => cachedSettings.permissionMode ?? 'ask')
   // 记忆开关已从会话内移到「设置 - 记忆」：主对话与普通话题各自配置，这里只读
   const { data: memoryUsage } = useQuery({
@@ -780,6 +780,22 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
     }
   }
 
+  /** “+”面板的 @ / 快捷入口：插入触发符并直接打开对应浮层 */
+  const insertInputTrigger = (trigger: '@' | '/') => {
+    const el = textareaRef.current
+    const start = el?.selectionStart ?? input.length
+    const end = el?.selectionEnd ?? input.length
+    setInput(input.slice(0, start) + trigger + input.slice(end))
+    setInputMenu({ kind: trigger === '@' ? 'mention' : 'slash', query: '' })
+    requestAnimationFrame(() => {
+      const target = textareaRef.current
+      if (!target) return
+      target.focus()
+      const pos = start + 1
+      target.setSelectionRange(pos, pos)
+    })
+  }
+
   const handleApprove = async (toolCallId: string, approved: boolean) => {
     if (topicId) useChatStreamStore.getState().removeApproval(topicId, toolCallId)
     try {
@@ -817,18 +833,18 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
   const emptyChat = !messagesLoading && messages.length === 0 && !isStreaming
 
   return (
-    <div ref={containerRef} className="flex min-h-0 min-w-0 flex-1 flex-col">
-      <div className="flex h-14 shrink-0 items-center justify-between gap-4 border-b border-gray-200/80 bg-white/35 px-4 dark:border-white/[0.07] dark:bg-slate-950/20 sm:px-6">
-        <div className="flex min-w-0 flex-1 items-center gap-3">
-          <span className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-blue-200/70 bg-gradient-to-br from-blue-50 to-indigo-100 text-blue-600 shadow-sm dark:border-blue-400/15 dark:from-blue-500/15 dark:to-indigo-500/20 dark:text-blue-300">
-            <Bot size={16} />
-            <span className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-white dark:border-gray-900 ${isStreaming ? 'animate-pulse bg-emerald-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
-          </span>
-          <div className="min-w-0">
-            <h2 className="truncate text-[15px] font-semibold tracking-tight text-gray-900 dark:text-gray-50">{topic.title}</h2>
-            <p className="mt-0.5 truncate text-[11px] text-gray-500 dark:text-gray-400">{group ? `${group.name} · ` : ''}{t('messageArea.messagesCount', { count: messages.length })}</p>
-          </div>
-        </div>
+    <div ref={containerRef} className="relative flex min-h-0 min-w-0 flex-1 flex-col">
+      {/* 主对话背景：河图字标水印，仅空会话时展示；开始对话后淡出 */}
+      <div aria-hidden className={`pointer-events-none absolute inset-0 z-0 select-none overflow-hidden transition-opacity duration-500 ${emptyChat ? 'opacity-100' : 'opacity-0'}`}>
+        <div className="absolute left-1/2 top-[34%] h-[min(100vw,820px)] w-[min(100vw,820px)] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(99,102,241,0.1),rgba(34,211,238,0.045)_46%,transparent_72%)] dark:bg-[radial-gradient(circle,rgba(124,92,255,0.14),rgba(34,211,238,0.05)_46%,transparent_72%)]" />
+        <img
+          src="/brand.svg"
+          alt=""
+          draggable={false}
+          className="absolute left-1/2 top-[34%] w-[min(78vw,680px)] -translate-x-1/2 -translate-y-1/2 opacity-[0.08] [mask-image:radial-gradient(closest-side_at_center,black_30%,transparent_88%)] dark:opacity-[0.11]"
+        />
+      </div>
+      <div className="relative z-10 flex h-14 shrink-0 items-center justify-end gap-4 px-4 sm:px-6">
         <div className="flex items-center gap-0.5 rounded-xl border border-gray-200/70 bg-white/50 p-1 dark:border-white/[0.07] dark:bg-white/[0.03]">
           {topic.isMain && (
             <IconButton variant="ghost" tone="gray" className="p-2 text-gray-400 hover:bg-gray-100 hover:text-red-500 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed dark:hover:bg-gray-800 dark:hover:text-red-400" label={t('messageArea.clearMain')} onClick={handleClearTopic}
@@ -858,7 +874,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
       </div>
 
       {showSearch && (
-        <div className="shrink-0 border-b border-gray-200/80 bg-white/35 px-4 py-3 dark:border-white/[0.07] dark:bg-slate-950/20 sm:px-6">
+        <div className="relative z-10 shrink-0 border-b border-gray-200/80 bg-white/35 px-4 py-3 dark:border-white/[0.07] dark:bg-slate-950/20 sm:px-6">
           <div className="flex gap-2 mb-2">
             <div className="relative flex-1">
               <SearchInput tone="indigo" size="sm"
@@ -891,7 +907,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
         </div>
       )}
 
-      <div className="flex min-h-0 min-w-0 flex-1">
+      <div className="relative z-10 flex min-h-0 min-w-0 flex-1">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       {!emptyChat && (
       <div className="relative flex min-h-0 flex-1">
@@ -997,9 +1013,6 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
       <div className={emptyChat ? 'flex w-full flex-1 flex-col justify-center px-4 pb-24 pt-6 sm:px-6' : 'shrink-0 px-4 pb-5 pt-2 sm:px-6'}>
         {emptyChat && (
           <div className="mx-auto mb-8 w-full max-w-4xl text-center select-none">
-            <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl border border-blue-200/60 bg-white/70 shadow-[0_12px_32px_-14px_rgba(59,130,246,0.45)] dark:border-blue-400/15 dark:bg-white/[0.05]">
-              <img src="/brand.svg" alt="" width={36} height={36} draggable={false} />
-            </div>
             <h1 className="text-2xl font-semibold tracking-tight text-gray-900 dark:text-gray-50">{t('messageArea.emptyTitle')}</h1>
             <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">{t('messageArea.emptySubtitle')}</p>
           </div>
@@ -1022,9 +1035,6 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
             </Suspense>
           </div>
         )}
-
-        {/* 本次流的累计用量：与编码会话顶栏共用同一徽标 */}
-        {isStreaming && <div className="mb-2 flex justify-end"><AgentUsageBadge usage={usage} compact /></div>}
 
         {/* 输入区：与编码会话共用 AgentInputBox（浮层 / chips / 历史回溯 / 发送-停止），工具栏为对话页独有
             工具交互抽屉（ask_question / todo / plan）挂在 aboveInput 上，宽度与输入框保持一致 */}
@@ -1088,7 +1098,7 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
                     emptyHint: t('messageArea.noMatchingSlash'),
                   }
                 : null)
-            : (showMentionMenu && mentionItems.length > 0
+            : (showMentionMenu
                 ? {
                     kind: 'mention' as const,
                     items: mentionItems,
@@ -1135,17 +1145,94 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
           block={pastedBlock}
           onBlockChange={setPastedBlock}
           history={inputHistory}
-          trailing={
-            <AgentContextUsage
-              usage={contextUsage}
-              onRefresh={refreshContextUsage}
-              onCompact={() => void compactContext()}
-              compacting={compacting}
-            />
+          toolbarTrailing={
+            <>
+              {isStreaming && <AgentUsageBadge usage={usage} compact />}
+              <AgentContextUsage
+                usage={contextUsage}
+                onRefresh={refreshContextUsage}
+                onCompact={() => void compactContext()}
+                compacting={compacting}
+              />
+              <AgentModelPicker
+                models={chatModels.map((m) => ({
+                  id: m.id,
+                  displayName: m.displayName,
+                  providerId: m.providerId,
+                  contextWindow: m.contextWindow,
+                  reasoningMode: m.reasoningMode,
+                  reasoningEffort: m.reasoningEffort,
+                  reasoningEfforts: m.reasoningEfforts,
+                  isDefault: m.isDefault,
+                }))}
+                providers={providers.map((p) => ({ id: p.id, name: p.name }))}
+                modelId={activeModelId}
+                onModelChange={setSelectedModelId}
+                effort={reasoningEffort}
+                onEffortChange={setReasoningEffort}
+                contextWindow={contextWindow}
+                onContextWindowChange={setContextWindow}
+              />
+            </>
+          }
+          forehead={
+            <div className="flex items-center gap-0.5">
+              <button
+                onClick={() => setToolCalling(!toolCalling)}
+                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md transition-colors ${
+                  toolCalling
+                    ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300'
+                    : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700/50 dark:hover:text-gray-300'
+                }`}
+                title={t('messageArea.toolCalls')}
+                aria-label={t('messageArea.toolCalls')}
+                aria-pressed={toolCalling}
+              >
+                <Zap size={13} />
+              </button>
+              <button
+                onClick={() => setWebSearch(!webSearch)}
+                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md transition-colors ${
+                  webSearch
+                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
+                    : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700/50 dark:hover:text-gray-300'
+                }`}
+                title={t('messageArea.webSearch')}
+                aria-label={t('messageArea.webSearch')}
+                aria-pressed={webSearch}
+              >
+                <Globe size={13} />
+              </button>
+              <button
+                onClick={() => setKnowledgeBase(!knowledgeBase)}
+                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md transition-colors ${
+                  knowledgeBase
+                    ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
+                    : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700/50 dark:hover:text-gray-300'
+                }`}
+                title={t('messageArea.knowledgeBase')}
+                aria-label={t('messageArea.knowledgeBase')}
+                aria-pressed={knowledgeBase}
+              >
+                <Database size={13} />
+              </button>
+              <AgentReasoningSelect
+                value={reasoningEffort}
+                onChange={setReasoningEffort}
+                reasoningMode={currentReasoningMode === 'tag' ? 'tag' : 'none'}
+                model={currentModel}
+                enabled={deepThinking}
+                onEnabledChange={setDeepThinking}
+              />
+            </div>
           }
           toolbar={
             <>
-              {/* 图片附件：不放入口按钮，直接粘贴图片即可（非视觉模型粘贴后会带感叹号划掉） */}
+              <AgentPlusMenu
+                onFiles={(files) => setAttachedFiles((prev) => [...prev, ...files])}
+                onMention={() => insertInputTrigger('@')}
+                onSlash={() => insertInputTrigger('/')}
+              />
 
               {/* Agent selector — 智能体 + 工作流合并（与 Code 会话共用同一浮层组件） */}
               <AgentPicker
@@ -1210,93 +1297,17 @@ export default function ChatMessageArea({ topic, group, onTopicUpdated, projectI
                 }}
               />
 
-              {/* 模型 · 推理强度 · 上下文 三合一选择器（与编码会话共用） */}
-              <AgentModelPicker
-                models={chatModels.map((m) => ({
-                  id: m.id,
-                  displayName: m.displayName,
-                  providerId: m.providerId,
-                  contextWindow: m.contextWindow,
-                  reasoningMode: m.reasoningMode,
-                  reasoningEffort: m.reasoningEffort,
-                  reasoningEfforts: m.reasoningEfforts,
-                  isDefault: m.isDefault,
-                }))}
-                providers={providers.map((p) => ({ id: p.id, name: p.name }))}
-                modelId={activeModelId}
-                onModelChange={setSelectedModelId}
-                effort={reasoningEffort}
-                onEffortChange={setReasoningEffort}
-                contextWindow={contextWindow}
-                onContextWindowChange={setContextWindow}
+              <AgentPermissionSelect
+                value={permissionMode}
+                onChange={(v) => {
+                  setPermissionMode(v)
+                  // 正在生成时切换档位：同步给后端，让本轮后续工具调用按新档位裁决，
+                  // 切到「无需确认」后不再逐个弹审批
+                  if (isStreaming && topicId) {
+                    void chatMessageService.setPermissionMode(topicId, v).catch(() => {})
+                  }
+                }}
               />
-                <div className="flex items-center gap-1">
-                {toolCalling && (
-                  <AgentPermissionSelect
-                    value={permissionMode}
-                    onChange={(v) => {
-                      setPermissionMode(v)
-                      // 正在生成时切换档位：同步给后端，让本轮后续工具调用按新档位裁决，
-                      // 切到「无需确认」后不再逐个弹审批
-                      if (isStreaming && topicId) {
-                        void chatMessageService.setPermissionMode(topicId, v).catch(() => {})
-                      }
-                    }}
-                  />
-                )}
-                <button
-                  onClick={() => setToolCalling(!toolCalling)}
-                  className={`flex h-[26px] shrink-0 items-center gap-1 rounded-md px-1.5 text-[11px] font-medium transition-colors ${
-                    toolCalling
-                      ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300'
-                      : 'text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700/50'
-                  }`}
-                  title={t('messageArea.toolCalls')}
-                >
-                  <Zap size={13} />
-                  {t('messageArea.tools')}
-                </button>
-              </div>
-
-              <div className="mx-1 h-4 w-px bg-gray-200 dark:bg-gray-700" />
-
-              {/* 推理强度 / 深度思考：tag 模型用开关；native 模型的强度已并入模型选择器 */}
-              <AgentReasoningSelect
-                value={reasoningEffort}
-                onChange={setReasoningEffort}
-                reasoningMode={currentReasoningMode === 'tag' ? 'tag' : 'none'}
-                model={currentModel}
-                enabled={deepThinking}
-                onEnabledChange={setDeepThinking}
-              />
-
-              {/* Web search toggle */}
-              <button
-                onClick={() => setWebSearch(!webSearch)}
-                className={`flex items-center gap-1 rounded-lg px-2 py-1.5 text-[11px] font-medium transition-colors ${
-                  webSearch
-                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
-                    : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300'
-                }`}
-                title={t('messageArea.webSearch')}
-              >
-                <Globe size={14} />
-                {t('messageArea.webSearch')}
-              </button>
-
-              {/* Knowledge base toggle */}
-              <button
-                onClick={() => setKnowledgeBase(!knowledgeBase)}
-                className={`flex items-center gap-1 rounded-lg px-2 py-1.5 text-[11px] font-medium transition-colors ${
-                  knowledgeBase
-                    ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
-                    : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300'
-                }`}
-                title={t('messageArea.knowledgeBase')}
-              >
-                <Database size={14} />
-                {t('messageArea.knowledgeBase')}
-              </button>
             </>
           }
         />

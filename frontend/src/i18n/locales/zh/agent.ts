@@ -22,9 +22,19 @@ export default {
     removeBlock: '移除长文本',
     stop: '停止生成',
     send: '发送',
+    plus: {
+      title: '添加',
+      addToChat: '添加到对话',
+      addImage: '添加图片',
+      mention: '引用笔记',
+      slash: '技能 / 提示词',
+    },
   },
   picker: {
     title: '智能体 / 工作流',
+    subtitle: '选择本轮使用的智能体、项目智能体或工作流',
+    noneSelected: '未选择',
+    tabAll: '全部',
     agent: '智能体',
     agentGroup: '智能体',
     projectGroup: '项目',
@@ -72,6 +82,9 @@ export default {
   },
   modelPicker: {
     model: '模型',
+    title: '模型设置',
+    subtitle: '选择模型，并调整推理强度与上下文窗口',
+    current: '当前',
     search: '搜索模型...',
     empty: '暂无模型',
     context: '上下文大小',
@@ -99,6 +112,8 @@ export default {
   },
   permission: {
     title: '权限模式：{{label}}',
+    panelTitle: '权限模式',
+    panelHint: '切换后立即对后续工具调用生效',
   },
   mode: {
     title: 'Agent 模式：{{label}}（{{hint}}）',

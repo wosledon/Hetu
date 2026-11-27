@@ -23,7 +23,7 @@ export default function MainChatPage() {
             <Loader2 size={18} className="animate-spin text-gray-400" />
           </div>
         ) : (
-          <ChatMessageArea key={mainChat.topic.id} topic={mainChat.topic} group={mainChat.group} />
+          <ChatMessageArea key={mainChat.topic.id} topic={mainChat.topic} />
         )
       }
     />
