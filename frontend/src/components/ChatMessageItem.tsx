@@ -3,11 +3,11 @@ import { Copy, Check, Coins, Pencil, Trash2, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import ThemedMarkdown from './ThemedMarkdown'
 import UserMessageContent from './UserMessageContent'
-import AgentTimeline from './agent/AgentTimeline'
+import AgentChatTimeline from './agent/AgentChatTimeline'
 import RetrievalResultCard from './RetrievalResultCard'
 import { fromChatHistorySegments } from '../utils/historyTimeline'
 import type { AgentTimelineItem } from '../utils/agentTimeline'
-import { uiLocale } from '../utils/locale'
+import { formatDateTime } from '../utils/locale'
 import { formatTokens } from '../utils/agentStream'
 import type { IChatMessage } from '../types'
 import { Button, Card, IconButton, Textarea } from './ui'
@@ -125,14 +125,37 @@ export default memo(function ChatMessageItem({
       historyItems.push(...fromChatHistorySegments(segments))
     }
   }
+  // 检索来源发生在首次模型请求之前，归入第一轮的过程组展示（与流式一致）
+  const webResults = (() => {
+    if (message.role !== 'assistant' || !message.searchResultsJson) return []
+    try {
+      return (JSON.parse(message.searchResultsJson) as Array<Record<string, unknown>>).map((r) => toCamelKeys<{ title: string; url: string; snippet: string }>(r))
+    } catch { return [] }
+  })()
+  const knowledgeResults = (() => {
+    if (message.role !== 'assistant' || !message.knowledgeResultsJson) return []
+    try {
+      return (JSON.parse(message.knowledgeResultsJson) as Array<Record<string, unknown>>).map((r) => toCamelKeys<{ title: string; contentSnippet: string; id: string }>(r))
+    } catch { return [] }
+  })()
+  const memoryResults = (() => {
+    if (message.role !== 'assistant' || !message.memoryResultsJson) return []
+    try {
+      return (JSON.parse(message.memoryResultsJson) as Array<Record<string, unknown>>).map((r) => toCamelKeys<{ id: string; content: string; category?: string; score?: number }>(r))
+    } catch { return [] }
+  })()
+  const retrievalCards = webResults.length > 0 || knowledgeResults.length > 0 || memoryResults.length > 0
+    ? (
+      <>
+        <RetrievalResultCard kind="web" results={webResults} />
+        <RetrievalResultCard kind="knowledge" results={knowledgeResults.map(r => ({ title: r.title, snippet: r.contentSnippet }))} />
+        <RetrievalResultCard kind="memory" results={memoryResults} />
+      </>
+    )
+    : undefined
   return (
     <div className={`group relative flex ${isUser ? 'justify-end' : ''}`}>
       <div className={`flex min-w-0 flex-1 flex-col ${isUser ? 'items-end' : ''}`}>
-        {isUser && (
-          <div className="mb-1 px-1 text-[11px] text-gray-400 dark:text-gray-500">
-            {new Date(message.createdAt).toLocaleTimeString(uiLocale(), { hour: '2-digit', minute: '2-digit' })}
-          </div>
-        )}
         {/* Copilot 式瀑布流：用户消息右浮动；AI 回复按 思考 → 工具调用 → 引用 → 正文 纵向堆叠 */}
         {/* overflow-wrap:anywhere 让 base64/URL/CSV 这类无空格长串能断行（同时影响 min-content，w-fit 气泡才会收缩），否则会横向撑破气泡 */}
         {/* 用户气泡用淡蓝表面；AI 回复不加气泡，过程卡片与正文直接排列 */}
@@ -161,8 +184,9 @@ export default memo(function ChatMessageItem({
             <>
               {!isUser && historyItems.length > 0 && (
                 <div className="mb-3">
-                  <AgentTimeline
+                  <AgentChatTimeline
                     items={historyItems}
+                    intro={retrievalCards}
                     renderText={(source) => (
                       <div className="prose prose-sm dark:prose-invert max-w-none">
                         <ThemedMarkdown source={source} />
@@ -175,32 +199,14 @@ export default memo(function ChatMessageItem({
                 isUser ? (
                   <UserMessageContent content={message.content} />
                 ) : (
-                  <div className="prose prose-sm dark:prose-invert max-w-none">
-                    <ThemedMarkdown source={message.content} />
-                  </div>
+                  <>
+                    {historyItems.length === 0 && retrievalCards}
+                    <div className="prose prose-sm dark:prose-invert max-w-none">
+                      <ThemedMarkdown source={message.content} />
+                    </div>
+                  </>
                 )
               )}
-              {message.role === 'assistant' && message.searchResultsJson && (() => {
-                try {
-                  const results = (JSON.parse(message.searchResultsJson) as Array<Record<string, unknown>>).map((r) => toCamelKeys<{ title: string; url: string; snippet: string }>(r))
-                  if (results.length === 0) return null
-                  return <RetrievalResultCard kind="web" results={results} />
-                } catch { return null }
-              })()}
-              {message.role === 'assistant' && message.knowledgeResultsJson && (() => {
-                try {
-                  const results = (JSON.parse(message.knowledgeResultsJson) as Array<Record<string, unknown>>).map((r) => toCamelKeys<{ title: string; contentSnippet: string; id: string }>(r))
-                  if (results.length === 0) return null
-                  return <RetrievalResultCard kind="knowledge" results={results.map(r => ({ title: r.title, snippet: r.contentSnippet }))} />
-                } catch { return null }
-              })()}
-              {message.role === 'assistant' && message.memoryResultsJson && (() => {
-                try {
-                  const results = (JSON.parse(message.memoryResultsJson) as Array<Record<string, unknown>>).map((r) => toCamelKeys<{ id: string; content: string; category?: string; score?: number }>(r))
-                  if (results.length === 0) return null
-                  return <RetrievalResultCard kind="memory" results={results} />
-                } catch { return null }
-              })()}
               {message.role === 'assistant' && (message.tokensUsed ?? 0) > 0 && (
                 <div className="mt-1.5 flex items-center gap-1 text-[10px] text-gray-400">
                   <Coins size={10} />
@@ -217,6 +223,11 @@ export default memo(function ChatMessageItem({
         {/* 操作栏：气泡下方的副标题行，图标弱化显示、悬停整行提亮 */}
         {!isEditing && (
           <div className="mt-1.5 flex items-center gap-0.5 opacity-60 transition-opacity group-hover:opacity-100">
+            {isUser && (
+              <span className="mr-1 pl-1 text-[11px] tabular-nums text-gray-400 dark:text-gray-500">
+                {formatDateTime(message.createdAt, { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
+              </span>
+            )}
             <IconButton variant="ghost" tone="gray" className="rounded-md p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300" label={t('common:copy')} onClick={() => onCopy(message.id, message.content)}
               
               title={t('common:copy')}

@@ -60,7 +60,9 @@ export default function RetrievalResultCard({ kind, results }: RetrievalResultCa
         <span className="flex h-4 w-4 shrink-0 items-center justify-center text-gray-400">
           {open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
         </span>
-        <Icon size={13} className={`shrink-0 ${config.tone}`} />
+        <span className="flex h-4 w-4 shrink-0 items-center justify-center">
+          <Icon size={13} className={config.tone} />
+        </span>
         <span className="shrink-0 text-[11px] font-medium text-gray-500 dark:text-gray-400">
           {t(config.label)} · {results.length}
         </span>

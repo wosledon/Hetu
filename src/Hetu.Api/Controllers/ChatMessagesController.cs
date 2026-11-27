@@ -362,7 +362,7 @@ public class ChatMessagesController : ControllerBase
             var toolCallsJson = loopResult.Timeline.Count > 0
                 ? JsonSerializer.Serialize(loopResult.Timeline, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase })
                 : null;
-            await _chatMessageService.SaveAssistantMessageAsync(topicId,
+            var saved = await _chatMessageService.SaveAssistantMessageAsync(topicId,
                 finalContent, modelId,
                 !string.IsNullOrEmpty(loopResult.Thinking) ? loopResult.Thinking : null,
                 searchJson, kbJson, memJson,
@@ -374,6 +374,17 @@ public class ChatMessagesController : ControllerBase
                 outputTokens: loopResult.Usage.CompletionTokens > 0 ? loopResult.Usage.CompletionTokens : null,
                 toolCallsJson: toolCallsJson,
                 cancellationToken: CancellationToken.None);
+            // 直接下发落库结果（连同本轮用户消息）：前端原地入库即可，不必整页回读，
+            // 避免「预览 → 重新拉列表」的可见刷新
+            if (saved != null)
+            {
+                await writer.WriteJsonAsync(new
+                {
+                    type = "saved",
+                    userMessage = userMsgResult.Data,
+                    message = ChatMessageService.ToDto(saved),
+                });
+            }
         }
 
         // 用量按「一次模型请求一行」由 Agent 循环内部落库（含本轮全部迭代），这里不再记轮级汇总

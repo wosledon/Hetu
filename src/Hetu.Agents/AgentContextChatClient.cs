@@ -491,13 +491,21 @@ internal sealed class AgentContextChatClient : DelegatingChatClient
         }
     }
 
+    /// <summary>
+    /// 合并同一次流式响应里的多条 UsageContent。
+    /// 标准 OpenAI 只在末尾发一次汇总；StepFun 等提供商会每个分片都带一份累计用量。
+    /// 累计快照必须取各字段最大值——相加会把 prompt 重复计 N 次，
+    /// completion 变成 1+2+…+N 的三角数（曾导致 4 秒回复显示 8 万 token）。
+    /// </summary>
     private static UsageDetails MergeUsage(UsageDetails? current, UsageDetails? delta)
     {
         if (delta == null) return current ?? new UsageDetails();
         if (current == null) return delta;
-        current.InputTokenCount = (current.InputTokenCount ?? 0) + (delta.InputTokenCount ?? 0);
-        current.OutputTokenCount = (current.OutputTokenCount ?? 0) + (delta.OutputTokenCount ?? 0);
-        current.CachedInputTokenCount = (current.CachedInputTokenCount ?? 0) + (delta.CachedInputTokenCount ?? 0);
+        current.InputTokenCount = Math.Max(current.InputTokenCount ?? 0, delta.InputTokenCount ?? 0);
+        current.OutputTokenCount = Math.Max(current.OutputTokenCount ?? 0, delta.OutputTokenCount ?? 0);
+        current.TotalTokenCount = Math.Max(current.TotalTokenCount ?? 0, delta.TotalTokenCount ?? 0);
+        current.CachedInputTokenCount = Math.Max(current.CachedInputTokenCount ?? 0, delta.CachedInputTokenCount ?? 0);
+        current.ReasoningTokenCount = Math.Max(current.ReasoningTokenCount ?? 0, delta.ReasoningTokenCount ?? 0);
         return current;
     }
 

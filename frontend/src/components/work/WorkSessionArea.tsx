@@ -18,14 +18,14 @@ import type { IWorkSession, IWorkMessage, IWorkProject, WorkPermissionMode, IWor
 import ThemedMarkdown from '../ThemedMarkdown'
 import UserMessageContent from '../UserMessageContent'
 import { wrapLongTextBlock } from '../../utils/longText'
-import { uiLocale } from '../../utils/locale'
+import { formatDateTime } from '../../utils/locale'
 import { useStickToBottom } from '../../hooks/useStickToBottom'
 import { consumeSseStream, SSE_ERROR_PREFIX } from '../../utils/sse'
 import { createSubagentCoalescer, formatTokens, mergeSubagentEntries, parseAgentFrame, subagentStage, type AgentUsage, type SubagentEntry, type SubagentFrame } from '../../utils/agentStream'
 import ConversationRail from '../ConversationRail'
 
 import AgentUsageBadge from '../agent/AgentUsageBadge'
-import AgentTimeline from '../agent/AgentTimeline'
+import AgentChatTimeline from '../agent/AgentChatTimeline'
 import AgentWorkingIndicator from '../agent/AgentWorkingIndicator'
 import RunningIndicator from './RunningIndicator'
 import AgentFileChangeRow from '../agent/AgentFileChangeRow'
@@ -874,6 +874,11 @@ export default function WorkSessionArea({
   }, [historyMessages])
 
   const streamTimelineItems = useMemo(() => fromWorkStreamItems(streamItems), [streamItems])
+  // 本轮回复已落库并刷新到消息列表：同帧隐藏流式预览，
+  // 否则「落库消息 + 预览」会重复一帧再消失，看起来像整个回复刷新了一下
+  const liveTurnPersisted = streamTurnStartedAt > 0 && messages.some(
+    (m) => m.role === 'assistant' && new Date(m.createdAt).getTime() >= streamTurnStartedAt,
+  )
 
   // 刚发出且后端尚未在历史中持久化的消息 → 派生展示（持久化后自动让位）
   // 判据必须同时满足「内容与待发消息一致 + 时间不早于发送时刻」：只用内容相等会把上一轮
@@ -1518,7 +1523,7 @@ export default function WorkSessionArea({
   // 会话已开始（发过消息或已建好工作树）：工作区/分支固定，输入框里不再展示切换按钮
   const sessionStarted = messages.length > 0 || !!session.worktreePath || isStreaming
   // 空会话：起步引导与输入框一起居中展示
-  const emptyConversation = !messagesLoading && messages.length === 0 && !isStreaming && !pendingUser && lastUserIndex < 0
+  const emptyConversation = !messagesLoading && messages.length === 0 && !isStreaming && !pendingUser && lastUserIndex < 0 && streamItems.length === 0
   // 空会话：只保留起步示例，与输入框一起居中（图标/标题/描述不展示）
   const emptyStart = (
     <div className="mb-3 flex flex-wrap items-center justify-center gap-1.5">
@@ -1540,9 +1545,19 @@ export default function WorkSessionArea({
   }
 
   return (
-    <div ref={containerRef} className="flex min-h-0 min-w-0 flex-1 flex-col">
+    <div ref={containerRef} className="relative flex min-h-0 min-w-0 flex-1 flex-col">
+      {/* 会话背景：空会话时展示河图字标水印，开始对话后淡出（与主对话一致） */}
+      <div aria-hidden className={`pointer-events-none absolute inset-0 z-0 select-none overflow-hidden transition-opacity duration-500 ${emptyConversation ? 'opacity-100' : 'opacity-0'}`}>
+        <div className="absolute left-1/2 top-[34%] h-[min(100vw,820px)] w-[min(100vw,820px)] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(99,102,241,0.1),rgba(34,211,238,0.045)_46%,transparent_72%)] dark:bg-[radial-gradient(circle,rgba(124,92,255,0.14),rgba(34,211,238,0.05)_46%,transparent_72%)]" />
+        <img
+          src="/brand.svg"
+          alt=""
+          draggable={false}
+          className="absolute left-1/2 top-[34%] w-[min(78vw,680px)] -translate-x-1/2 -translate-y-1/2 opacity-[0.08] [mask-image:radial-gradient(closest-side_at_center,black_30%,transparent_88%)] dark:opacity-[0.11]"
+        />
+      </div>
       {/* 头部：项目会话身份在左，工作区操作在右 */}
-      <div className="relative flex h-14 shrink-0 items-center gap-2.5 border-b border-gray-200/80 bg-white/35 px-4 dark:border-white/[0.07] dark:bg-slate-950/20 sm:px-5">
+      <div className="relative z-10 flex h-14 shrink-0 items-center gap-2.5 px-4 sm:px-5">
         {isStreaming ? <RunningIndicator withLabel /> : (
           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-blue-200/70 bg-gradient-to-br from-blue-50 to-indigo-100 text-blue-600 shadow-sm dark:border-blue-400/15 dark:from-blue-500/15 dark:to-indigo-500/20 dark:text-blue-300">
             <SquareTerminal size={15} />
@@ -1604,7 +1619,7 @@ export default function WorkSessionArea({
         )}
       </div>
 
-      <div className="flex min-h-0 min-w-0 flex-1">
+      <div className="relative z-10 flex min-h-0 min-w-0 flex-1">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       {/* 消息区：瀑布流；空会话时不占位，起步引导随输入框一起居中 */}
       {!emptyConversation && (
@@ -1650,7 +1665,7 @@ export default function WorkSessionArea({
                 }
                 return (
                   <div key={`process-${i}`} className={gap}>
-                    <AgentTimeline
+                    <AgentChatTimeline
                       items={block.items}
                       onOpenPath={onOpenFilePath}
                       onRunCommand={onRunCommand}
@@ -1676,9 +1691,9 @@ export default function WorkSessionArea({
 
             {/* 本轮流式输出：思考、审批/追问、工具、正文按发生顺序穿插展示（与对话页/任务看板共用 AgentTimeline）
                 流结束后保留到消息列表刷新，避免正文在落库回读前闪断 */}
-            {(isStreaming || streamItems.length > 0) && (
+            {(isStreaming || (streamItems.length > 0 && !liveTurnPersisted)) && (
               <div>
-                <AgentTimeline
+                <AgentChatTimeline
                   items={streamTimelineItems}
                   streaming={isStreaming}
                   onOpenPath={onOpenFilePath}
@@ -1768,9 +1783,6 @@ export default function WorkSessionArea({
       <div className={emptyConversation ? 'flex min-h-0 w-full flex-1 flex-col justify-center px-4 pb-24 pt-6 sm:px-6' : 'shrink-0 px-4 pb-5 pt-2 sm:px-6'}>
         {emptyConversation && (
           <div className="mx-auto mb-8 w-full max-w-4xl text-center select-none">
-            <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl border border-blue-200/60 bg-white/70 shadow-[0_12px_32px_-14px_rgba(59,130,246,0.45)] dark:border-blue-400/15 dark:bg-white/[0.05]">
-              <SquareTerminal size={26} className="text-blue-600 dark:text-blue-300" />
-            </div>
             <h1 className="text-2xl font-semibold tracking-tight text-gray-900 dark:text-gray-50">{t('session.emptyConversationTitle')}</h1>
             <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">{project?.name ? t('session.emptyConversationSubtitleInProject', { name: project.name }) : t('session.emptyConversationSubtitle')}</p>
           </div>
@@ -2169,6 +2181,11 @@ function MessageActionBar({ message, actions }: { message: IWorkMessage; actions
   const { t } = useTranslation('work')
   return (
     <div className="mt-1 flex items-center gap-0.5 opacity-60 transition-opacity group-hover:opacity-100">
+      {message.role === 'user' && (
+        <span className="mr-1 pl-1 text-[11px] tabular-nums text-gray-400 dark:text-gray-500">
+          {formatDateTime(message.createdAt, { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
+        </span>
+      )}
       <IconButton variant="ghost" tone="gray" className="rounded-md p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300" label={t('common:copy')} onClick={() => actions.onCopy(message.id, message.content)}
         title={t('common:copy')}
         aria-label={t('common:copy')}>
@@ -2195,7 +2212,6 @@ function UserBubble({ message, actions }: { message: IWorkMessage; actions?: Mes
   return (
     <div className="group flex justify-end">
       <div className="flex min-w-0 max-w-[85%] flex-col items-end">
-        <div className="px-1 pb-1 text-[11px] text-gray-400 dark:text-gray-500">{formatTime(message.createdAt)}</div>
         {editing && actions ? (
           <Card className="w-full min-w-[280px] p-2">
             <MessageEditor
@@ -2301,10 +2317,7 @@ function CheckpointRow({ message }: { message: IWorkMessage }) {
 }
 
 
-function formatTime(iso: string): string {
-  const d = new Date(iso)
-  return Number.isNaN(d.getTime()) ? '' : d.toLocaleTimeString(uiLocale(), { hour: '2-digit', minute: '2-digit' })
-}
+
 
 
 

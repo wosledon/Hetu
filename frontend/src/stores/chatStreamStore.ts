@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { useInteractionStore } from './interactionStore'
+import type { IChatMessage } from '../types'
 import { EMPTY_USAGE, mergeSubagentEntries, parseAgentFrame, subagentStage, type AgentUsage, type SubagentEntry } from '../utils/agentStream'
 
 export interface StreamingToolCall {
@@ -89,6 +90,9 @@ export interface TopicStreamState {
   startedAt: number
   /** 本次流失败的原因；不随流式预览一起清空，直到下次发送才重置 */
   streamError: string
+  /** 后端落库后的本轮消息（saved 帧）：本地入缓存替换流式预览，不用整页回读 */
+  savedUserMessage: IChatMessage | null
+  savedAssistantMessage: IChatMessage | null
   /** 后端上下文提示（自动压缩等），输入框上方提示条 */
   notice: string
 }
@@ -113,6 +117,8 @@ const emptyTopic = (): TopicStreamState => ({
   startedAt: 0,
   streamError: '',
   notice: '',
+  savedUserMessage: null,
+  savedAssistantMessage: null,
 })
 
 interface ChatStreamStore {
@@ -335,6 +341,11 @@ export const useChatStreamStore = create<ChatStreamStore>((set, get) => {
             // 上下文提示（自动压缩等）：挂在流状态上，由会话区渲染成提示条
             next.notice = String(chunk.text ?? '')
             break
+          case 'saved':
+            // 后端落库结果：对话区据此原地替换预览，不再整页回读
+            next.savedUserMessage = (chunk.userMessage as IChatMessage | undefined) ?? null
+            next.savedAssistantMessage = (chunk.message as IChatMessage | undefined) ?? null
+            break
           case 'done':
             // 输出已结束：后续可能只是服务端后处理，界面不再显示「回复中」
             next.isStreaming = false
@@ -359,6 +370,8 @@ export const useChatStreamStore = create<ChatStreamStore>((set, get) => {
         usedWebSearch: false,
         usedKnowledgeBase: false,
         usedMemory: false,
+        savedUserMessage: null,
+        savedAssistantMessage: null,
       })
       // 交互型工具状态同样在消息刷新后清理（已提交的提问/任务不再停留在抽屉）
       useInteractionStore.getState().clear(topicId)

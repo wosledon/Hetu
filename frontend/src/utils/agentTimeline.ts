@@ -66,6 +66,40 @@ export type FoldedAgentItem =
   | { kind: 'tool'; items: ToolCallEntry[] }
   | { kind: 'other'; item: AgentTimelineItem }
 
+/** 对话流展示段：两次文本输出之间的过程折叠成一组，文本输出本身按顺序直接展示 */
+export type AgentChatSegment =
+  | { kind: 'text'; text: string }
+  | { kind: 'process'; items: AgentTimelineItem[] }
+
+/**
+ * 按文本输出切分对话流：思考 / 工具调用 / 审批 / 文件 / 检查点 / 子 Agent
+ * 归入两次文本之间的过程组；没有工具调用的纯文本消息只剩文本段。
+ */
+export function splitAgentSegments(items: AgentTimelineItem[]): AgentChatSegment[] {
+  const segments: AgentChatSegment[] = []
+  let process: AgentTimelineItem[] = []
+  const flush = () => {
+    if (process.length === 0) return
+    segments.push({ kind: 'process', items: process })
+    process = []
+  }
+
+  for (const item of items) {
+    if (item.kind === 'text') {
+      flush()
+      const last = segments[segments.length - 1]
+      // store 已合并连续文本；这里再兜一层，避免调用方直接拼出连续文本段
+      if (last?.kind === 'text') last.text += item.text
+      else segments.push({ kind: 'text', text: item.text })
+      continue
+    }
+    process.push(item)
+  }
+  flush()
+
+  return segments
+}
+
 /**
  * 把时间线折叠为展示项：思考块开启一组，紧随其后的工具归入该组（组内保序）；
  * 没有思考打头的工具调用各自独立成行，不再折叠。

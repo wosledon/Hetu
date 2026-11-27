@@ -8,7 +8,7 @@
  * 事件集合取三者的并集（缺的字段由后端补发或忽略）：
  * content / thinking / tool_call / tool_result / approval_request /
  * question / todo / plan / usage / file_change / checkpoint / subagent /
- * search_results / knowledge_results / memory_results / debug / done
+ * search_results / knowledge_results / memory_results / debug / saved / done
  */
 
 export const SSE_ERROR_PREFIX = '[ERROR]'
@@ -139,6 +139,8 @@ export type AgentEvent =
   | { type: 'debug'; text: string }
   | { type: 'notice'; kind: string; text: string }
   | { type: 'steering'; text: string }
+  /** 本轮落库结果：用户消息 + 助手消息（对话页原地入缓存，避免整页回读） */
+  | { type: 'saved'; userMessage: unknown; message: unknown }
   | { type: 'done' }
   /** 已知类型之外的事件：保留原样，端上按需扩展而不丢帧 */
   | { type: 'unknown'; raw: Record<string, unknown> }
@@ -303,6 +305,8 @@ export function parseAgentFrame(data: string): ParseResult {
       return { event: { type: 'notice', kind: str(raw.kind, 'info'), text: str(raw.text) } }
     case 'steering':
       return { event: { type: 'steering', text: str(raw.text) } }
+    case 'saved':
+      return { event: { type: 'saved', userMessage: raw.userMessage, message: raw.message } }
     case 'done':
       return { event: { type: 'done' } }
     default:

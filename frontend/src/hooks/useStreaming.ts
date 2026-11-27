@@ -75,6 +75,9 @@ export function useStreaming(topicId: string | undefined) {
     streamingToolResults: s.toolResults,
     setStreamingToolResults,
     approvalRequests: s.approvalRequests as ApprovalRequest[],
+    /** 后端落库后的本轮用户/助手消息（原地替换预览用） */
+    savedUserMessage: s.savedUserMessage,
+    savedAssistantMessage: s.savedAssistantMessage,
     /** 本次流累计用量：对话页用量徽标与编码会话顶栏共用同一份快照 */
     usage: s.usage,
     streamError: s.streamError,

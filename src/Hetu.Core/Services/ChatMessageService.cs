@@ -19,7 +19,7 @@ public class ChatMessageService : IChatMessageService
     public async Task<ApiResponse<List<ChatMessageDto>>> GetByTopicAsync(Guid topicId, CancellationToken cancellationToken = default)
     {
         var messages = await _unitOfWork.ChatMessages.FindAsync(m => m.TopicId == topicId, cancellationToken);
-        return ApiResponse<List<ChatMessageDto>>.Ok(messages.OrderBy(m => m.CreatedAt).Select(Map).ToList());
+        return ApiResponse<List<ChatMessageDto>>.Ok(messages.OrderBy(m => m.CreatedAt).Select(ToDto).ToList());
     }
 
     public async Task<ApiResponse<PagedResult<ChatMessageDto>>> GetByTopicPageAsync(Guid topicId, int page, int pageSize, CancellationToken cancellationToken = default)
@@ -37,7 +37,7 @@ public class ChatMessageService : IChatMessageService
         messages.Reverse();
         return ApiResponse<PagedResult<ChatMessageDto>>.Ok(new PagedResult<ChatMessageDto>
         {
-            Items = messages.Select(Map).ToList(),
+            Items = messages.Select(ToDto).ToList(),
             TotalCount = total,
             Page = page,
             PageSize = pageSize
@@ -77,7 +77,7 @@ public class ChatMessageService : IChatMessageService
         await _unitOfWork.ChatTopics.TouchUpdatedAtAsync(topicId, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        return ApiResponse<ChatMessageDto>.Ok(Map(message));
+        return ApiResponse<ChatMessageDto>.Ok(ToDto(message));
     }
 
     public async Task<ApiResponse<ChatMessageDto>> UpdateAsync(Guid id, UpdateChatMessageRequest request, CancellationToken cancellationToken = default)
@@ -92,7 +92,7 @@ public class ChatMessageService : IChatMessageService
         await _unitOfWork.ChatTopics.TouchUpdatedAtAsync(message.TopicId, cancellationToken);
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
-        return ApiResponse<ChatMessageDto>.Ok(Map(message));
+        return ApiResponse<ChatMessageDto>.Ok(ToDto(message));
     }
 
     public async Task<ApiResponse> DeleteAsync(Guid id, CancellationToken cancellationToken = default)
@@ -157,7 +157,7 @@ public class ChatMessageService : IChatMessageService
         return messages;
     }
 
-    private static ChatMessageDto Map(ChatMessage message) => new()
+    public static ChatMessageDto ToDto(ChatMessage message) => new()
     {
         Id = message.Id,
         TopicId = message.TopicId,

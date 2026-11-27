@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, useCallback, lazy, Suspense } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback, lazy, Suspense } from 'react'
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Bot, FileText, Search, GitBranch, X, Globe, Database, ChevronDown, ArrowDown, Loader2, Zap, AlertCircle, Eraser, Gauge } from 'lucide-react'
@@ -14,7 +14,7 @@ import ChatMessageItem from './ChatMessageItem'
 import ConversationRail from './ConversationRail'
 
 import AgentUsageBadge from './agent/AgentUsageBadge'
-import AgentTimeline from './agent/AgentTimeline'
+import AgentChatTimeline from './agent/AgentChatTimeline'
 import AgentThoughtBlock from './agent/AgentThoughtBlock'
 import RetrievalResultCard from './RetrievalResultCard'
 import AgentWorkingIndicator from './agent/AgentWorkingIndicator'
@@ -43,7 +43,7 @@ import { loadTopicSettings, saveTopicSettings } from '../utils/topicSettings'
 import { wrapLongTextBlock } from '../utils/longText'
 import { useStickToBottom } from '../hooks/useStickToBottom'
 import { consumeSseStream } from '../utils/sse'
-import type { IChatTopic, IPromptPreset, ISkill } from '../types'
+import type { IChatMessage, IChatTopic, IPagedResult, IPromptPreset, ISkill } from '../types'
 import { Button, Card, IconButton, SearchInput } from './ui'
 
 const InlineWorkflowPanel = lazy(() => import('./workflow/InlineWorkflowPanel'))
@@ -82,11 +82,24 @@ async function consumeChatStream(topicId: string, startRequest: (signal: AbortSi
   } finally {
     chatStreamControl.unregister(topicId)
     store.stop(topicId)
-    // 延迟清除流式状态，等消息列表刷新后再清理，避免闪烁
-    setTimeout(() => store.clearAfterPersist(topicId), 500)
   }
   const streamError = useChatStreamStore.getState().streams[topicId]?.streamError
   return !controller.signal.aborted && !failed && !streamError
+}
+
+/**
+ * 落库消息刷新后清掉流式预览；只在流已停止时执行，避免误清刚启动的下一轮。
+ * 由「消息刷新」驱动而不是盲等固定时长：刷新慢时预览不会先消失再出现。
+ */
+function clearStreamAfterPersist(topicId: string) {
+  const state = useChatStreamStore.getState()
+  const stream = state.streams[topicId]
+  if (stream && !stream.isStreaming) state.clearAfterPersist(topicId)
+}
+
+/** 失败/中止时兜底：给后端落库留一点时间，再按"流已停止"条件清理 */
+function scheduleStreamClear(topicId: string) {
+  window.setTimeout(() => clearStreamAfterPersist(topicId), 1200)
 }
 
 export default function ChatMessageArea({ topic, onTopicUpdated, projectId }: ChatMessageAreaProps) {
@@ -121,6 +134,7 @@ export default function ChatMessageArea({ topic, onTopicUpdated, projectId }: Ch
     streamingToolResults,
     usage,
     streamError, setStreamError,
+    savedUserMessage, savedAssistantMessage,
     startStreaming, stopStreaming,
   } = useStreaming(topicId)
 
@@ -170,6 +184,8 @@ export default function ChatMessageArea({ topic, onTopicUpdated, projectId }: Ch
   const { scrollRef, following, onScroll, followBottom, scrollToBottomNow } = useStickToBottom()
   const prevPendingUserRef = useRef<string | null>(null)
   const loadingOlderRef = useRef<{ scrollHeight: number; scrollTop: number } | null>(null)
+  /** 本轮已通过 saved 帧原地入缓存的助手消息 id */
+  const savedTurnRef = useRef<string | null>(null)
 
   // 默认只取最新一页，避免长会话一次加载全部历史；「加载更早」时扩大窗口
   const [messagePageSize, setMessagePageSize] = useState(100)
@@ -348,18 +364,38 @@ export default function ChatMessageArea({ topic, onTopicUpdated, projectId }: Ch
     scrollToBottomNow()
   }, [topic?.id, scrollToBottomNow])
 
-  // Clear streaming display when messages are refreshed (after query invalidation).
-  // The persisted message from the backend is the canonical response — once it arrives,
-  // the streaming preview block should fully disappear.
-  useEffect(() => {
+  // 落库消息到达后清掉流式预览。用 layout effect 在绘制前完成切换：
+  // 普通 effect 会先画出「持久化消息 + 流式预览」重复的一帧，看起来像刷新了一下。
+  useLayoutEffect(() => {
     if (!topicId) return
     const s = useChatStreamStore.getState().streams[topicId]
-    if (s && !s.isStreaming && (s.streamingContent || s.streamingThinking || s.searchResults.length > 0 || s.knowledgeResults.length > 0 || s.memoryResults.length > 0 || s.toolResults.length > 0)) {
+    if (s && !s.isStreaming && (s.streamingContent || s.streamingThinking || s.searchResults.length > 0 || s.knowledgeResults.length > 0 || s.memoryResults.length > 0 || s.toolResults.length > 0 || s.timeline.length > 0)) {
       useChatStreamStore.getState().clearAfterPersist(topicId)
     }
     // Intentionally only react to messages list changes (post-stream refresh).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages])
+
+  // 后端 saved 帧：把本轮提问与回复原地写进消息缓存并同帧撤掉预览，不再整页回读；
+  // 只有缓存不存在（草稿话题首轮等）才回落到 .then 里的回读兜底。
+  useLayoutEffect(() => {
+    if (!topicId || !topic?.id || isStreaming || !savedAssistantMessage) return
+    const key = ['chatMessages', topic.id, messagePageSize]
+    const cached = queryClient.getQueryData<IPagedResult<IChatMessage>>(key)
+    if (!cached) return
+    const pending = [savedUserMessage, savedAssistantMessage].filter(
+      (m): m is IChatMessage => m !== null && !cached.items.some((x) => x.id === m.id),
+    )
+    if (pending.length > 0) {
+      queryClient.setQueryData<IPagedResult<IChatMessage>>(key, {
+        ...cached,
+        items: [...cached.items, ...pending],
+        totalCount: cached.totalCount + pending.length,
+      })
+    }
+    savedTurnRef.current = savedAssistantMessage.id
+    clearStreamAfterPersist(topicId)
+  }, [topicId, topic?.id, isStreaming, savedUserMessage, savedAssistantMessage, messagePageSize, queryClient])
 
   // Close dropdowns on click outside
   useEffect(() => {
@@ -555,6 +591,7 @@ export default function ChatMessageArea({ topic, onTopicUpdated, projectId }: Ch
         return
       }
     }
+    savedTurnRef.current = null
     startStreaming(activeId, { content, webSearch, knowledgeBase, memory })
 
     const images: { data: string; mimeType: string; fileName?: string }[] = []
@@ -616,8 +653,14 @@ export default function ChatMessageArea({ topic, onTopicUpdated, projectId }: Ch
         // 会话级上下文上限（选择更小的窗口时后端按预算裁剪历史）
         contextWindow,
       }, signal),
-    ).then((completed) => {
-      queryClient.invalidateQueries({ queryKey: ['chatMessages', activeId] })
+    ).then(async (completed) => {
+      // saved 帧已在本地入缓存时不再回读消息列表；只有失败或没拿到落库结果才兜底刷新
+      const pendingSaved = useChatStreamStore.getState().streams[activeId]?.savedAssistantMessage
+      if (!completed || (!pendingSaved && !savedTurnRef.current)) {
+        await queryClient.invalidateQueries({ queryKey: ['chatMessages', activeId] })
+        if (!completed) scheduleStreamClear(activeId)
+      }
+      void queryClient.invalidateQueries({ queryKey: ['chatTopics'] })
       notifyDraftTopic()
       if (completed) flushQueue(activeId)
     })
@@ -650,6 +693,7 @@ export default function ChatMessageArea({ topic, onTopicUpdated, projectId }: Ch
     const [queued, ...rest] = queueRef.current
     if (!queued) return
     updateQueue(() => rest)
+    savedTurnRef.current = null
     startStreaming(id, { content: queued.content, webSearch, knowledgeBase, memory })
     void consumeChatStream(id, (signal) =>
       chatMessageService.stream(id, {
@@ -662,8 +706,13 @@ export default function ChatMessageArea({ topic, onTopicUpdated, projectId }: Ch
         permissionMode,
         contextWindow,
       }, signal),
-    ).then((completed) => {
-      queryClient.invalidateQueries({ queryKey: ['chatMessages', id] })
+    ).then(async (completed) => {
+      const pendingSaved = useChatStreamStore.getState().streams[id]?.savedAssistantMessage
+      if (!completed || (!pendingSaved && !savedTurnRef.current)) {
+        await queryClient.invalidateQueries({ queryKey: ['chatMessages', id] })
+        if (!completed) scheduleStreamClear(id)
+      }
+      void queryClient.invalidateQueries({ queryKey: ['chatTopics'] })
       notifyDraftTopic()
       if (completed) flushQueue(id)
     })
@@ -829,8 +878,11 @@ export default function ChatMessageArea({ topic, onTopicUpdated, projectId }: Ch
     )
   }
 
-  // 空会话：不展示图标/标题/描述，只把输入框居中
-  const emptyChat = !messagesLoading && messages.length === 0 && !isStreaming
+  // 空会话：不展示图标/标题/描述，只把输入框居中。
+  // 流刚结束、消息还没刷新回来时保持对话布局，避免首轮回复末尾整块闪回空态。
+  const emptyChat = !messagesLoading && messages.length === 0
+    && !isStreaming && !pendingUserMessage && !streamingContent && !streamingThinking
+    && timeline.length === 0 && !streamError
 
   return (
     <div ref={containerRef} className="relative flex min-h-0 min-w-0 flex-1 flex-col">
@@ -957,18 +1009,24 @@ export default function ChatMessageArea({ topic, onTopicUpdated, projectId }: Ch
           <div className="flex flex-col">
               {/* 瀑布流：按时间线顺序穿插渲染 思考 → 工具调用 → 文本，与编码会话/任务看板共用 AgentTimeline */}
               <div className="text-gray-800 dark:text-gray-100">
-                <AgentTimeline
+                <AgentChatTimeline
                   items={chatTimelineItems}
                   streaming={isStreaming}
                   onApprove={handleApprove}
+                  intro={streamingSearchResults.length > 0 || streamingKnowledgeResults.length > 0 || streamingMemoryResults.length > 0
+                    ? (
+                      <>
+                        <RetrievalResultCard kind="web" results={streamingSearchResults} />
+                        <RetrievalResultCard kind="knowledge" results={streamingKnowledgeResults.map(r => ({ title: r.title, snippet: r.contentSnippet }))} />
+                        <RetrievalResultCard kind="memory" results={streamingMemoryResults} />
+                      </>
+                    )
+                    : undefined}
                 />
                 {/* 时间线为空但仍有思考内容的降级渲染 */}
                 {timeline.length === 0 && streamingThinking && (
                   <div className="mb-3"><AgentThoughtBlock text={streamingThinking} streaming={isStreaming} /></div>
                 )}
-                <RetrievalResultCard kind="web" results={streamingSearchResults} />
-                <RetrievalResultCard kind="knowledge" results={streamingKnowledgeResults.map(r => ({ title: r.title, snippet: r.contentSnippet }))} />
-                <RetrievalResultCard kind="memory" results={streamingMemoryResults} />
               </div>
           </div>
         )}
