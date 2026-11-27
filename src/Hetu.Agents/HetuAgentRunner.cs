@@ -7,8 +7,10 @@ using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.VectorData;
 using ModelContextProtocol.Client;
 using AiChatOptions = Microsoft.Extensions.AI.ChatOptions;
+using AppSetting = Hetu.Core.Entities.AppSetting;
 
 namespace Hetu.Agents;
 
@@ -121,11 +123,12 @@ internal sealed class HetuAgentRunner : IAgentRunner
         var state = prepared.State;
         var maxIterations = prepared.MaxIterations;
 
+        AgentSession? session = null;
         try
         {
             var agent = prepared.Agent;
             var inputMessages = prepared.InputMessages;
-            var session = await agent.CreateSessionAsync(ct);
+            session = await LoadOrCreateSessionAsync(agent, request, ct);
             var runOptions = new ChatClientAgentRunOptions();
             var input = inputMessages;
             var continuation = 0;
@@ -256,8 +259,64 @@ internal sealed class HetuAgentRunner : IAgentRunner
             try { await state.Sink.OnErrorAsync(ex.Message); } catch { }
         }
 
+        if (session is not null)
+            await PersistSessionAsync(prepared.Agent, session, request, CancellationToken.None);
+
         return state.Result;
     }
+
+    private async Task<AgentSession> LoadOrCreateSessionAsync(
+        AIAgent agent,
+        AgentLoopRequest request,
+        CancellationToken ct)
+    {
+        if (request.ChatHistoryProvider is null || string.IsNullOrWhiteSpace(request.SessionId))
+            return await agent.CreateSessionAsync(ct);
+
+        var key = SessionKey(request);
+        try
+        {
+            var setting = await _unitOfWork.AppSettings.GetByKeyAsync(key, ct);
+            if (!string.IsNullOrWhiteSpace(setting?.Value))
+            {
+                using var doc = JsonDocument.Parse(setting.Value);
+                return await agent.DeserializeSessionAsync(doc.RootElement, cancellationToken: ct);
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex, "[Agent] 恢复会话失败，创建新会话 session={SessionId}", request.SessionId);
+        }
+        return await agent.CreateSessionAsync(ct);
+    }
+
+    private async Task PersistSessionAsync(
+        AIAgent agent,
+        AgentSession session,
+        AgentLoopRequest request,
+        CancellationToken ct)
+    {
+        if (request.ChatHistoryProvider is null || string.IsNullOrWhiteSpace(request.SessionId)) return;
+
+        try
+        {
+            var state = await agent.SerializeSessionAsync(session, cancellationToken: ct);
+            await _unitOfWork.AppSettings.SetAsync(new AppSetting
+            {
+                Key = SessionKey(request),
+                Value = state.GetRawText(),
+                UpdatedAt = DateTimeOffset.UtcNow,
+            }, ct);
+            await _unitOfWork.SaveChangesAsync(ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex, "[Agent] 保存会话失败 session={SessionId}", request.SessionId);
+        }
+    }
+
+    private static string SessionKey(AgentLoopRequest request)
+        => $"agent-session:{request.ModelId?.ToString() ?? "default"}:{request.SessionId}";
 
     public async Task<(AIFunction Function, AgentLoopResult Result)> CreateSubAgentFunctionAsync(
         AgentLoopRequest request,
@@ -292,16 +351,19 @@ internal sealed class HetuAgentRunner : IAgentRunner
             ? ([], (IReadOnlyList<ChatMessage>)state.ChatMessages)
             : SplitHistoryMessages(state.ChatMessages);
         var inputChars = (int)ChatMessageMetrics.CountChars(inputMessages);
-        var options = BuildAgentOptions(state, resolved, history, inputChars);
+        var historyMemory = await CreateHistoryMemoryProviderAsync(request, resolved, ct);
+        var options = BuildAgentOptions(state, resolved, history, inputChars, historyMemory);
         var agent = _agentFactory.Create(resolved, options, state, maxIterations);
 
         if (state.Functions.Values.OfType<ApprovalRequiredAIFunction>().Any())
         {
-            agent = new ToolApprovalAgent(agent, new ToolApprovalAgentOptions
-            {
-                MaxAutoApprovalIterations = 50,
-                AutoApprovalRules = [async context => await ShouldAutoApproveAsync(state, context)],
-            });
+            agent = new AIAgentBuilder(agent)
+                .UseToolApproval(new ToolApprovalAgentOptions
+                {
+                    MaxAutoApprovalIterations = 50,
+                    AutoApprovalRules = [async context => await ShouldAutoApproveAsync(state, context)],
+                })
+                .Build(_services);
         }
 
         return new PreparedAgentRun(agent, state, inputMessages, maxIterations);
@@ -413,11 +475,47 @@ internal sealed class HetuAgentRunner : IAgentRunner
         });
     }
 
+    private async Task<AIContextProvider?> CreateHistoryMemoryProviderAsync(
+        AgentLoopRequest request,
+        ResolvedAgentModel model,
+        CancellationToken ct)
+    {
+        if (!request.EnableHistoryMemory || request.UsePerServiceCallHistoryPersistence) return null;
+        var vectorStore = _services.GetService<VectorStore>();
+        var embeddingFactory = _services.GetService<IEmbeddingProviderFactory>();
+        if (vectorStore is null || embeddingFactory is null) return null;
+
+        try
+        {
+            var embedding = await embeddingFactory.CreateEmbeddingProviderAsync(ct);
+            if (embedding is null) return null;
+            return new ChatHistoryMemoryProvider(
+                vectorStore,
+                "agent_chat_history",
+                embedding.Dimensions,
+                _ => new ChatHistoryMemoryProvider.State(new ChatHistoryMemoryProviderScope
+                {
+                    ApplicationId = "hetu",
+                    AgentId = model.Model.ModelId,
+                    SessionId = request.SessionId,
+                    UserId = "local",
+                }),
+                new ChatHistoryMemoryProviderOptions { MaxResults = 3 },
+                _services.GetService<ILoggerFactory>());
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "[Agent] 初始化会话历史向量召回失败，本轮跳过");
+            return null;
+        }
+    }
+
     private ChatClientAgentOptions BuildAgentOptions(
         AgentRunState state,
         ResolvedAgentModel model,
         IReadOnlyList<ChatMessage> history,
-        int inputChars)
+        int inputChars,
+        AIContextProvider? historyMemoryProvider)
     {
         var request = state.Request;
         var declared = state.GetDeclaredFunctions().Cast<AITool>().ToList();
@@ -430,11 +528,13 @@ internal sealed class HetuAgentRunner : IAgentRunner
         var contextProviders = new List<AIContextProvider>();
         if (request.ContextProviders != null) contextProviders.AddRange(request.ContextProviders);
         if (request.DrainSteering != null) contextProviders.Add(new SteeringContextProvider(state));
-        if (request.SkillIds is { Count: > 0 }
+        if (historyMemoryProvider is not null) contextProviders.Add(historyMemoryProvider);
+        if ((request.SkillIds is { Count: > 0 } || request.SkillDirectories is { Count: > 0 })
             && _services.GetService<ILocalSkillService>() is { } localSkills)
         {
             contextProviders.Add(new AgentSkillsProvider(
-                new HetuAgentSkillsSource(_unitOfWork, localSkills, request.SkillIds),
+                new HetuAgentSkillsSource(
+                    _unitOfWork, localSkills, request.SkillIds ?? [], request.SkillDirectories),
                 new AgentSkillsProviderOptions
                 {
                     DisableLoadSkillApproval = true,
@@ -454,11 +554,25 @@ internal sealed class HetuAgentRunner : IAgentRunner
             Reasoning = ReasoningOptionsMapper.Create(request.ReasoningEffort, request.ReasoningBudgetTokens),
         };
 
+        // Anthropic 的精确 thinking budget 只能通过原生 MessageCreateParams 表达；适配器会在此基础上补齐消息与系统提示。
+        if (model.ProviderType == "anthropic" && request.ReasoningBudgetTokens is int budget and >= 1024)
+        {
+            var maxTokens = Math.Max(request.MaxTokens ?? 4096, budget + 1024);
+            chatOptions.RawRepresentationFactory = _ => new Anthropic.Models.Messages.MessageCreateParams
+            {
+                Model = model.Model.ModelId,
+                MaxTokens = maxTokens,
+                Messages = [],
+                Thinking = new Anthropic.Models.Messages.ThinkingConfigEnabled(budget),
+            };
+        }
+
         return new ChatClientAgentOptions
         {
             Name = "hetu",
             ChatOptions = chatOptions,
             ChatHistoryProvider = CreateChatHistoryProvider(history, state, inputChars, state.ContextWindowTokens),
+            RequirePerServiceCallChatHistoryPersistence = request.UsePerServiceCallHistoryPersistence,
             AIContextProviders = contextProviders.Count > 0 ? contextProviders : null,
             UseProvidedChatClientAsIs = true,
         };

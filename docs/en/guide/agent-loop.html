@@ -103,6 +103,14 @@
         </tbody>
       </table></div>
 
+      <h2>Session persistence and long-term history</h2>
+      <ul>
+        <li>Chat / code sessions serialize the MAF <code>AgentSession</code> into <code>AppSettings</code> (key prefix <code>agent-session:</code>) and restore it across requests; message history still comes from the database.</li>
+        <li>Setting <code>EnableHistoryMemory=true</code> enables <code>ChatHistoryMemoryProvider</code>; <code>HetuChatHistoryVectorStore</code> stores messages and embeddings in local SQLite / PostgreSQL and recalls related history by cosine similarity.</li>
+        <li><code>UsePerServiceCallHistoryPersistence=true</code> makes MAF load/persist history around every inner model call; do not enable it together with <code>EnableHistoryMemory</code>.</li>
+        <li>Local projects use <code>AgentFileSkillsSource</code> for <code>.github/skills</code>; SSH projects keep <code>work_skill</code> as a remote-compatible fallback.</li>
+      </ul>
+
       <h2>Tool loading and MCP</h2>
       <ul>
         <li>MCP servers that are <strong>missing or disabled</strong> are skipped with a warning; a single server failing to load logs an error and continues the turn instead of breaking it.</li>

@@ -49,7 +49,7 @@ internal sealed class HetuAgentFactory : IAgentFactory
         {
             // AgentSkillsProvider 会往 ChatOptions 里加工具，必须在 FunctionInvokingChatClient 之上（agent 级）执行；
             // 其余消息类 provider 放进 chat client 管道，每次模型调用前都会执行。
-            if (provider is AgentSkillsProvider) agentProviders.Add(provider);
+            if (provider is AgentSkillsProvider or ChatHistoryMemoryProvider) agentProviders.Add(provider);
             else contextProviders.Add(provider);
         }
         agentOptions.AIContextProviders = agentProviders.Count > 0 ? agentProviders : null;
@@ -165,6 +165,17 @@ internal sealed class HetuAgentFactory : IAgentFactory
                 .UseAIContextProviders(contextProviders.ToArray())
                 .Build(_services);
         }
+
+        if (state.Request.UsePerServiceCallHistoryPersistence)
+        {
+            configured = new ChatClientBuilder(configured)
+                .UsePerServiceCallChatHistoryPersistence()
+                .Build(_services);
+        }
+
+        configured = new ChatClientBuilder(configured)
+            .UseOpenTelemetry(_loggerFactory, "Hetu.Agents.Chat")
+            .Build(_services);
 
         return new FunctionInvokingChatClient(configured, _loggerFactory)
         {

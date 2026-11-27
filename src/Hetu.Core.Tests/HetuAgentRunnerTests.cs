@@ -4,6 +4,7 @@ using Hetu.Agents;
 using Hetu.Core.Interfaces;
 using Hetu.Core.Services;
 using Hetu.Core.Services.Tools;
+using AppSetting = Hetu.Core.Entities.AppSetting;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -173,6 +174,47 @@ public class HetuAgentRunnerTests
         Assert.Contains(received, message => message.Content.Contains("历史问题", StringComparison.Ordinal));
         Assert.Contains(received, message => message.Content.Contains("历史回答", StringComparison.Ordinal));
         Assert.Contains(received, message => message.Content.Contains("新问题", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task RunAsync_自定义历史提供者_持久化MAFSession()
+    {
+        var settings = new Dictionary<string, AppSetting>(StringComparer.Ordinal);
+        var settingsRepo = Substitute.For<IAppSettingRepository>();
+        settingsRepo.GetByKeyAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(call => Task.FromResult(settings.GetValueOrDefault(call.Arg<string>())));
+        settingsRepo.SetAsync(Arg.Any<AppSetting>(), Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                var setting = call.Arg<AppSetting>();
+                settings[setting.Key] = setting;
+                return Task.FromResult(setting);
+            });
+        var unitOfWork = Substitute.For<IUnitOfWork>();
+        unitOfWork.AppSettings.Returns(settingsRepo);
+
+        var provider = new ScriptedProvider([
+            [ContentFrame("第一次回答"), FinishFrame("stop")],
+            [ContentFrame("第二次回答"), FinishFrame("stop")],
+        ]);
+        await using var services = CreateServices(
+            CreateExecutor("test_tool", ToolApprovalMode.Auto), provider, unitOfWork);
+        var runner = services.GetRequiredService<IAgentRunner>();
+
+        for (var i = 0; i < 2; i++)
+        {
+            var result = await runner.RunAsync(new AgentLoopRequest
+            {
+                Messages = [new ChatMessage(ChatRole.User, $"第 {i + 1} 次提问")],
+                ChatHistoryProvider = new PreloadedChatHistoryProvider([]),
+                SessionId = "persisted-session",
+                CompressHistory = false,
+            }, CancellationToken.None);
+            Assert.Null(result.Error);
+        }
+
+        Assert.Single(settings);
+        Assert.StartsWith("agent-session:", settings.Keys.Single(), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -473,7 +515,10 @@ public class HetuAgentRunnerTests
         return executor;
     }
 
-    private static ServiceProvider CreateServices(IToolExecutor executor, IScriptedModel provider)
+    private static ServiceProvider CreateServices(
+        IToolExecutor executor,
+        IScriptedModel provider,
+        IUnitOfWork? unitOfWork = null)
     {
         var localizer = Substitute.For<ILocalizer>();
         localizer.T(Arg.Any<string>(), Arg.Any<object[]>()).Returns(call => call.Arg<string>());
@@ -485,7 +530,7 @@ public class HetuAgentRunnerTests
         services.AddScoped(_ => new WorkToolContext());
         services.AddScoped(_ => registry);
         services.AddSingleton(localizer);
-        services.AddSingleton(Substitute.For<IUnitOfWork>());
+        services.AddSingleton(unitOfWork ?? Substitute.For<IUnitOfWork>());
         services.AddSingleton(Substitute.For<IAppSettingService>());
         services.AddSingleton(Substitute.For<ILogger<ToolExecutionService>>());
         services.AddSingleton(Substitute.For<ILogger<CompressionPipelineService>>());

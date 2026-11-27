@@ -273,6 +273,14 @@ public class ChatMessagesController : ControllerBase
 
         var profile = BuiltinProfiles.Knowledge;
         var (useToolCalling, approvalOverrides) = ConfigureToolCalling(request, profile, options);
+        var enableHistoryMemory = string.Equals(
+            (await _unitOfWork.AppSettings.GetByKeyAsync("EnableHistoryMemory", ct))?.Value,
+            "true", StringComparison.OrdinalIgnoreCase);
+        var perServiceHistory = string.Equals(
+            (await _unitOfWork.AppSettings.GetByKeyAsync("UsePerServiceCallHistoryPersistence", ct))?.Value,
+            "true", StringComparison.OrdinalIgnoreCase);
+        var skillIds = agentPreset is null ? [] : ParseStringList(agentPreset.SkillIds);
+        if (!string.IsNullOrWhiteSpace(request.SkillName)) skillIds.Add(request.SkillName);
 
         var sw = Stopwatch.StartNew();
         int estimatedInput = 0, estimatedCompressed = 0;
@@ -285,7 +293,9 @@ public class ChatMessagesController : ControllerBase
             SystemPrompt = options.SystemPrompt ?? string.Empty,
             Messages = inputMessages.ToChatMessages(),
             ChatHistoryProvider = historyProvider,
-            SkillIds = agentPreset is null ? null : ParseStringList(agentPreset.SkillIds),
+            SkillIds = skillIds.Count > 0 ? skillIds : null,
+            EnableHistoryMemory = enableHistoryMemory,
+            UsePerServiceCallHistoryPersistence = perServiceHistory,
             ToolNames = useToolCalling ? options.Tools?.Select(t => t.Name).ToList() ?? new List<string>() : new List<string>(),
             McpServerIds = new List<Guid>(),
             MaxIterations = profile.MaxAgentIterations,

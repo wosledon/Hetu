@@ -136,6 +136,9 @@ EF Core 的 SQLite provider **不支持在 SQL 中排序或聚合 `DateTimeOffse
 - 非 Agent 文本任务需要 JSON 时使用 `ITextGenerationClient.ChatJsonWithUsageAsync<T>` / `ChatResponseFormatJson`，
   `LlmJsonExtractor` 只作为不支持 JSON Schema 的 Provider 的兜底。
 - Agent 管道用 `AIAgentBuilder.UseOpenTelemetry` 包裹，保留 MAF 原生 tracing；不要另建一套调用链追踪。
+- 会话状态用 `AIAgent.SerializeSessionAsync` 落 `AppSettings`（key 前缀 `agent-session:`）；Chat / Code 会话默认启用。
+- 会话历史向量召回由 `ChatHistoryMemoryProvider` + `HetuChatHistoryVectorStore` 提供，受 AppSetting `EnableHistoryMemory` 控制；
+  `UsePerServiceCallHistoryPersistence` 控制 MAF 每服务调用的历史持久化。两者不要同时开启（会重复写入向量表）。
 - Agent 消息契约使用 MEAI `ChatMessage`；`LlmChatMessage` 只保留在数据库/文本任务边界，转换集中在 `ChatMessageConversion`。
 - 工具执行器仍是 `IToolExecutor` 业务抽象；交给 MAF 的边界统一为 `AIFunction`（`HetuAIFunction` / 原生 `McpClientTool`），
   不要再建第二套工具循环或工具定义协议。

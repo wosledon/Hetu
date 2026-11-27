@@ -15,9 +15,11 @@ using Hetu.Infrastructure.Repositories;
 using Hetu.Infrastructure.ScheduledTasks;
 using Hetu.Infrastructure.SemanticSearch;
 using Hetu.Infrastructure.Services;
+using Hetu.Infrastructure.VectorData;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Agents.AI.Workflows;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.VectorData;
 using Pgvector.EntityFrameworkCore;
 
 namespace Hetu.Api.Extensions;
@@ -123,6 +125,7 @@ public static class HetuServiceCollectionExtensions
         services.AddScoped<IAiModelService, AiModelService>();
         services.AddSingleton<IModelCatalogService, ModelCatalogService>();
         services.AddScoped<IEmbeddingProviderFactory, EmbeddingProviderFactory>();
+        services.AddScoped<VectorStore, HetuChatHistoryVectorStore>();
         services.AddScoped<INoteEmbeddingService, NoteEmbeddingService>();
         services.AddScoped<IWikiKnowledgeSyncService, WikiKnowledgeSyncService>();
         services.AddScoped<IChunkService, ChunkService>();
