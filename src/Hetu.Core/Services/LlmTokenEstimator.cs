@@ -38,9 +38,30 @@ public static class LlmTokenEstimator
     /// </summary>
     public static int EstimateRequestTokens(IEnumerable<LlmChatMessage> messages, string? systemPrompt, IEnumerable<LlmToolDefinition>? tools)
     {
-        var chars = messages.Sum(m => m.Content?.Length ?? 0)
+        var chars = messages.Sum(MessageChars)
             + (systemPrompt?.Length ?? 0)
             + ToolDefinitionChars(tools);
         return EstimateChars(chars);
+    }
+
+    private static long MessageChars(LlmChatMessage message)
+    {
+        long chars = message.Content?.Length ?? 0;
+        if (message.ContentParts != null)
+        {
+            chars += message.ContentParts.Sum(part =>
+                (part.Text?.Length ?? 0) + (part.ImageUrl?.Length ?? 0));
+        }
+        if (message.ToolCalls != null)
+        {
+            chars += message.ToolCalls.Sum(call =>
+                (call.Name?.Length ?? 0) + (call.Arguments?.Length ?? 0) + (call.Id?.Length ?? 0));
+        }
+        if (message.ThinkingBlocks != null)
+        {
+            chars += message.ThinkingBlocks.Sum(block =>
+                (block.Text?.Length ?? 0) + (block.Signature?.Length ?? 0));
+        }
+        return chars;
     }
 }

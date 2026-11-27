@@ -50,11 +50,10 @@ public class ToolNodeExecutor : INodeExecutor
                     new Dictionary<string, ToolApprovalMode>(),
                     [],
                     _ => Task.CompletedTask,
-                    _ => Task.CompletedTask,
                     ct,
                     decideToolCall: ctx.DecideToolCall,
                     workScope: ctx.WorkScope,
-                    interactiveApprovalSupported: false);
+                    interactiveInputSupported: false);
                 var (_, content, isError) = results[0];
                 if (sink != null)
                     await sink.OnAgentToolResultAsync(ctx.RunId, node.Id, toolCallId, content, isError);

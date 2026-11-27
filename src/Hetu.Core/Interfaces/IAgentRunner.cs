@@ -17,4 +17,14 @@ public interface IAgentRunner
 
     /// <summary>执行一次 Agent 运行。</summary>
     Task<AgentLoopResult> RunAsync(AgentLoopRequest request, CancellationToken ct);
+
+    /// <summary>
+    /// 把一次 Agent 运行包装成 MAF 的 AIFunction（agent-as-tool）；
+    /// 返回的 Result 会在函数被调用后填充，供调用方读取时间线与错误。
+    /// </summary>
+    Task<(AIFunction Function, AgentLoopResult Result)> CreateSubAgentFunctionAsync(
+        AgentLoopRequest request,
+        string name,
+        string description,
+        CancellationToken ct);
 }

@@ -208,27 +208,23 @@ public class ToolExecutionService
         List<LlmToolCall> toolCalls,
         Dictionary<string, ToolApprovalMode> approvalOverrides,
         List<SessionTodo> sessionTodos,
-        Func<string, Task> writeEventAsync,
         Func<object, Task> writeJsonAsync,
         CancellationToken cancellationToken,
         Func<LlmToolCall, ToolApprovalMode, Task<WorkToolDecision>>? decideToolCall = null,
         WorkToolScope? workScope = null,
         Func<LlmToolCall, Task<string>>? questionHandler = null,
         Func<LlmToolCall, Task<PlanDecision>>? planHandler = null,
-        Func<(string toolCallId, string content, bool isError), Task>? onToolResult = null,
         TimeSpan? defaultToolTimeout = null,
-        bool approvalAlreadyHandled = false,
-        bool interactiveApprovalSupported = true)
+        bool interactiveInputSupported = true)
     {
         var results = new List<(string toolCallId, string content, bool isError)>(toolCalls.Count);
         foreach (var call in toolCalls)
         {
             var result = await ExecuteToolCallAsync(
                 sessionId, call, approvalOverrides, sessionTodos, writeJsonAsync, cancellationToken,
-                decideToolCall, workScope, questionHandler, planHandler, defaultToolTimeout, approvalAlreadyHandled,
-                interactiveApprovalSupported);
+                decideToolCall, workScope, questionHandler, planHandler, defaultToolTimeout,
+                interactiveInputSupported);
             results.Add((call.Id, result.content, result.isError));
-            if (onToolResult != null) await onToolResult(results[^1]);
         }
         return results;
     }
@@ -245,8 +241,7 @@ public class ToolExecutionService
         Func<LlmToolCall, Task<string>>? questionHandler,
         Func<LlmToolCall, Task<PlanDecision>>? planHandler,
         TimeSpan? defaultToolTimeout,
-        bool approvalAlreadyHandled,
-        bool interactiveApprovalSupported)
+        bool interactiveInputSupported)
     {
         var state = _sessions.GetOrCreate(sessionId);
         var isSilentTool = InteractiveTools.IsInteractive(toolCall.Name);
@@ -303,11 +298,11 @@ public class ToolExecutionService
         if (executor == null && !isSilentTool)
             return await ReturnAsync(_localizer.T("toolExec.notFound", toolCall.Name), true);
 
-        var result = approval == ToolApprovalMode.Ask && !isSilentTool && !approvalAlreadyHandled
-            ? interactiveApprovalSupported
-                ? await ExecuteWithApprovalAsync(state, toolCall, executor, sessionTodos, writeJsonAsync, ct, defaultToolTimeout)
-                : await ReturnAsync(_localizer.T("toolExec.approvalUnavailable", toolCall.Name), true)
-            : await ExecuteSingleToolAsync(state, toolCall, executor!, sessionTodos, writeJsonAsync, ct, questionHandler, planHandler, defaultToolTimeout);
+        var result = approval == ToolApprovalMode.Ask && !isSilentTool
+            ? await ReturnAsync(_localizer.T("toolExec.approvalUnavailable", toolCall.Name), true)
+            : await ExecuteSingleToolAsync(
+                state, toolCall, executor!, sessionTodos, writeJsonAsync, ct,
+                questionHandler, planHandler, defaultToolTimeout, interactiveInputSupported);
         await writeJsonAsync(new
         {
             type = "tool_result",
@@ -321,42 +316,6 @@ public class ToolExecutionService
         return result;
     }
 
-    private async Task<(string content, bool isError)> ExecuteWithApprovalAsync(
-        SessionPendingState state,
-        LlmToolCall toolCall,
-        IToolExecutor? executor,
-        List<SessionTodo> sessionTodos,
-        Func<object, Task> writeJsonAsync,
-        CancellationToken ct,
-        TimeSpan? defaultToolTimeout = null)
-    {
-        var approvalTcs = new TaskCompletionSource<bool>();
-        state.Approvals[toolCall.Id] = approvalTcs;
-        await writeJsonAsync(new { type = "approval_request", id = toolCall.Id, name = toolCall.Name, arguments = toolCall.Arguments });
-
-        bool approved;
-        try
-        {
-            approved = await approvalTcs.Task.WaitAsync(TimeSpan.FromMinutes(5), ct);
-        }
-        catch (TimeoutException)
-        {
-            return (_localizer.T("toolExec.approvalTimeout", toolCall.Name), true);
-        }
-        finally
-        {
-            state.Approvals.TryRemove(toolCall.Id, out _);
-        }
-
-        if (!approved)
-            return (_localizer.T("toolExec.userDenied", toolCall.Name), true);
-
-        if (executor != null)
-            return await ExecuteSingleToolAsync(state, toolCall, executor, sessionTodos, writeJsonAsync, ct, defaultToolTimeout: defaultToolTimeout);
-
-        return (_localizer.T("toolExec.notFound", toolCall.Name), true);
-    }
-
     private async Task<(string content, bool isError)> ExecuteSingleToolAsync(
         SessionPendingState state,
         LlmToolCall toolCall,
@@ -366,23 +325,24 @@ public class ToolExecutionService
         CancellationToken ct,
         Func<LlmToolCall, Task<string>>? questionHandler = null,
         Func<LlmToolCall, Task<PlanDecision>>? planHandler = null,
-        TimeSpan? defaultToolTimeout = null)
+        TimeSpan? defaultToolTimeout = null,
+        bool interactiveInputSupported = true)
     {
         // 提问处理器的裁决异常（如后台任务阻塞等待用户回答）必须中断执行，
         // 不能被下面的通用 catch 降级为一条工具错误结果
         if (toolCall.Name == InteractiveTools.AskQuestion && questionHandler != null)
-            return await HandleAskQuestionAsync(state, toolCall, writeJsonAsync, ct, questionHandler);
+            return await HandleAskQuestionAsync(state, toolCall, writeJsonAsync, ct, questionHandler, interactiveInputSupported);
 
         try
         {
             if (toolCall.Name == InteractiveTools.AskQuestion)
-                return await HandleAskQuestionAsync(state, toolCall, writeJsonAsync, ct, null);
+                return await HandleAskQuestionAsync(state, toolCall, writeJsonAsync, ct, null, interactiveInputSupported);
 
             if (toolCall.Name == InteractiveTools.Todo)
                 return await HandleTodoAsync(toolCall, sessionTodos, writeJsonAsync, ct);
 
             if (toolCall.Name == InteractiveTools.Plan)
-                return await HandlePlanAsync(state, toolCall, writeJsonAsync, ct, planHandler);
+                return await HandlePlanAsync(state, toolCall, writeJsonAsync, ct, planHandler, interactiveInputSupported);
 
             var timeout = executor.Timeout ?? defaultToolTimeout;
             if (timeout is { } limit && limit > TimeSpan.Zero)
@@ -418,13 +378,16 @@ public class ToolExecutionService
         LlmToolCall toolCall,
         Func<object, Task> writeJsonAsync,
         CancellationToken ct,
-        Func<LlmToolCall, Task<string>>? questionHandler = null)
+        Func<LlmToolCall, Task<string>>? questionHandler = null,
+        bool interactiveInputSupported = true)
     {
         _logger.LogInformation("[ToolExec] ask_question pending toolCallId={ToolCallId}", toolCall.Id);
 
         // 后台执行（无人可通过 SSE 应答）时由调用方裁决，例如直接中断执行转人工
         if (questionHandler != null)
             return (await questionHandler(toolCall), false);
+        if (!interactiveInputSupported)
+            return (_localizer.T("toolExec.questionUnavailable", toolCall.Name), true);
 
         var tcs = new TaskCompletionSource<string>();
         state.Questions[toolCall.Id] = tcs;
@@ -452,7 +415,8 @@ public class ToolExecutionService
         LlmToolCall toolCall,
         Func<object, Task> writeJsonAsync,
         CancellationToken ct,
-        Func<LlmToolCall, Task<PlanDecision>>? planHandler = null)
+        Func<LlmToolCall, Task<PlanDecision>>? planHandler = null,
+        bool interactiveInputSupported = true)
     {
         _logger.LogInformation("[ToolExec] plan pending toolCallId={ToolCallId}", toolCall.Id);
         if (planHandler != null)
@@ -461,6 +425,8 @@ public class ToolExecutionService
             var backgroundDecision = await planHandler(toolCall);
             return (backgroundDecision.ToToolResult(_localizer), false);
         }
+        if (!interactiveInputSupported)
+            return (_localizer.T("toolExec.planUnavailable", toolCall.Name), true);
 
         var tcs = new TaskCompletionSource<PlanDecision>();
         state.Plans[toolCall.Id] = tcs;

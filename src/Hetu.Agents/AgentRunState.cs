@@ -40,9 +40,48 @@ internal sealed class AgentRunState
     public List<string> LoadedToolNames { get; } = [];
 
     public int IterationCount { get; set; }
+    public int SegmentModelRequests { get; set; }
     public int ToolCallsThisIteration { get; set; }
     public int MaxToolCallsPerTurn { get; } = 5;
-    public bool Cancelled { get; set; }
+    public int CurrentIterationToolCalls { get; set; }
+    public int CurrentIterationExecutableCalls { get; set; }
+    public int SegmentToolCallCount { get; set; }
+    public int StalledIterations { get; set; }
+    public bool IsStalled { get; set; }
+    public bool ContextFull { get; set; }
+    public bool SegmentProgress { get; set; }
+    public int ContextWindowTokens { get; set; } = 128_000;
+    public long HardCapChars { get; set; }
+    public long AnchorChars { get; set; }
+    public bool ContextFullNoticeEmitted { get; set; }
+    public bool StalledNoticeEmitted { get; set; }
+    public bool AnchorNoticeEmitted { get; set; }
+    public Dictionary<string, string> ReadResultCache { get; } = new(StringComparer.Ordinal);
+    public Dictionary<string, int> FailureCounts { get; } = new(StringComparer.Ordinal);
+
+    public void BeginSegment()
+    {
+        SegmentModelRequests = 0;
+        ToolCallsThisIteration = 0;
+        CurrentIterationToolCalls = 0;
+        CurrentIterationExecutableCalls = 0;
+        SegmentToolCallCount = 0;
+        StalledIterations = 0;
+        IsStalled = false;
+        ContextFull = false;
+        SegmentProgress = false;
+        ContextFullNoticeEmitted = false;
+        StalledNoticeEmitted = false;
+        AnchorNoticeEmitted = false;
+    }
+
+    public void ResolveContextLimits(int? contextWindowTokens)
+    {
+        if (contextWindowTokens is > 0) ContextWindowTokens = contextWindowTokens.Value;
+        var chars = (long)ContextWindowTokens * LlmTokenEstimator.CharsPerToken;
+        HardCapChars = chars * 80 / 100;
+        AnchorChars = chars * 40 / 100;
+    }
 
     public IReadOnlyList<AIFunction> GetDeclaredFunctions()
     {
@@ -79,6 +118,7 @@ internal sealed class AgentRunState
     public void AppendToolCall(AgentToolCallRecord record)
     {
         RecordedToolCallIds.Add(record.Id);
+        SegmentToolCallCount++;
         Result.ToolCalls.Add(record);
         Result.Timeline.Add(new AgentTimelineSegment
         {
@@ -107,14 +147,34 @@ internal sealed class AgentRunState
         var cached = (int)(details.CachedInputTokenCount ?? 0);
         // Anthropic 的 InputTokenCount 通常不含缓存命中部分，这里补回完整 Prompt 口径。
         if (cached > 0 && prompt < cached) prompt += cached;
+        var cacheCreation = 0;
+        if (details.AdditionalCounts is { } counts)
+        {
+            foreach (var key in CacheCreationKeys)
+            {
+                if (counts.TryGetValue(key, out var value) && value > 0)
+                {
+                    cacheCreation = (int)value;
+                    break;
+                }
+            }
+        }
         return new LlmUsage
         {
             PromptTokens = prompt,
             CompletionTokens = completion,
             TotalTokens = prompt + completion,
             CachedTokens = cached,
+            CacheCreationTokens = cacheCreation,
         };
     }
+
+    private static readonly string[] CacheCreationKeys =
+    [
+        "cache_creation_input_tokens",
+        "cache_creation_tokens",
+        "CacheCreationInputTokens",
+    ];
 
     public void ParseLoadedToolNames(string argumentsJson)
     {

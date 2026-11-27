@@ -836,11 +836,11 @@ public class WikiService : IWikiService
         {
             var planInputTokens = EstimateBeforeCompression(prompt, (material.BaseContext, baseContext));
             // 同正文生成：关流内思考切换，JSON 被写进思考通道时从思考里取
-            var planResult = await _text.ChatWithUsageAsync(
+            var planResult = await _text.ChatJsonWithUsageAsync<WikiOutline>(
                 modelId,
                 [new LlmChatMessage { Role = "user", Content = prompt }],
                 new ChatOptions { ModelId = string.Empty, SystemPrompt = SystemPromptArchitect, MaxTokens = 6144 },
-                cancellationToken);
+                cancellationToken: cancellationToken);
             await RecordWikiUsageAsync(prompt, planInputTokens, null, project.Id, planResult, cancellationToken);
             plans = ParseOutline(ContentOrThinking(planResult));
 
@@ -858,11 +858,11 @@ public class WikiService : IWikiService
                     【上次的回复】
                     {rawOutline}
                     """;
-                var retry = await _text.ChatWithUsageAsync(
+                var retry = await _text.ChatJsonWithUsageAsync<WikiOutline>(
                     modelId,
                     [new LlmChatMessage { Role = "user", Content = repairPrompt }],
                     new ChatOptions { ModelId = string.Empty, SystemPrompt = SystemPromptArchitect, MaxTokens = 6144 },
-                    cancellationToken);
+                    cancellationToken: cancellationToken);
                 await RecordWikiUsageAsync(repairPrompt, LlmTokenEstimator.Estimate(repairPrompt), null, project.Id, retry, cancellationToken);
                 plans = ParseOutline(ContentOrThinking(retry));
                 if (plans.Count == 0)

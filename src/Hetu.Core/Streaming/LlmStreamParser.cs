@@ -1,7 +1,6 @@
 using System.Text;
 using System.Text.Json;
 using Hetu.Core.Interfaces;
-using Hetu.Core.Utilities;
 
 namespace Hetu.Core.Streaming;
 
@@ -12,43 +11,22 @@ public enum LlmStreamEventType
     Content,
     /// <summary>思考增量</summary>
     Thinking,
-    /// <summary>一段完整思考块（含签名），供下一轮请求原样回传</summary>
-    ThinkingBlock,
     /// <summary>本轮工具调用请求（流末一次性给出）</summary>
     ToolCalls,
-    /// <summary>用量统计（流末一次性给出）</summary>
-    Usage,
-    /// <summary>
-    /// 流结束原因（OpenAI finish_reason / Anthropic stop_reason）：
-    /// length / max_tokens 表示被输出上限截断，消费方可据此续写。
-    /// </summary>
-    Finish,
 }
 
-/// <summary>单个解析结果。ToolCalls / Usage / Finish 事件只在流末出现一次。</summary>
+/// <summary>单个解析结果。ToolCalls 事件只在文本工具调用闭合时出现。</summary>
 public sealed class LlmStreamChunk
 {
     public required LlmStreamEventType Type { get; init; }
     public string Text { get; init; } = string.Empty;
     public List<LlmToolCall>? ToolCalls { get; init; }
-    public LlmUsage? Usage { get; init; }
-    /// <summary>ThinkingBlock 事件的完整思考块；其余事件为空</summary>
-    public LlmThinkingBlock? ThinkingBlock { get; init; }
-    /// <summary>Finish 事件的结束原因；其余事件为空</summary>
-    public string? Reason { get; init; }
 }
 
 /// <summary>
-/// 统一的 LLM 流解析器：把 Provider 输出的 delta 归一化为
-/// <see cref="LlmStreamChunk"/> 序列，供 Agent Loop、SSE 控制器等所有消费方共用。
-/// <para>
-/// 处理两类输入：
-/// 1. Provider 的结构化 JSON 帧（OpenAI / Anthropic 适配器输出）：
-///    <c>{"type":"content","text":...}</c>、<c>{"type":"thinking","text":...}</c>、
-///    <c>{"type":"tool_calls","toolCalls":[...]}</c>、<c>{"type":"usage","usage":{...}}</c>；
-/// 2. 纯文本 delta：按 <c>&lt;thinking&gt;...&lt;/thinking&gt;</c> 标签切分成思考 / 正文，
-///    跨 delta 的半截标签会挂起，由 <see cref="Flush"/> 收尾释放。
-/// </para>
+/// 文本 delta 的标签解析器：把 <c>&lt;thinking&gt;...&lt;/thinking&gt;</c> 切分成思考/正文，
+/// 把 <c>&lt;tool_call&gt;...&lt;/tool_call&gt;</c> 解析成结构化工具调用。
+/// 原生工具调用（FunctionCallContent）不经过这里。
 /// </summary>
 public sealed class LlmStreamParser
 {
@@ -66,10 +44,7 @@ public sealed class LlmStreamParser
     public IReadOnlyList<LlmStreamChunk> Parse(string delta)
     {
         if (string.IsNullOrEmpty(delta)) return Array.Empty<LlmStreamChunk>();
-
-        return TryParseStructured(delta, out var structured)
-            ? structured
-            : ParseTagged(delta);
+        return ParseTagged(delta);
     }
 
     /// <summary>流结束时调用，释放仍挂起的半截标签片段。</summary>
@@ -88,103 +63,6 @@ public sealed class LlmStreamParser
         var fragment = _pendingFragment;
         _pendingFragment = "";
         return new[] { MakeText(_inThinking ? LlmStreamEventType.Thinking : LlmStreamEventType.Content, fragment) };
-    }
-
-    /// <summary>解析 Provider 的结构化 JSON 帧；非结构化返回 false。</summary>
-    private bool TryParseStructured(string delta, out IReadOnlyList<LlmStreamChunk> chunks)
-    {
-        chunks = Array.Empty<LlmStreamChunk>();
-        try
-        {
-            using var doc = JsonDocument.Parse(delta);
-            var root = doc.RootElement;
-            if (root.ValueKind != JsonValueKind.Object
-                || !root.TryGetProperty("type", out var typeEl)
-                || typeEl.ValueKind != JsonValueKind.String)
-            {
-                return false;
-            }
-
-            var type = typeEl.GetString() ?? "";
-            switch (type)
-            {
-                case "tool_calls":
-                {
-                    var calls = new List<LlmToolCall>();
-                    var valid = TryGetProperty(root, "toolCalls", out var tcEl) && tcEl.ValueKind == JsonValueKind.Array;
-                    if (valid)
-                    {
-                        foreach (var element in tcEl.EnumerateArray())
-                        {
-                            if (TryParseTextualToolCall(element, calls)) continue;
-                            valid = false;
-                            break;
-                        }
-                    }
-                    chunks = valid && calls.Count > 0
-                        ? new[] { new LlmStreamChunk { Type = LlmStreamEventType.ToolCalls, ToolCalls = calls } }
-                        : new[] { new LlmStreamChunk { Type = LlmStreamEventType.Finish, Reason = "invalid_tool_call" } };
-                    return true;
-                }
-                case "tool_call":
-                {
-                    var element = TryGetProperty(root, "toolCall", out var single) ? single : root;
-                    var calls = new List<LlmToolCall>();
-                    chunks = TryParseTextualToolCall(element, calls)
-                        ? new[] { new LlmStreamChunk { Type = LlmStreamEventType.ToolCalls, ToolCalls = calls } }
-                        : new[] { new LlmStreamChunk { Type = LlmStreamEventType.Finish, Reason = "invalid_tool_call" } };
-                    return true;
-                }
-                case "thinking_block":
-                {
-                    var text = TryGetProperty(root, "text", out var textEl) && textEl.ValueKind == JsonValueKind.String
-                        ? textEl.GetString() ?? ""
-                        : "";
-                    var signature = TryGetProperty(root, "signature", out var sigEl) && sigEl.ValueKind == JsonValueKind.String
-                        ? sigEl.GetString()
-                        : null;
-                    chunks = new[]
-                    {
-                        new LlmStreamChunk
-                        {
-                            Type = LlmStreamEventType.ThinkingBlock,
-                            ThinkingBlock = new LlmThinkingBlock { Text = text, Signature = signature },
-                        }
-                    };
-                    return true;
-                }
-                case "usage":
-                {
-                    var usage = root.TryGetProperty("usage", out var usageEl)
-                        ? JsonSerializer.Deserialize<LlmUsage>(usageEl.GetRawText(), JsonDefaults.CamelCase)
-                        : null;
-                    chunks = new[] { new LlmStreamChunk { Type = LlmStreamEventType.Usage, Usage = usage } };
-                    return true;
-                }
-                case "finish":
-                {
-                    var reason = root.TryGetProperty("reason", out var reasonEl) && reasonEl.ValueKind == JsonValueKind.String
-                        ? reasonEl.GetString()
-                        : null;
-                    chunks = new[] { new LlmStreamChunk { Type = LlmStreamEventType.Finish, Reason = reason } };
-                    return true;
-                }
-                default:
-                {
-                    var text = root.TryGetProperty("text", out var textEl) && textEl.ValueKind == JsonValueKind.String
-                        ? textEl.GetString() ?? ""
-                        : "";
-                    chunks = type == "thinking"
-                        ? new[] { MakeText(LlmStreamEventType.Thinking, text) }
-                        : ParseTagged(text);
-                    return true;
-                }
-            }
-        }
-        catch (JsonException)
-        {
-            return false;
-        }
     }
 
     /// <summary>纯文本 delta 的 thinking / tool_call 标签切分。</summary>

@@ -126,27 +126,25 @@ Hetu 是一款面向个人的 AI 增强知识管理工具，以 **笔记** 与 *
 | 自动标签建议    | P2     | 保存笔记时异步调用 LLM，根据内容推荐标签                                          |
 | 向量化异步管道  | P0     | 笔记创建/更新时，后台异步调用 Embedding 模型生成向量并存入 `note_embeddings` 表   |
 
-#### 3.8.3 LLM Provider 抽象设计
+#### 3.8.3 LLM 运行时设计
 
 ```
-ILlmProvider (抽象接口)
-├── ChatAsync(messages, options) → 流式/非流式响应
-├── CompleteAsync(prompt, options) → 文本补全（用于笔记侧 AI 功能）
-└── SupportsStreaming → 是否支持 SSE 流式输出
-
-├── OpenAiLlmProvider (OpenAI 协议实现)
-│   ├── 兼容 OpenAI API / Azure OpenAI / 第三方兼容服务
-│   ├── 使用 chat/completions 端点
-│   └── 支持 stream=true SSE 流式
-│
-└── AnthropicLlmProvider (Anthropic 协议实现)
-    ├── 使用 messages 端点
-    ├── 支持 Anthropic 原生 stream 事件格式
-    └── 仅处理 text 响应，不实现 tool_use / function calling
-
-注意：两种 Provider 的接口均不实现 Agent 能力（tool_use、代码解释器等），
-仅返回纯文本补全结果，确保产品边界清晰。
+Hetu.Agents (Microsoft Agent Framework 1.28)
+├── HetuAgentRunner
+│   ├── 业务事件转发 / 历史提供者 / 续跑 / 上下文闸门
+│   └── FunctionInvokingChatClient 负责工具循环
+├── HetuAgentFactory
+│   ├── 官方 OpenAI Provider → OpenAIClient.AsIChatClient()
+│   └── 官方 Anthropic Provider → AnthropicClient.AsAIAgent()
+│       └── ToolApprovalAgent 负责 approval 放行 / 询问 / 拒绝
+├── MafTextGenerationClient
+│   └── 非 Agent 文本任务（笔记 / Wiki / 图谱 / 压缩 / 查询改写）
+└── McpClientProvider
+    └── 官方 ModelContextProtocol SDK（stdio / HTTP，McpClientTool 直接作为 AIFunction）
 ```
+
+不再维护自实现的 OpenAI / Anthropic HTTP Provider；模型调用、流式解析、工具循环与审批
+统一交给 MAF / MEAI 官方适配器。
 
 #### 3.8.4 Embedding Provider 设计
 
@@ -155,12 +153,11 @@ IEmbeddingProvider (抽象接口)
 ├── EmbedAsync(texts: string[]) → float[][] 向量
 └── Dimensions → 向量维度（随模型配置，如 1536 / 1024）
 
-├── OpenAiEmbeddingProvider
-│   ├── 使用 OpenAI embeddings 端点
-│   └── 支持 text-embedding-3-small / text-embedding-3-large 等
+├── MafEmbeddingProvider
+│   └── 官方 MEAI IEmbeddingGenerator（OpenAI 兼容端点，含 Foundry Local）
 │
 └── AnthropicEmbeddingProvider
-    └── 使用 Anthropic 兼容的 Embedding 服务
+    └── 占位实现：Anthropic 没有公开 Embedding API，调用返回 NotSupported
 ```
 
 #### 3.8.5 向量存储与语义搜索流程

@@ -62,28 +62,38 @@ internal sealed class HetuAIFunction : AIFunction
 
         try
         {
+            _state.CurrentIterationToolCalls++;
             if (++_state.ToolCallsThisIteration > _state.MaxToolCallsPerTurn)
             {
                 var dropped = _localizer.T("toolExec.tooManyCallsDropped", _state.MaxToolCallsPerTurn);
-                await _state.Sink.OnEventAsync(new
-                {
-                    type = "tool_result",
-                    id = callId,
-                    name = Name,
-                    content = dropped,
-                    isError = true,
-                    hidden = true,
-                });
-                return dropped;
+                return await ReturnHiddenAsync(callId, dropped, isError: true);
             }
 
+            var cacheKey = Name + "\0" + argumentsJson;
+            if (_state.ReadResultCache.TryGetValue(cacheKey, out var cached))
+            {
+                var reused = _localizer.T("toolExec.reusedResult", Name, cached);
+                return await ReturnHiddenAsync(callId, reused, isError: false);
+            }
+            if (_state.FailureCounts.TryGetValue(cacheKey, out var failures) && failures >= 2)
+                return await ReturnHiddenAsync(callId, _localizer.T("toolExec.repeatedFailure", Name), isError: true);
+
+            _state.CurrentIterationExecutableCalls++;
             if (_state.Hooks != null) await _state.Hooks.BeforeToolCallsAsync([call]);
+
+            // MAF 的 ToolApprovalAgent/ApprovalRequiredAIFunction 已经完成审批，
+            // 这里标记 Bypass，避免 ToolExecutionService 再次等待前端确认。
+            var approvalOverrides = new Dictionary<string, ToolApprovalMode>(
+                _state.Request.ToolApprovals, StringComparer.OrdinalIgnoreCase)
+            {
+                [Name] = ToolApprovalMode.Bypass,
+            };
+
             var results = await _toolExecution.ExecuteToolCallsAsync(
                 _state.Request.SessionId,
                 [call],
-                _state.Request.ToolApprovals,
+                approvalOverrides,
                 _state.SessionTodos,
-                writeEventAsync: payload => _state.Sink.OnEventAsync(payload),
                 writeJsonAsync: payload => _state.Sink.OnEventAsync(payload),
                 cancellationToken,
                 decideToolCall: null,
@@ -91,7 +101,7 @@ internal sealed class HetuAIFunction : AIFunction
                 questionHandler: _state.Request.QuestionHandler,
                 planHandler: _state.Request.PlanHandler,
                 defaultToolTimeout: _state.Request.ToolTimeout,
-                approvalAlreadyHandled: true);
+                interactiveInputSupported: _state.Request.InteractiveToolsSupported);
 
             var (_, content, isError) = results[0];
             isError |= content.StartsWith("Error:", StringComparison.OrdinalIgnoreCase);
@@ -116,8 +126,23 @@ internal sealed class HetuAIFunction : AIFunction
             if (string.Equals(Name, "load_tools", StringComparison.OrdinalIgnoreCase))
                 _state.ParseLoadedToolNames(argumentsJson);
 
-            var compacted = await _compression.PrepareForContextAsync(content, cancellationToken);
-            return Compact(compacted, isError ? MaxToolErrorCharsForModel : MaxToolResultCharsForModel);
+            var compacted = Compact(
+                await _compression.PrepareForContextAsync(content, cancellationToken),
+                isError ? MaxToolErrorCharsForModel : MaxToolResultCharsForModel);
+
+            if (isError)
+            {
+                _state.FailureCounts[cacheKey] = _state.FailureCounts.GetValueOrDefault(cacheKey) + 1;
+            }
+            else
+            {
+                _state.FailureCounts.Remove(cacheKey);
+                _state.SegmentProgress = true;
+                if (_executor.Risk == ToolRisk.Read)
+                    _state.ReadResultCache[cacheKey] = compacted;
+            }
+
+            return compacted;
         }
         catch (OperationCanceledException)
         {
@@ -128,6 +153,22 @@ internal sealed class HetuAIFunction : AIFunction
             _logger.LogError(ex, "[Agent] 工具 {Tool} 执行异常", Name);
             throw;
         }
+    }
+
+    /// <summary>缓存命中/重复失败/超量调用不执行工具，只补一条折叠的工具结果。</summary>
+    private async Task<string> ReturnHiddenAsync(string callId, string content, bool isError)
+    {
+        _state.RecordedToolCallIds.Add(callId);
+        await _state.Sink.OnEventAsync(new
+        {
+            type = "tool_result",
+            id = callId,
+            name = Name,
+            content,
+            isError,
+            hidden = true,
+        });
+        return content;
     }
 
     private static string Compact(string content, int targetChars)

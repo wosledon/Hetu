@@ -1,4 +1,3 @@
-using System.Text.Json;
 using Hetu.Core.Streaming;
 
 namespace Hetu.Core.Tests;
@@ -10,9 +9,9 @@ public class LlmStreamParserTests
     {
         var parser = new LlmStreamParser();
         var chunks = new List<LlmStreamChunk>();
-        chunks.AddRange(parser.Parse(ContentDelta("before<tool")));
-        chunks.AddRange(parser.Parse(ContentDelta("_call>{\"id\":\"c1\",\"name\":\"work_read_file\",\"arguments\":{\"path\":\"src/App.tsx\"}}</tool")));
-        chunks.AddRange(parser.Parse(ContentDelta("_call>after")));
+        chunks.AddRange(parser.Parse("before<tool"));
+        chunks.AddRange(parser.Parse("_call>{\"id\":\"c1\",\"name\":\"work_read_file\",\"arguments\":{\"path\":\"src/App.tsx\"}}</tool"));
+        chunks.AddRange(parser.Parse("_call>after"));
 
         Assert.Equal("beforeafter", string.Concat(chunks.Where(c => c.Type == LlmStreamEventType.Content).Select(c => c.Text)));
         var call = Assert.Single(chunks.Single(c => c.Type == LlmStreamEventType.ToolCalls).ToolCalls!);
@@ -45,17 +44,28 @@ public class LlmStreamParserTests
         Assert.Equal("<tool_call>{\"name\":\"work_read_file\"", chunk.Text);
     }
 
-    private static string ContentDelta(string text) => JsonSerializer.Serialize(new { type = "content", text });
-
     [Fact]
-    public void Parse_结构化调用参数为对象_规范化为JSON字符串()
+    public void Parse_thinking标签跨分片_切分为思考与正文()
     {
         var parser = new LlmStreamParser();
-        const string delta = "{\"type\":\"tool_calls\",\"toolCalls\":[{\"id\":\"c1\",\"name\":\"work_read_file\",\"arguments\":{\"path\":\"a.ts\"}}]}";
+        var chunks = new List<LlmStreamChunk>();
+        chunks.AddRange(parser.Parse("前言<think"));
+        chunks.AddRange(parser.Parse("ing>推理</think"));
+        chunks.AddRange(parser.Parse("ing>结论"));
 
-        var chunk = Assert.Single(parser.Parse(delta));
+        Assert.Equal("前言结论", string.Concat(chunks.Where(c => c.Type == LlmStreamEventType.Content).Select(c => c.Text)));
+        Assert.Equal("推理", string.Concat(chunks.Where(c => c.Type == LlmStreamEventType.Thinking).Select(c => c.Text)));
+    }
 
-        Assert.Equal(LlmStreamEventType.ToolCalls, chunk.Type);
-        Assert.Equal("{\"path\":\"a.ts\"}", Assert.Single(chunk.ToolCalls!).Arguments);
+    [Fact]
+    public void Parse_普通JSON文本_原样作为正文()
+    {
+        var parser = new LlmStreamParser();
+        const string json = "{\"type\":\"content\",\"text\":\"hello\"}";
+
+        var chunk = Assert.Single(parser.Parse(json));
+
+        Assert.Equal(LlmStreamEventType.Content, chunk.Type);
+        Assert.Equal(json, chunk.Text);
     }
 }

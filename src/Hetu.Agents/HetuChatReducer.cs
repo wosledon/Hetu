@@ -42,7 +42,7 @@ internal sealed class HetuChatReducer : IChatReducer
         var source = messages.ToList();
         if (_state.Result.FirstIterationInputChars == 0)
         {
-            _state.Result.FirstIterationInputChars = _inputChars + source.Sum(message => message.Text.Length);
+            _state.Result.FirstIterationInputChars = _inputChars + (int)ChatMessageMetrics.CountChars(source);
         }
 
         var reduced = await TrySummarizeAsync(source, cancellationToken)
@@ -50,7 +50,7 @@ internal sealed class HetuChatReducer : IChatReducer
 
         if (_state.Result.FirstIterationCompressedChars == 0)
         {
-            _state.Result.FirstIterationCompressedChars = _inputChars + reduced.Sum(message => message.Text.Length);
+            _state.Result.FirstIterationCompressedChars = _inputChars + (int)ChatMessageMetrics.CountChars(reduced);
         }
         return reduced;
     }
@@ -61,7 +61,7 @@ internal sealed class HetuChatReducer : IChatReducer
     {
         if (source.Count <= KeepRecent) return null;
 
-        var estimatedTokens = source.Sum(message => message.Text.Length) / 3;
+        var estimatedTokens = ChatMessageMetrics.CountChars(source) / 3;
         if (estimatedTokens < _contextWindowTokens * AutoCompactRatio) return null;
 
         var older = source.Take(source.Count - KeepRecent)

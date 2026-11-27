@@ -48,7 +48,7 @@ public class ProxyRouteClassifier
                 .Append("用户问题：").Append(userText.Length > 800 ? userText[..800] : userText);
 
             var messages = new List<LlmChatMessage> { new() { Role = "user", Content = prompt.ToString() } };
-            var result = await text.ChatAsync(modelId, messages, new ChatOptions { Stream = false, Temperature = 0 }, ct);
+            var result = await text.ChatAsync(modelId, messages, new ChatOptions { Temperature = 0 }, ct);
             var category = result.Trim().Trim('.', '。', '"', '\'').ToLowerInvariant();
             return Categories.Contains(category) ? category : "default";
         }

@@ -114,7 +114,6 @@ public class ChatOptions
     public string? SystemPrompt { get; set; }
     public double? Temperature { get; set; }
     public int? MaxTokens { get; set; }
-    public bool Stream { get; set; }
     /// <summary>
     /// 推理强度（native 模式）：off/none/minimal/low/medium/high/xhigh/max 或供应商自定义字符串
     /// </summary>
@@ -127,10 +126,6 @@ public class ChatOptions
     /// 可用工具定义列表（传给 LLM）
     /// </summary>
     public List<LlmToolDefinition>? Tools { get; set; }
-    /// <summary>
-    /// 工具选择策略：auto / none / required / 指定工具名
-    /// </summary>
-    public string? ToolChoice { get; set; }
 }
 
 public class CompletionOptions
@@ -139,15 +134,4 @@ public class CompletionOptions
     public string? SystemPrompt { get; set; }
     public double? Temperature { get; set; }
     public int? MaxTokens { get; set; }
-}
-
-/// <summary>
-/// LLM 流式响应的结构化结果，包含文本内容和工具调用
-/// </summary>
-public class LlmStreamResult
-{
-    public string? Content { get; set; }
-    public string? Thinking { get; set; }
-    public List<LlmToolCall>? ToolCalls { get; set; }
-    public bool HasToolCalls => ToolCalls is { Count: > 0 };
 }

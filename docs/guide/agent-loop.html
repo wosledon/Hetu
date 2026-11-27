@@ -62,19 +62,21 @@
       <ol>
         <li><strong>解析模型</strong>：请求里带 <code>ModelId</code> 就按它创建 provider，否则用默认对话模型；两者都拿不到直接抛错（不静默降级）。</li>
               <li><strong>装载工具</strong>：先取内置 / 会话工具，再按会话绑定的 MCP 服务器加载 <code>tools/list</code> 结果，合并为 <code>AIFunction</code>。</li>
-        <li><strong>进入循环</strong>（默认最多 15 轮）：每轮开头先 <code>DrainSteering()</code> 把「运行中引导」并入上下文，历史由 <code>InMemoryChatHistoryProvider</code> 加载，并在取用前经 <code>HetuChatReducer</code> 压缩，然后调用模型。</li>
+        <li><strong>进入循环</strong>（每段默认最多 15 轮）：每轮开头先 <code>DrainSteering()</code> 把「运行中引导」并入上下文。对话 / Code 会话的历史由 Controller 从数据库加载后交给 <code>PreloadedChatHistoryProvider</code>，其他入口使用 <code>InMemoryChatHistoryProvider</code>；历史在取用前经 <code>HetuChatReducer</code> 压缩，然后调用模型。单轮请求超过上下文窗口 40% 时，<code>AgentContextChatClient</code> 会对长文本再做一次压缩管道处理；超过 80% 时停止工具调用并收尾。RAG / steering 等 <code>AIContextProvider</code> 挂在 chat client 管道中，每次模型调用前执行；<code>AgentSkillsProvider</code> 在 agent 级执行以注入技能工具。</li>
         <li><strong>处理模型输出</strong>：正文与思考通过事件流实时推出；工具调用交给调用方的判定器决定执行还是请求审批。</li>
         <li><strong>回填结果</strong>：工具结果写回上下文，同时通过事件出口推给前端；每轮的正文/思考/工具/用量累加进本轮结果。</li>
-        <li><strong>收尾</strong>：没有更多工具调用时结束；到达迭代上限时 MAF 自动执行一次不带工具的收尾请求并标记 <code>iteration_limit</code>。调用方负责落库消息、写用量、补 <code>done</code> 帧。</li>
+        <li><strong>收尾</strong>：没有更多工具调用时结束；到达单段迭代上限时 MAF 自动执行一次不带工具的收尾请求。若本段仍有实际进展且未超过 <code>MaxContinuations</code>，Runner 会发一条 <code>iteration_continue</code> 通知并自动续跑下一段；续跑次数用尽后才标记 <code>iteration_limit</code>。调用方负责落库消息、写用量、补 <code>done</code> 帧。</li>
       </ol>
 
       <h2>关键参数</h2>
       <div class="table-wrap"><table>
         <thead><tr><th>参数</th><th>默认</th><th>说明</th></tr></thead>
         <tbody>
-          <tr><td><code>MaxIterations</code></td><td>15</td><td>最大迭代轮数；传 ≤ 0 时回落默认 15，避免死循环</td></tr>
+          <tr><td><code>MaxIterations</code></td><td>15</td><td>单段最大迭代轮数；传 ≤ 0 时回落默认 15，避免死循环</td></tr>
+          <tr><td><code>MaxContinuations</code></td><td>1（对话 / Code 页传 2）</td><td>达到单段迭代上限且有实际进展时自动续跑的段数；0 表示到上限直接收尾</td></tr>
           <tr><td><code>MaxToolCallsPerTurn</code></td><td>5</td><td>单轮工具调用上限；超出部分跳过并回一条错误结果（不终止本轮，模型可拆小批次重试）</td></tr>
               <tr><td><code>ToolTimeout</code></td><td>10 分钟</td><td>单个工具的默认执行上限；工具自身声明 <code>Timeout</code> 时取更短者，超时会取消工具自身的令牌</td></tr>
+          <tr><td><code>ProviderMaxRetries</code> / <code>ProviderRetryDelayMs</code></td><td>2 / 400ms</td><td>Provider 瞬时异常与空回合的有限重试；流式已输出内容后不再重试</td></tr>
           <tr><td><code>CompressHistory</code></td><td>true</td><td>为 false 时跳过历史压缩（排查压缩引发的行为变化时用）</td></tr>
           <tr><td><code>EnableTools</code></td><td>true</td><td>关闭后不发工具 schema，纯对话模式</td></tr>
           <tr><td><code>CoreToolNames</code></td><td>null</td><td>给定时只暴露这些核心工具，其余按会话配置追加</td></tr>
@@ -93,7 +95,7 @@
       <div class="table-wrap"><table>
         <thead><tr><th>行为</th><th>实现</th></tr></thead>
         <tbody>
-          <tr><td>压缩范围</td><td>当前用户消息作为本轮 input 直接发送，不进入历史压缩；<code>InMemoryChatHistoryProvider</code> 只加载并压缩此前消息，避免用户原话被摘要。本轮新增工具输出另按当前轮预算做确定性截断，保留 ToolCallId 与最近结果</td></tr>
+          <tr><td>压缩范围</td><td>当前用户消息默认作为本轮 input 直接发送；<code>InMemoryChatHistoryProvider</code> 只加载并压缩此前消息。若单轮请求本身超过上下文窗口 40%（Anchor），<code>AgentContextChatClient</code> 会对长文本再过一次压缩管道（SHA-256 缓存保证同一段原文结果稳定）；超过 80% 时停止工具调用并收尾。本轮新增工具输出另按当前轮预算做确定性截断，保留 ToolCallId 与最近结果</td></tr>
           <tr><td>去重</td><td><code>CompressionPipelineService.PrepareForContextAsync</code> 用 SHA-256 缓存已压缩内容，多轮迭代不会对同一段反复调用压缩管道</td></tr>
           <tr><td>压缩方式</td><td>长消息先走压缩管道；历史接近上下文窗口 80% 时先用当前模型摘要旧消息、保留最近 6 条，再对剩余消息做管道压缩</td></tr>
           <tr><td>开销观测</td><td>首轮会单独估算系统提示与工具 schema 的字符开销并写日志，便于区分「提示太重」还是「历史太长」</td></tr>
@@ -113,7 +115,7 @@
         <tbody>
           <tr><td><code>IAgentLoopSink.OnEventAsync</code></td><td>结构化事件直通口：SSE 端原样写帧，非流式端可以忽略</td></tr>
           <tr><td><code>IAgentLoopSink.OnSteeringAsync</code></td><td>引导被接受时的事件回调</td></tr>
-          <tr><td><code>Hooks.AfterToolResultAsync</code> / <code>AfterToolResultsAsync</code></td><td>单条结果立即落库，整批结果再做文件变更等后处理，避免后续交互等待拖住历史记录</td></tr>
+          <tr><td><code>Hooks.AfterToolResultAsync</code> / <code>AfterToolResultsAsync</code></td><td>单条结果立即落库；完成回调再做文件变更、检查点等后处理，避免后续交互等待拖住历史记录</td></tr>
           <tr><td>调用方职责</td><td>保存消息、写用量（<code>ILlmUsageRecorder</code>）、追加 <code>done</code> 帧；编码会话只把 <code>subagent</code> 终态帧（含内层时间线 <code>entries</code>）落库以便回放</td></tr>
         </tbody>
       </table></div>
@@ -123,7 +125,10 @@
         <li><strong>模型不可用</strong>：直接抛错，界面收到错误帧——不静默改用别的模型，避免用户以为在用自己的模型。</li>
         <li><strong>单个 MCP 服务器失败</strong>：跳过该服务器，其余工具照常。</li>
         <li><strong>取消</strong>：<code>OperationCanceledException</code> 不吞，已解析但尚未执行的工具不会继续执行；调用方决定记「已取消」还是重新排队。</li>
-        <li><strong>工具协议异常</strong>：支持跨 delta 的文本 <code>&lt;tool_call&gt;</code> 解析；截断、畸形参数或超过单轮数量上限的调用整批拒绝执行。无法完整识别的文本保留原文，但不执行。</li>
+        <li><strong>工具协议异常</strong>：支持跨 delta 的文本 <code>&lt;tool_call&gt;</code> 解析并转换成 MAF 的 <code>FunctionCallContent</code>；截断、畸形参数或超过单轮数量上限的调用不会执行。无法完整识别的文本保留原文。</li>
+        <li><strong>Provider 异常</strong>：瞬时错误和空回合做有限重试（<code>ProviderMaxRetries</code>）；已经开始向 UI 输出正文后不再重试，避免重复内容。</li>
+        <li><strong>空转 / 上下文触顶</strong>：同一调用连续失败两次后第三次直接拦下；连续两轮全部是重复调用时判定停滞。停滞或上下文达到硬上限时停止工具调用、发 <code>notice</code> 并由模型收尾。</li>
+        <li><strong>无交互通道</strong>：工作流 Agent 节点、工具节点等无人值守场景使用 <code>InteractiveToolsSupported = false</code>；遇到 <code>Ask</code>、<code>ask_question</code>、<code>plan</code> 直接返回明确错误，而不是等待超时。</li>
         <li><strong>压缩失败</strong>：压缩管道内部只降级不抛错（无 provider、未变短都返回原文）。</li>
       </ul>
 
@@ -134,9 +139,10 @@
         <li>对话页与编码会话的差别不在内核，而在<strong>权限判定器与工具集</strong>（编码会话带 <code>work_*</code> 工具与工作区范围）。</li>
         <li>看板与工作流复用同一内核，只是把「事件出口」换成记录运行步骤 / 节点事件。</li>
         <li>同一轮里完全相同的只读调用会复用上次结果；同一调用连续失败两次后第三次直接拦下，避免原地打转烧迭代预算。</li>
-        <li>连续的只读文件工具（列目录 / 读文件 / glob / grep）在同一批次内并行执行；远程 SSH 项目仍串行，避免共享 runner 竞争。</li>
+        <li>工具调用默认串行执行（<code>AllowConcurrentInvocation = false</code>），避免文件改动顺序、检查点和审批事件错位；远程 SSH 项目同样串行，避免共享 runner 竞争。</li>
         <li>MCP 客户端按连接配置池化复用，同一进程只握手一次；SSE 正文/思考增量按 ~60ms 或 512 字符合批写出。</li>
-        <li><code>work_task</code> 子 Agent 同样复用该内核：只读工具白名单 + 12 轮 / 3 分钟上限，因此文本工具调用解析、参数校验与截断保护都与主会话一致。</li>
+        <li><code>work_task</code> 子 Agent 通过 <code>AIAgent.AsAIFunction</code> 暴露为工具（agent-as-tool）：只读工具白名单 + 12 轮 / 3 分钟上限，事件仍由 <code>SubAgentSink</code> 实时转成 <code>subagent</code> 帧。</li>
+        <li>Agent 管道由 <code>AIAgentBuilder.UseOpenTelemetry</code> 包裹，保留 MAF 原生 tracing；非 Agent 文本任务通过 <code>ChatJsonWithUsageAsync&lt;T&gt;</code> / <code>ChatResponseFormatJson</code> 使用结构化输出。</li>
       </ul>
 
       <h2>排查建议</h2>

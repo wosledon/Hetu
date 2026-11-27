@@ -107,7 +107,7 @@ public class WorkTaskTool : IToolExecutor
             using var subCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             subCts.CancelAfter(OverallTimeout);
 
-            var result = await agentLoop.RunAsync(new AgentLoopRequest
+            var request = new AgentLoopRequest
             {
                 ModelId = _context.ModelId,
                 SystemPrompt = $"""
@@ -117,7 +117,8 @@ public class WorkTaskTool : IToolExecutor
                 然后用简洁的 Markdown 汇报：结论、关键证据（文件:行）、以及尚未确认的疑点。
                 不要复述大段源码，只引用必要的片段。
                 """,
-                Messages = [new ChatMessage(ChatRole.User, prompt)],
+                // 查询由 Agent-as-Tool 的 query 参数传入，这里只保留系统提示与工具配置。
+                Messages = [],
                 ToolNames = toolNames,
                 // 只读白名单直接声明，不暴露 load_tools；子 Agent 不需要按需加载
                 CoreToolNames = toolNames,
@@ -141,13 +142,31 @@ public class WorkTaskTool : IToolExecutor
                     DiagnosticsCommand = _context.DiagnosticsCommand,
                     Runner = _context.Runner,
                 },
-            }, subCts.Token);
+            };
 
-            var timedOut = result.Cancelled && subCts.IsCancellationRequested && !cancellationToken.IsCancellationRequested;
-            if (!string.IsNullOrWhiteSpace(result.Error) && !timedOut)
+            var (function, result) = await agentLoop.CreateSubAgentFunctionAsync(
+                request, "subagent", "Run a read-only sub-agent for investigation", subCts.Token);
+            var timedOut = false;
+            string? invokeError = null;
+            try
             {
-                await sink.EmitErrorAsync(result.Error);
-                return ToolExecutionResult.Error($"子 Agent 执行失败：{result.Error}");
+                await function.InvokeAsync(
+                    new AIFunctionArguments(new Dictionary<string, object?> { ["query"] = prompt }),
+                    subCts.Token);
+            }
+            catch (OperationCanceledException) when (subCts.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
+            {
+                timedOut = true;
+            }
+            catch (Exception ex)
+            {
+                invokeError = ex.Message;
+            }
+
+            if (!string.IsNullOrWhiteSpace(invokeError))
+            {
+                await sink.EmitErrorAsync(invokeError);
+                return ToolExecutionResult.Error($"子 Agent 执行失败：{invokeError}");
             }
 
             await sink.EmitDoneAsync();

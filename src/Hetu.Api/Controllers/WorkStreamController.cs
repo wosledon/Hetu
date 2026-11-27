@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using Hetu.Agents;
 using Hetu.Api.Services;
 using Hetu.Api.Streaming;
 using Hetu.Core.Entities;
@@ -32,7 +33,6 @@ public class WorkStreamController : ControllerBase
     private readonly ToolExecutionService _toolExecution;
     private readonly ToolRegistry _toolRegistry;
     private readonly IAgentRunner _agentLoop;
-    private readonly ILocalSkillService _localSkillService;
     private readonly IWorkCodeIndexRefreshQueue _codeIndexRefreshQueue;
     private readonly IWorkCommandRunnerFactory _commandRunnerFactory;
     private readonly MentionContextBuilder _mentionContext;
@@ -51,7 +51,6 @@ public class WorkStreamController : ControllerBase
         ToolExecutionService toolExecution,
         ToolRegistry toolRegistry,
         IAgentRunner agentLoop,
-        ILocalSkillService localSkillService,
         IWorkCodeIndexRefreshQueue codeIndexRefreshQueue,
         IWorkCommandRunnerFactory commandRunnerFactory,
         MentionContextBuilder mentionContext,
@@ -69,7 +68,6 @@ public class WorkStreamController : ControllerBase
         _toolExecution = toolExecution;
         _toolRegistry = toolRegistry;
         _agentLoop = agentLoop;
-        _localSkillService = localSkillService;
         _codeIndexRefreshQueue = codeIndexRefreshQueue;
         _commandRunnerFactory = commandRunnerFactory;
         _mentionContext = mentionContext;
@@ -330,6 +328,12 @@ public class WorkStreamController : ControllerBase
         // 图片附件（视觉模型多模态输入）：与对话会话共用同一挂载规则
         ChatContextInjector.AttachImages(request.Images, modelInfo.ProviderType, chatMessages);
 
+        // 历史交给 MAF ChatHistoryProvider；本轮只把最后一条 user 消息作为输入。
+        var lastUserIndex = Math.Max(0, chatMessages.FindLastIndex(m => m.Role == "user"));
+        var historyProvider = new PreloadedChatHistoryProvider(
+            chatMessages.Take(lastUserIndex).ToChatMessages());
+        var inputMessages = chatMessages.Skip(lastUserIndex).ToList();
+
         // 网络搜索 / 知识库 / 记忆：与对话会话共用同一套 RAG 注入与 SSE 事件；
         // 作为 MAF AIContextProvider 在本轮首次模型调用前执行一次。
         // 记忆作用域：Code 会话按关联的受管项目注入「全局 ∪ 该项目」记忆（未关联项目则只有全局）
@@ -373,10 +377,6 @@ public class WorkStreamController : ControllerBase
         {
             systemPromptParts.Add($"\n已启用外部 MCP 工具：{string.Join(", ", mcpToolNames)}");
         }
-
-        var skillsContext = await BuildSkillsContextAsync(project.SkillIds, ct);
-        if (!string.IsNullOrWhiteSpace(skillsContext))
-            systemPromptParts.Add(skillsContext);
 
         var ruleContext = WorkProjectRules.LoadRuleContext(root);
         if (!string.IsNullOrWhiteSpace(ruleContext))
@@ -427,7 +427,6 @@ public class WorkStreamController : ControllerBase
         var options = new ChatOptions
         {
             // ModelId 留空：provider 创建时已注入正确的模型名
-            Stream = true,
             SystemPrompt = string.Join("\n\n", systemPromptParts),
         };
 
@@ -451,10 +450,7 @@ public class WorkStreamController : ControllerBase
         var overrides = new Dictionary<string, ToolApprovalMode>();
         var allowedToolNames = request.EnableTools ? allowedTools : new List<string>();
         if (request.EnableTools)
-        {
             options.Tools = _toolRegistry.ToToolDefinitions(allowedTools);
-            options.ToolChoice = "auto";
-        }
 
         var fileChanges = new List<object>();
         var usageTotal = new WorkMessageUsage();
@@ -478,11 +474,14 @@ public class WorkStreamController : ControllerBase
         {
             ModelId = modelId,
             SystemPrompt = options.SystemPrompt ?? string.Empty,
-            Messages = chatMessages.ToChatMessages(),
+            Messages = inputMessages.ToChatMessages(),
+            ChatHistoryProvider = historyProvider,
+            SkillIds = ParseStrings(project.SkillIds),
             ToolNames = allowedToolNames,
             RuntimeFunctions = mcpTools,
             McpServerIds = new List<Guid>(),
             MaxIterations = profile.MaxAgentIterations,
+            MaxContinuations = 2,
             MaxToolCallsPerTurn = profile.MaxToolCallsPerTurn,
             ReasoningEffort = options.ReasoningEffort,
             ReasoningBudgetTokens = options.ReasoningBudgetTokens,
@@ -935,26 +934,6 @@ public class WorkStreamController : ControllerBase
         {
             return [];
         }
-    }
-
-    /// <summary>项目启用的技能 → system prompt 中的技能索引</summary>
-    private async Task<string> BuildSkillsContextAsync(string? skillIdsJson, CancellationToken ct)
-    {
-        var skillIds = ParseStrings(skillIdsJson);
-        if (skillIds.Count == 0) return string.Empty;
-
-        var scan = await _localSkillService.ScanAllAsync(ct);
-        var skills = scan.Data?.Where(s => s.IsEnabled && skillIds.Contains(s.Id, StringComparer.OrdinalIgnoreCase)).ToList();
-        if (skills == null || skills.Count == 0) return string.Empty;
-
-        var sb = new StringBuilder("\n项目启用的技能（需要详细步骤时用 work_skill 读取全文）：");
-        foreach (var skill in skills)
-        {
-            sb.AppendLine();
-            sb.Append($"- {skill.Name}（id: {skill.Id}）");
-            if (!string.IsNullOrWhiteSpace(skill.Description)) sb.Append($": {skill.Description}");
-        }
-        return sb.ToString();
     }
 
     private static List<string> ParseStrings(string? json)
