@@ -1,21 +1,23 @@
-import { useRef, useState, type ReactNode, type RefObject } from 'react'
+import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { useTranslation } from 'react-i18next'
-import { FileText, Send, Square, X } from 'lucide-react'
+import { AlertTriangle, FileText, Send, Square, X } from 'lucide-react'
 import InputCommandMenu, { type InputCommandItem } from '../InputCommandMenu'
 import { extractMentionQuery, extractSlashQuery } from '../../utils/inputQuery'
 import { countTextLines, isLongText } from '../../utils/longText'
 import { Button, IconButton } from '../ui'
 
-/** 输入框上方的上下文 chip（引用文件 / 提示词模板 / 技能 / 选中代码 等） */
+/** 输入框上方的上下文 tag（引用文件 / 笔记 / 标签 / 技能 / 图片 等） */
 export interface AgentInputChip {
   id: string
   label: string
   icon?: ReactNode
-  /** blue=引用文件，amber=提示词/上下文，violet=技能 */
-  tone?: 'blue' | 'amber' | 'violet'
+  /** 按引用类型着色：文件/图片/笔记/标签/知识库/技能/智能体 各一色 */
+  tone?: 'blue' | 'sky' | 'cyan' | 'amber' | 'violet' | 'emerald' | 'indigo' | 'rose'
   title?: string
   /** 当前模型不支持该附件时：前边加感叹号并划掉（仍可移除） */
   struck?: boolean
+  /** 图片附件：tag 内显示小缩略图 */
+  imageUrl?: string
   onRemove: () => void
 }
 
@@ -81,9 +83,14 @@ export interface AgentInputBoxProps {
 }
 
 const CHIP_TONES: Record<string, string> = {
-  blue: 'border-blue-200 bg-blue-50 text-blue-600 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-300',
-  amber: 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300',
-  violet: 'border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-800 dark:bg-violet-950/40 dark:text-violet-300',
+  blue: 'border-blue-200/80 bg-blue-50/80 text-blue-700 dark:border-blue-400/20 dark:bg-blue-500/10 dark:text-blue-300',
+  sky: 'border-sky-200/80 bg-sky-50/80 text-sky-700 dark:border-sky-400/20 dark:bg-sky-500/10 dark:text-sky-300',
+  cyan: 'border-cyan-200/80 bg-cyan-50/80 text-cyan-700 dark:border-cyan-400/20 dark:bg-cyan-500/10 dark:text-cyan-300',
+  amber: 'border-amber-200/80 bg-amber-50/80 text-amber-700 dark:border-amber-400/20 dark:bg-amber-500/10 dark:text-amber-300',
+  violet: 'border-violet-200/80 bg-violet-50/80 text-violet-700 dark:border-violet-400/20 dark:bg-violet-500/10 dark:text-violet-300',
+  emerald: 'border-emerald-200/80 bg-emerald-50/80 text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-500/10 dark:text-emerald-300',
+  indigo: 'border-indigo-200/80 bg-indigo-50/80 text-indigo-700 dark:border-indigo-400/20 dark:bg-indigo-500/10 dark:text-indigo-300',
+  rose: 'border-rose-200/80 bg-rose-50/80 text-rose-700 dark:border-rose-400/20 dark:bg-rose-500/10 dark:text-rose-300',
 }
 
 /** 从输入与光标探测当前应显示的浮层类型；输入框与调用方共用 */
@@ -133,10 +140,19 @@ export default function AgentInputBox({
   const inputRef = textareaRef ?? localRef
   const [menuIndex, setMenuIndex] = useState(0)
   const historyIndexRef = useRef(-1)
+  const itemRefs = useRef<(HTMLButtonElement | null)[]>([])
   const menuItems = menu?.items ?? []
+  // 候选项异步收缩时把高亮索引夹回有效范围，回车不会选中 undefined
+  const activeIndex = menuItems.length > 0 ? Math.min(menuIndex, menuItems.length - 1) : 0
   // 是否显示由调用方决定（它掌握自己的过滤条件）；这里只在有菜单时渲染，
   // 候选项为空时仍显示标题与 emptyHint，与改造前行为一致。
   const showMenu = menu !== null
+
+  // 键盘上下移动时把高亮项滚进可视区域
+  useEffect(() => {
+    if (!showMenu) return
+    itemRefs.current[activeIndex]?.scrollIntoView({ block: 'nearest' })
+  }, [showMenu, activeIndex])
 
   // 超长粘贴不塞进输入框：转成块挂在上方（只显示行数/字符数），输入框继续用来打需求。
   // 判定只看「粘贴进来的这段」本身——短文本粘贴若把输入框顶长，仍按普通输入处理。
@@ -171,25 +187,26 @@ export default function AgentInputBox({
       if (menuItems.length > 0) {
         if (e.key === 'ArrowDown') {
           e.preventDefault()
-          setMenuIndex((i) => (i + 1) % menuItems.length)
+          setMenuIndex((activeIndex + 1) % menuItems.length)
           return
         }
         if (e.key === 'ArrowUp') {
           e.preventDefault()
-          setMenuIndex((i) => (i - 1 + menuItems.length) % menuItems.length)
+          setMenuIndex((activeIndex - 1 + menuItems.length) % menuItems.length)
           return
         }
         if ((e.key === 'Enter' && !e.shiftKey) || e.key === 'Tab') {
           e.preventDefault()
-          menu.onSelect(menuItems[menuIndex])
+          menu.onSelect(menuItems[activeIndex])
           setMenuIndex(0)
           return
         }
       }
       if (e.key === 'Escape') {
         e.preventDefault()
-        // 重新探测一次：@ / / 查询词已消失时由调用方关闭浮层
-        onMenuChange?.(detectInputMenu(value, e.currentTarget.selectionStart ?? value.length))
+        // 查询词还留在输入框里也要关闭：下一次输入变化会重新探测并打开
+        onMenuChange?.(null)
+        setMenuIndex(0)
         return
       }
     }
@@ -247,32 +264,45 @@ export default function AgentInputBox({
             <InputCommandMenu
               title={menu.kind === 'mention' ? t('input.mentionTitle') : t('input.slashTitle')}
               items={menuItems}
-              selectedIndex={menuIndex}
+              selectedIndex={activeIndex}
               onSelect={(item) => {
                 setMenuIndex(0)
                 menu.onSelect(item)
               }}
+              onHover={setMenuIndex}
+              itemRefs={itemRefs}
               emptyHint={menu.emptyHint ?? (menu.kind === 'mention' ? t('input.mentionEmpty') : t('input.slashEmpty'))}
             />
           )}
 
           {chips.length > 0 && (
-            <div className="flex flex-wrap items-center gap-1.5 px-4 pt-3">
+            <div className="flex flex-wrap items-center gap-1.5 px-3 pt-2.5">
               {chips.map((chip) => (
                 <span
                   key={chip.id}
-                  title={chip.title}
-                  className={`flex max-w-64 items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] ${CHIP_TONES[chip.struck ? 'amber' : chip.tone ?? 'blue']}`}
+                  title={chip.title ?? chip.label}
+                  className={`flex max-w-[260px] items-center gap-1 rounded-md border px-1 py-0.5 text-[11px] leading-4 ${CHIP_TONES[chip.struck ? 'amber' : chip.tone ?? 'blue']}`}
                 >
-                  {chip.struck && (
-                    <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full bg-amber-500 text-[9px] font-bold text-white">!</span>
-                  )}
-                  {chip.icon}
+                  {chip.struck ? (
+                    <AlertTriangle size={12} className="shrink-0" />
+                  ) : chip.imageUrl ? (
+                    <img
+                      src={chip.imageUrl}
+                      alt=""
+                      draggable={false}
+                      className="h-4 w-4 shrink-0 rounded-[3px] object-cover"
+                    />
+                  ) : chip.icon}
                   <span className={`truncate ${chip.struck ? 'line-through' : ''}`}>{chip.label}</span>
-                  <IconButton variant="ghost" tone="gray" className="shrink-0 rounded-full p-0.5 opacity-60 transition-opacity hover:opacity-100" label={t('input.removeChip', { label: chip.label })} onClick={chip.onRemove}
-                    aria-label={t('input.removeChip', { label: chip.label })}>
+                  <button
+                    type="button"
+                    onClick={chip.onRemove}
+                    aria-label={t('input.removeChip', { label: chip.label })}
+                    title={t('input.removeChip', { label: chip.label })}
+                    className="flex h-4 w-4 shrink-0 items-center justify-center rounded text-current opacity-55 transition-opacity hover:bg-black/5 hover:opacity-100 dark:hover:bg-white/10"
+                  >
                     <X size={9} />
-                  </IconButton>
+                  </button>
                 </span>
               ))}
             </div>

@@ -17,6 +17,8 @@ interface InputCommandMenuProps {
   items: InputCommandItem[]
   selectedIndex: number
   onSelect: (item: InputCommandItem) => void
+  /** 鼠标移入时同步键盘高亮，避免「指针在 A、回车选中 B」 */
+  onHover?: (index: number) => void
   itemRefs?: React.MutableRefObject<(HTMLButtonElement | null)[]>
   emptyHint?: string
 }
@@ -27,13 +29,14 @@ export default function InputCommandMenu({
   items,
   selectedIndex,
   onSelect,
+  onHover,
   itemRefs,
   emptyHint,
 }: InputCommandMenuProps) {
   if (items.length === 0 && !emptyHint) return null
 
   return (
-    <div role="listbox" className={`absolute bottom-full left-0 right-0 z-50 mb-2 max-h-80 overflow-y-auto p-1.5 ${POPOVER_PANEL_CLASS}`}>
+    <div role="listbox" className={`absolute bottom-full left-0 right-0 z-50 mb-2 max-h-[min(48vh,320px)] overscroll-contain overflow-y-auto p-1.5 ${POPOVER_PANEL_CLASS}`}>
       <div className="mb-1 border-b border-gray-100 px-2.5 pb-2 pt-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:border-white/[0.06] dark:text-gray-500">{title}</div>
       {items.length === 0 && emptyHint && (
         <div className="px-4 py-6 text-center text-[11px] text-gray-400">{emptyHint}</div>
@@ -46,6 +49,7 @@ export default function InputCommandMenu({
           }}
           role="option"
           aria-selected={i === selectedIndex}
+          onMouseEnter={() => onHover?.(i)}
           onClick={() => onSelect(item)}
           className={`${popoverItemClass(i === selectedIndex)} items-center`}
         >

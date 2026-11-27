@@ -304,6 +304,7 @@ export default {
     typeToSearch: 'Type to search...',
     imageAttachment: 'Image attachment',
     imageUnsupported: '{{name}} (the current model does not support image input; it will be ignored when sending)',
+    imageOnlyPaste: 'Only image attachments are supported; other files were ignored',
     referencedFile: 'Referenced file: {{path}}',
     selectedContext: 'Selection {{label}}',
     closeNotice: 'Dismiss the notice',

@@ -6,7 +6,7 @@ import {
 
   ListChecks, Coins, Copy, Check, X, Braces, FolderOpen, SquareTerminal, Bot, Plus,
   Download, Stethoscope, RotateCcw, FileCode, PanelRightClose, PanelRightOpen, Zap,
-  Globe, Database, Pencil, Trash2, Gauge,
+  Globe, Database, Pencil, Trash2, Gauge, AtSign, Tag, Library,
 } from 'lucide-react'
 import { workSessionService, workProjectService, workOpenService, workCheckpointService, workFileService } from '../../services/workService'
 import { aiModelService, aiProviderService } from '../../services/aiProviderService'
@@ -17,9 +17,10 @@ import { type InputCommandItem } from '../InputCommandMenu'
 import type { IWorkSession, IWorkMessage, IWorkProject, WorkPermissionMode, IWorkOpenApp, IWorkCopilotAgent } from '../../types/work'
 import ThemedMarkdown from '../ThemedMarkdown'
 import UserMessageContent from '../UserMessageContent'
-import { wrapLongTextBlock } from '../../utils/longText'
+import { wrapLongTextBlock, isLongText } from '../../utils/longText'
 import { formatDateTime } from '../../utils/locale'
 import { useStickToBottom } from '../../hooks/useStickToBottom'
+import { useImageAttachments } from '../../hooks/useImageAttachments'
 import { consumeSseStream, SSE_ERROR_PREFIX } from '../../utils/sse'
 import { createSubagentCoalescer, formatTokens, mergeSubagentEntries, parseAgentFrame, subagentStage, type AgentUsage, type SubagentEntry, type SubagentFrame } from '../../utils/agentStream'
 import ConversationRail from '../ConversationRail'
@@ -261,7 +262,10 @@ export default function WorkSessionArea({
   const [webSearch, setWebSearch] = useState(() => cachedSettings.webSearch ?? false)
   const [knowledgeBase, setKnowledgeBase] = useState(() => cachedSettings.knowledgeBase ?? false)
   const [deepThinking, setDeepThinking] = useState(() => cachedSettings.deepThinking ?? false)
-  const [attachedFiles, setAttachedFiles] = useState<File[]>([])
+  const attachments = useImageAttachments()
+  // 输入区临时提示（如粘贴了非图片文件）
+  const [inputNotice, setInputNotice] = useState<string | null>(null)
+  const inputNoticeTimerRef = useRef(0)
   // 记忆开关已从会话内移到「设置 - 记忆」：Code 会话统一配置，这里只读
   const { data: memoryUsage } = useQuery({
     queryKey: ['memoryUsageConfig'],
@@ -482,10 +486,10 @@ export default function WorkSessionArea({
   const [inputMenu, setInputMenu] = useState<{ kind: 'mention' | 'slash'; query: string } | null>(null)
 
   const [fileCandidates, setFileCandidates] = useState<string[]>([])
-  const [mentionedFiles, setMentionedFiles] = useState<string[]>([])
+  /** 输入框里的 /命令 tag（技能 / 提示词模板） */
+  const [selectedCommand, setSelectedCommand] = useState<InputCommandItem | null>(null)
+  /** 输入框里的 @ 引用 tag（文件 / 笔记 / 标签 / 知识库） */
   const [selectedMentions, setSelectedMentions] = useState<{ type: string; id: string; label: string }[]>([])
-  const [selectedPrompt, setSelectedPrompt] = useState<{ name: string; filePath: string } | null>(null)
-  const [selectedSkillName, setSelectedSkillName] = useState<string | null>(null)
 
   // @ 引用笔记 / 笔记本 / 标签 / 知识库：与对话页共用同一份候选构建
   const noteMentionItems = useMentionItems(inputMenu?.kind === 'mention' ? inputMenu.query : null)
@@ -602,9 +606,8 @@ export default function WorkSessionArea({
     setInput((prev) => (prev.trim().length > 0 ? `${prev.trimEnd()}\n\n${agentPromptRequest.text}` : agentPromptRequest.text))
   }, [agentPromptRequest])
 
-  /** 粘贴：图片转附件 chip（非视觉模型会带感叹号划掉）；绝对路径转为引用 chip（不放回输入框） */
+  /** 粘贴：图片挂缩略图（非视觉模型置灰提示）；绝对路径转为引用 chip；正文照常保留 */
   const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
-    // 剪贴板里的图片/文件：挂成附件（是否可用由当前模型的视觉能力决定）
     const pastedFiles: File[] = []
     for (const item of e.clipboardData?.items ?? []) {
       if (item.kind !== 'file') continue
@@ -613,7 +616,11 @@ export default function WorkSessionArea({
     }
     if (pastedFiles.length > 0) {
       e.preventDefault()
-      setAttachedFiles((prev) => [...prev, ...pastedFiles])
+      const hasImage = attachments.add(pastedFiles)
+      if (!hasImage) notifyInput(t('session.imageOnlyPaste'))
+      // 同一次粘贴里的文字不丢：短文本插到光标处；长文本由输入框转折叠块
+      const text = e.clipboardData.getData('text/plain')
+      if (text && !isLongText(text)) insertPastedText(text)
       return
     }
 
@@ -648,6 +655,9 @@ export default function WorkSessionArea({
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [])
+
+  // 输入区临时提示的计时器在卸载时清掉
+  useEffect(() => () => window.clearTimeout(inputNoticeTimerRef.current), [])
 
   // 输入草稿随写随存：组件可能因草稿落库（key 变化）而重挂载，重挂载时从缓存恢复
   useEffect(() => {
@@ -955,7 +965,8 @@ export default function WorkSessionArea({
 
   const handleSend = async () => {
     // 折叠的长文本块排在正文前，并带上标记：会话里折叠成块展示，自己写的那句话照常显示
-    const content = [pastedBlock ? wrapLongTextBlock(pastedBlock) : '', input.trim()].filter(Boolean).join('\n\n')
+    const typed = input.trim()
+    const content = [pastedBlock ? wrapLongTextBlock(pastedBlock) : '', typed].filter(Boolean).join('\n\n')
     setPastedBlock('')
     // /compress 命令：调用当前模型压缩上下文，不发消息
     if (content === '/compress') {
@@ -964,50 +975,54 @@ export default function WorkSessionArea({
       await compactContext()
       return
     }
+    if (!typed && !pastedBlock && attachments.items.length === 0 && !selectedCommand && selectedMentions.length === 0) return
+
+    // 输入框 tag 还原 /命令 与 @引用；组装正文时把文件引用注入最前面
+    const command = resolveTurnCommand(typed)
+    const { citedFiles, mentions } = collectTurnMentions()
+    const fullContent = buildContent(content, citedFiles)
+
     // 回复进行中（含 done 后仍在收尾的连接）：不打断当前回复，消息进入发送队列
     if (busy) {
-      enqueue(buildContent(content))
+      enqueue(fullContent)
       setInput('')
       setInputHistory(pushInputHistory(content))
       setInjectedContexts([])
-      setMentionedFiles([])
+      attachments.clear()
+      setSelectedCommand(null)
       setSelectedMentions([])
-      setSelectedPrompt(null)
-      setSelectedSkillName(null)
-      setAttachedFiles([])
       return
     }
     // 选中工作流时：先走统一的草稿会话创建，再绑定 Code 项目上下文执行
     if (workflowRun.workflow) {
       setInput('')
       setInputHistory(pushInputHistory(content))
-      setSelectedMentions([])
-      setMentionedFiles([])
       setInjectedContexts([])
-      await runStream(buildContent(content), permissionMode, true, [], undefined, true)
+      setSelectedCommand(null)
+      setSelectedMentions([])
+      await runStream(fullContent, permissionMode, true, [], undefined, true)
       return
     }
     setInput('')
 
     setInputHistory(pushInputHistory(content))
     setInjectedContexts([])
-    setMentionedFiles([])
+    setSelectedCommand(null)
     setSelectedMentions([])
-    setSelectedPrompt(null)
-    setSelectedSkillName(null)
 
-    // 图片附件（视觉模型）：与对话页同一份 base64 组装；非视觉模型忽略（chip 已划掉提示）
+    // 图片附件（视觉模型）：与对话页同一份 base64 组装；非视觉模型忽略（tag 已置灰提示）
     const images: { data: string; mimeType: string; fileName?: string }[] = []
     if (currentModel?.supportsVision) {
-      for (const file of attachedFiles) {
-        if (file.type.startsWith('image/')) {
-          images.push({ data: await fileToBase64(file), mimeType: file.type, fileName: file.name })
-        }
+      for (const file of attachments.files) {
+        images.push({ data: await fileToBase64(file), mimeType: file.type, fileName: file.name })
       }
     }
-    setAttachedFiles([])
+    attachments.clear()
 
-    await runStream(buildContent(content), permissionMode, true, images)
+    await runStream(fullContent, permissionMode, true, images, undefined, false, {
+      ...command,
+      mentions: mentions.length > 0 ? mentions : undefined,
+    })
   }
 
   const fileToBase64 = (file: File): Promise<string> =>
@@ -1018,84 +1033,151 @@ export default function WorkSessionArea({
       reader.readAsDataURL(file)
     })
 
-  /** 把上下文 chips 组装进提示词 */
-  const buildContent = (raw: string): string => {
+  /** 把上下文 chips 组装进提示词（@ 文件引用由发送时从正文令牌解析） */
+  const buildContent = (raw: string, citedFiles: string[] = []): string => {
     const parts: string[] = []
     if (activeFilePath) parts.push(`【引用文件】${activeFilePath}`)
     for (const c of injectedContexts) {
       if (c.kind === 'selection') parts.push(`【选中代码 · ${c.label}】\n\`\`\`\n${c.text}\n\`\`\``)
       else parts.push(`【引用文件】${c.label}`)
     }
-    for (const path of mentionedFiles) parts.push(`【引用文件】${path}`)
-    if (selectedPrompt) parts.push(`【提示词模板 /${selectedPrompt.name}】请按 .github 中该模板的步骤执行。`)
+    for (const path of citedFiles) parts.push(`【引用文件】${path}`)
     if (parts.length === 0) return raw
     return `${parts.join('\n')}\n\n${raw}`
   }
 
-  /** 移除输入框中正在输入的 @查询词 */
-  const stripMentionQuery = () => {
-    const at = input.lastIndexOf('@')
+  const notifyInput = (text: string) => {
+    setInputNotice(text)
+    window.clearTimeout(inputNoticeTimerRef.current)
+    inputNoticeTimerRef.current = window.setTimeout(() => setInputNotice(null), 4000)
+  }
+
+  const focusCaret = (cursor: number) => {
+    requestAnimationFrame(() => {
+      const el = textareaRef.current
+      if (!el) return
+      el.focus()
+      const pos = Math.min(cursor, el.value.length)
+      el.setSelectionRange(pos, pos)
+    })
+  }
+
+  /** 把文本插入光标处（粘贴图片时同一次粘贴里的文字不能丢） */
+  const insertPastedText = (text: string) => {
+    const el = textareaRef.current
+    const start = el?.selectionStart ?? input.length
+    const end = el?.selectionEnd ?? input.length
+    setInput(input.slice(0, start) + text + input.slice(end))
+    setInputMenu(null)
+    focusCaret(start + text.length)
+  }
+
+  /** 移除输入框中正在输入的 @ / / 查询词（只动光标所在的那个词） */
+  const removeTriggerQuery = (kind: 'mention' | 'slash') => {
+    const cursor = textareaRef.current?.selectionStart ?? input.length
+    if (kind === 'slash') {
+      if (!input.startsWith('/')) return
+      let end = cursor
+      while (end < input.length && !/[\s\n]/.test(input[end])) end++
+      const value = input.slice(end).replace(/^\s+/, '')
+      setInput(value)
+      focusCaret(0)
+      return
+    }
+    const before = input.slice(0, cursor)
+    const at = before.lastIndexOf('@')
     if (at < 0) return
-    let end = at + 1
-    while (end < input.length && !/\s/.test(input[end])) end++
-    setInput((input.slice(0, at) + input.slice(end)).replace(/^\s+/, '').replace(/\s+$/, ''))
+    if (at > 0 && /[A-Za-z0-9_.-]$/.test(before.slice(0, at))) return
+    let end = cursor
+    while (end < input.length && !/[\s\n]/.test(input[end])) end++
+    const value = input.slice(0, at) + input.slice(end)
+    setInput(value)
+    focusCaret(Math.min(at, value.length))
   }
 
   /** 选中 @ 智能体：切换本会话 Agent（与工具栏下拉一致），并移除输入中的 @查询词 */
   const applyMenuAgent = (agentId: string) => {
     if (session) setAgentOverride({ sessionId: session.id, value: agentId })
-    stripMentionQuery()
+    removeTriggerQuery('mention')
     setInputMenu(null)
     requestAnimationFrame(() => textareaRef.current?.focus())
   }
 
-  /** 选中 @ 文件：替换输入中的 @查询词 并加入引用 chips */
-  const applyMentionFile = (path: string) => {
-    stripMentionQuery()
-    setMentionedFiles(prev => (prev.includes(path) ? prev : [...prev, path]))
+  /** 选中 @ 文件 / 笔记 / 标签 / 知识库：移除 @查询词，加入输入框内的引用 tag */
+  const applyMentionItem = (item: InputCommandItem) => {
+    const sep = item.key.indexOf(':')
+    const type = sep >= 0 ? item.key.slice(0, sep) : item.key
+    const id = sep >= 0 ? item.key.slice(sep + 1) : ''
+    removeTriggerQuery('mention')
+    setSelectedMentions((prev) =>
+      prev.some((m) => m.type === type && m.id === id) ? prev : [...prev, { type, id, label: item.label }])
     setInputMenu(null)
-    requestAnimationFrame(() => {
-      const el = textareaRef.current
-      if (el) {
-        el.focus()
-        el.setSelectionRange(el.value.length, el.value.length)
-      }
-    })
   }
 
-  /** 选中 @ 笔记/笔记本/标签/知识库：加入引用 chips，内容由后端按 id 注入 */
-  const applyMention = (item: InputCommandItem) => {
-    const [type, id] = item.key.split(':')
-    stripMentionQuery()
-    setSelectedMentions(prev =>
-      prev.some(m => m.type === type && m.id === id) ? prev : [...prev, { type, id, label: item.label }])
-    setInputMenu(null)
-    requestAnimationFrame(() => {
-      const el = textareaRef.current
-      if (el) {
-        el.focus()
-        el.setSelectionRange(el.value.length, el.value.length)
-      }
-    })
+  /** 「+」面板的技能入口：不往正文塞触发符，直接打开全部候选项 */
+  const openSlashMenu = () => {
+    setInputMenu({ kind: 'slash', query: '' })
+    requestAnimationFrame(() => textareaRef.current?.focus())
   }
 
-  /** 选中 / 指令：提示词模板或项目技能 */
+  /** 选中 / 指令：移除 /查询词，加入输入框内的彩色命令 tag */
   const applySlashItem = (item: InputCommandItem) => {
-    if (item.key.startsWith('prompt:')) {
-      const rest = item.key.slice('prompt:'.length)
-      const sep = rest.indexOf(':')
-      const name = sep > 0 ? rest.slice(0, sep) : rest
-      const filePath = sep > 0 ? rest.slice(sep + 1) : ''
-      setSelectedPrompt({ name, filePath })
-    } else if (item.key.startsWith('skill:')) {
-      setSelectedSkillName(item.key.slice('skill:'.length))
+    if (item.key === 'command:compress') {
+      setInput('')
+      setInputMenu(null)
+      void compactContext()
+      return
     }
-    // 移除输入框开头的 /查询词，保留其余内容
-    const spaceIdx = input.indexOf(' ')
-    const next = spaceIdx >= 0 ? input.slice(spaceIdx + 1) : ''
-    setInput(next.replace(/^\s+/, ''))
+    removeTriggerQuery('slash')
+    setSelectedCommand(item)
     setInputMenu(null)
-    requestAnimationFrame(() => textareaRef.current?.focus())
+  }
+
+  const commandTone = (key: string) => key.startsWith('prompt:') ? 'amber' as const : 'violet' as const
+
+  const mentionTone = (type: string) =>
+    type === 'file' ? 'sky' as const
+      : type === 'tag' ? 'emerald' as const
+        : type === 'knowledge' ? 'violet' as const
+          : 'amber' as const
+
+  const mentionIcon = (type: string) =>
+    type === 'file' ? <FileCode size={12} className="shrink-0" />
+      : type === 'tag' ? <Tag size={12} className="shrink-0" />
+        : type === 'knowledge' ? <Library size={12} className="shrink-0" />
+          : <AtSign size={12} className="shrink-0" />
+
+  /** 解析本轮命令：优先用输入框里的命令 tag；手动输入 /name 时按名称兜底 */
+  const resolveTurnCommand = (typed: string) => {
+    const item = selectedCommand
+    if (item) {
+      if (item.key.startsWith('prompt:')) {
+        const rest = item.key.slice('prompt:'.length)
+        const sep = rest.indexOf(':')
+        return { promptFile: sep > 0 ? rest.slice(sep + 1) : '' }
+      }
+      if (item.key.startsWith('skill:')) return { skillName: item.key.slice('skill:'.length) }
+    }
+    const name = typed.match(/^\/([^\s]+)/)?.[1]
+    if (!name) return {}
+    const prompt = copilotAssets?.prompts.find((p) => p.name === name)
+    if (prompt) return { promptFile: prompt.filePath }
+    const skill = enabledSkills.find((s) => s.name === name) ?? copilotAssets?.skills.find((s) => s.name === name)
+    return skill ? { skillName: name } : {}
+  }
+
+  /** 从输入框里的引用 tag 还原：文件注入正文，其余交给后端按 id 注入 */
+  const collectTurnMentions = () => {
+    const citedFiles: string[] = []
+    const mentions: { type: string; id: string }[] = []
+    for (const m of selectedMentions) {
+      if (m.type === 'file') {
+        if (!citedFiles.includes(m.id)) citedFiles.push(m.id)
+      } else {
+        mentions.push({ type: m.type, id: m.id })
+      }
+    }
+    return { citedFiles, mentions }
   }
 
   /** 预设提示词直达发送（诊断 / 起步 chips / 后续建议共用） */
@@ -1105,13 +1187,17 @@ export default function WorkSessionArea({
     void runStream(buildContent(text), permissionMode)
   }
 
-  /** 「+」面板插入 @ / 触发符：与主对话一致，光标落在触发符后并打开浮层 */
+  /** 「+」面板的 @ / 快捷入口：@ 在光标处插入；/ 直接打开命令浮层，不往正文塞触发符 */
   const insertInputTrigger = (trigger: '@' | '/') => {
+    if (trigger === '/') {
+      openSlashMenu()
+      return
+    }
     const el = textareaRef.current
     const start = el?.selectionStart ?? input.length
     const end = el?.selectionEnd ?? input.length
     setInput(input.slice(0, start) + trigger + input.slice(end))
-    setInputMenu({ kind: trigger === '@' ? 'mention' : 'slash', query: '' })
+    setInputMenu({ kind: 'mention', query: '' })
     requestAnimationFrame(() => {
       const target = textareaRef.current
       if (!target) return
@@ -1143,6 +1229,7 @@ export default function WorkSessionArea({
     images: { data: string; mimeType: string; fileName?: string }[] = [],
     target?: IWorkSession,
     asWorkflow = false,
+    inputMeta?: { promptFile?: string; skillName?: string; mentions?: { type: string; id: string }[] },
   ): Promise<void> => {
     let active = target ?? draftCreatedRef.current ?? session
     if (!active) return
@@ -1369,9 +1456,9 @@ export default function WorkSessionArea({
           permissionMode: mode,
           reasoningEffort: reasoningEffort || undefined,
           agentPrompt: selectedAgentId ? agents.find((a) => a.id === selectedAgentId)?.content : undefined,
-          promptFile: selectedPrompt?.filePath || undefined,
-          skillName: selectedSkillName || undefined,
-          mentions: selectedMentions.length > 0 ? selectedMentions.map((m) => ({ type: m.type, id: m.id })) : undefined,
+          promptFile: inputMeta?.promptFile || undefined,
+          skillName: inputMeta?.skillName || undefined,
+          mentions: inputMeta?.mentions && inputMeta.mentions.length > 0 ? inputMeta.mentions : undefined,
           // 会话级上下文上限（选择更小的窗口时后端按预算裁剪历史）
           contextWindow,
           // Agent 交互方式：与权限共用面板下发（交互式逐步确认 / autopilot 自动执行）
@@ -1817,24 +1904,43 @@ export default function WorkSessionArea({
                 kind: inputMenu.kind,
                 items: menuItems,
                 onSelect: (item) => {
-                  if (item.key === 'command:compress') { setInput(''); void compactContext(); return }
-                  if (item.key.startsWith('agent:')) applyMenuAgent(item.key.slice('agent:'.length))
-                  else if (item.key.startsWith('file:')) applyMentionFile(item.key.slice('file:'.length))
-                  else if (/^(note|tag|knowledge):/.test(item.key)) applyMention(item)
-                  else applySlashItem(item)
+                  if (item.key === 'command:compress') { setInput(''); setInputMenu(null); void compactContext(); return }
+                  if (item.key.startsWith('agent:')) { applyMenuAgent(item.key.slice('agent:'.length)); return }
+                  if (/^(file|note|tag|knowledge):/.test(item.key)) { applyMentionItem(item); return }
+                  applySlashItem(item)
                 },
                 emptyHint: inputMenu.query.trim() ? t('session.noMatch') : t('session.typeToSearch'),
               }
             : null}
           chips={[
-            ...attachedFiles.map((file, i) => ({
-              id: `attach:${i}`,
-              label: file.name,
-              tone: 'amber' as const,
-              // 非视觉模型：粘贴进来的图片前加感叹号并划掉（发送时会跳过）
+            ...(selectedCommand
+              ? [{
+                  id: `cmd:${selectedCommand.key}`,
+                  // tag 本身就是命令标识，不再带触发用的前导斜杠
+                  label: selectedCommand.label.replace(/^\//, ''),
+                  icon: selectedCommand.icon,
+                  tone: commandTone(selectedCommand.key),
+                  title: selectedCommand.description,
+                  onRemove: () => setSelectedCommand(null),
+                }]
+              : []),
+            ...selectedMentions.map((m) => ({
+              id: `mention:${m.type}:${m.id}`,
+              label: m.label,
+              icon: mentionIcon(m.type),
+              tone: mentionTone(m.type),
+              title: m.label,
+              onRemove: () => setSelectedMentions((prev) => prev.filter((x) => !(x.type === m.type && x.id === m.id))),
+            })),
+            ...attachments.items.map((att) => ({
+              id: att.id,
+              label: att.file.name || 'image',
+              imageUrl: att.url,
+              tone: 'cyan' as const,
+              // 非视觉模型：tag 带警告并置灰（发送时会跳过）
               struck: !currentModel?.supportsVision,
-              title: currentModel?.supportsVision ? t('session.imageAttachment') : t('session.imageUnsupported', { name: file.name }),
-              onRemove: () => setAttachedFiles((prev) => prev.filter((_, idx) => idx !== i)),
+              title: currentModel?.supportsVision ? t('session.imageAttachment') : t('session.imageUnsupported', { name: att.file.name }),
+              onRemove: () => attachments.remove(att.id),
             })),
             ...(activeFilePath
               ? [{
@@ -1852,34 +1958,6 @@ export default function WorkSessionArea({
               title: c.kind === 'selection' ? c.text.slice(0, 200) : c.text,
               onRemove: () => setInjectedContexts((prev) => prev.filter((x) => x.id !== c.id)),
             })),
-            ...mentionedFiles.map((path) => ({
-              id: `file:${path}`,
-              label: path,
-              tone: 'blue' as const,
-              onRemove: () => setMentionedFiles((prev) => prev.filter((p) => p !== path)),
-            })),
-            ...selectedMentions.map((m) => ({
-              id: `${m.type}:${m.id}`,
-              label: m.label,
-              tone: 'blue' as const,
-              onRemove: () => setSelectedMentions((prev) => prev.filter((x) => !(x.type === m.type && x.id === m.id))),
-            })),
-            ...(selectedPrompt
-              ? [{
-                  id: `prompt:${selectedPrompt.filePath}`,
-                  label: `/${selectedPrompt.name}`,
-                  tone: 'amber' as const,
-                  onRemove: () => setSelectedPrompt(null),
-                }]
-              : []),
-            ...(selectedSkillName
-              ? [{
-                  id: `skill:${selectedSkillName}`,
-                  label: `/${selectedSkillName}`,
-                  tone: 'violet' as const,
-                  onRemove: () => setSelectedSkillName(null),
-                }]
-              : []),
           ]}
           aboveInput={session ? (
             <>
@@ -1901,6 +1979,11 @@ export default function WorkSessionArea({
                     <X size={12} />
                   </button>
                 </div>
+              )}
+              {inputNotice && (
+                <p className="mb-2 rounded-lg border border-amber-200 bg-amber-50/70 px-3 py-1.5 text-[11px] text-amber-800 dark:border-amber-800/50 dark:bg-amber-950/20 dark:text-amber-300">
+                  {inputNotice}
+                </p>
               )}
               {!interactionInRail && <ToolInteractionDrawer streamKey={session.id} streaming={isStreaming} />}
             </>
@@ -2008,7 +2091,7 @@ export default function WorkSessionArea({
             workStreamRuns.cancel(id)
             void workSessionService.stop(id).catch(() => {})
           }}
-          canSubmit={!!session && (!!input.trim() || !!pastedBlock || !!selectedPrompt || !!selectedSkillName || selectedMentions.length > 0)}
+          canSubmit={!!session && (!!input.trim() || !!pastedBlock || attachments.items.length > 0 || !!selectedCommand || selectedMentions.length > 0)}
           block={pastedBlock}
           onBlockChange={setPastedBlock}
           history={inputHistory}
@@ -2016,7 +2099,9 @@ export default function WorkSessionArea({
             <>
               {/* 与主对话一致：左侧「+」面板 / 智能体 / 审批模式，右侧上下文占用与模型选择 */}
               <AgentPlusMenu
-                onFiles={(files) => setAttachedFiles((prev) => [...prev, ...files])}
+                onFiles={(files) => {
+                  if (!attachments.add(files)) notifyInput(t('session.imageOnlyPaste'))
+                }}
                 onMention={() => insertInputTrigger('@')}
                 onSlash={() => insertInputTrigger('/')}
               />

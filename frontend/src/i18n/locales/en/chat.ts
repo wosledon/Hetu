@@ -38,6 +38,7 @@ export default {
     emptyTitle: 'What shall we work on today?',
     emptySubtitle: 'Capture an idea, organize your knowledge, or hand a task to an agent.',
     imageUnsupported: '{{name}} (the current model does not support image input; it will be ignored when sending)',
+    imageOnlyPaste: 'Only image attachments are supported; other files were ignored',
     noMatchingSlash: 'No matching skills or agents',
     noMatchingMention: 'No matching mentions',
     mentionHint: 'Type keywords to search...',

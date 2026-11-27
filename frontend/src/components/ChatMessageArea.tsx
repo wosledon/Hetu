@@ -1,7 +1,7 @@
 import { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback, lazy, Suspense } from 'react'
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { Bot, FileText, Search, SearchX, GitBranch, X, Globe, Database, ChevronDown, ArrowDown, Loader2, Zap, AlertCircle, Eraser, Gauge } from 'lucide-react'
+import { Bot, Search, SearchX, GitBranch, X, Globe, Database, ChevronDown, ArrowDown, Loader2, Zap, AlertCircle, Eraser, Gauge, AtSign, Tag, Library } from 'lucide-react'
 import i18n from '../i18n'
 import { chatMessageService, chatTopicService, promptPresetService } from '../services/chatService'
 import { settingService } from '../services/settingService'
@@ -40,8 +40,9 @@ import useElementWidth from '../hooks/useElementWidth'
 import { useChatStreamStore, chatStreamControl } from '../stores/chatStreamStore'
 import { useConfirm } from './confirm'
 import { loadTopicSettings, saveTopicSettings } from '../utils/topicSettings'
-import { wrapLongTextBlock } from '../utils/longText'
+import { wrapLongTextBlock, isLongText } from '../utils/longText'
 import { useStickToBottom } from '../hooks/useStickToBottom'
+import { useImageAttachments } from '../hooks/useImageAttachments'
 import { consumeSseStream } from '../utils/sse'
 import { formatDateTime } from '../utils/locale'
 import { POPOVER_PANEL_CLASS } from '../utils/styles'
@@ -156,7 +157,7 @@ export default function ChatMessageArea({ topic, onTopicUpdated, projectId }: Ch
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null)
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null)
   const [editingContent, setEditingContent] = useState('')
-  const [attachedFiles, setAttachedFiles] = useState<File[]>([])
+  const attachments = useImageAttachments()
   const [deepThinking, setDeepThinking] = useState(() => cachedSettings.deepThinking ?? false)
   const [reasoningEffort, setReasoningEffort] = useState<string>(() => cachedSettings.reasoningEffort ?? 'medium')
   const [showReasoningPicker, setShowReasoningPicker] = useState(false)
@@ -175,10 +176,15 @@ export default function ChatMessageArea({ topic, onTopicUpdated, projectId }: Ch
   const { workflow: runningWorkflow, nodes: workflowNodes, pendingApproval, toolCall: workflowToolCall, error: workflowError, workflows: availableWorkflows } = workflowRun
   const [showModelPicker, setShowModelPicker] = useState(false)
   const [selectedModelId, setSelectedModelId] = useState(() => cachedSettings.modelId ?? '')
-  const [selectedSlashItem, setSelectedSlashItem] = useState<{ label: string; icon: React.ReactNode; type: 'skill' | 'agent'; description?: string } | null>(null)
 
   const [inputMenu, setInputMenu] = useState<{ kind: 'mention' | 'slash'; query: string } | null>(null)
+  /** 输入框里的 /命令 tag（技能 / 智能体 / 项目模板） */
+  const [selectedCommand, setSelectedCommand] = useState<InputCommandItem | null>(null)
+  /** 输入框里的 @ 引用 tag（笔记 / 标签 / 知识库） */
   const [selectedMentions, setSelectedMentions] = useState<{ type: string; id: string; label: string }[]>([])
+  /** 输入区临时提示（如粘贴了非图片文件） */
+  const [inputNotice, setInputNotice] = useState<string | null>(null)
+  const inputNoticeTimerRef = useRef(0)
 
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const modelPickerRef = useRef<HTMLDivElement>(null)
@@ -321,7 +327,7 @@ export default function ChatMessageArea({ topic, onTopicUpdated, projectId }: Ch
 
   // 浮层状态由 AgentInputBox 探测回传；这里只按查询词过滤候选项
   const slashQuery = inputMenu?.kind === 'slash' ? inputMenu.query.toLowerCase() : null
-  const showSlashMenu = inputMenu?.kind === 'slash' && !selectedSlashItem && !isStreaming && slashItems.length > 0
+  const showSlashMenu = inputMenu?.kind === 'slash' && !isStreaming
   const filteredSlashItems = useMemo(() => {
     if (!showSlashMenu) return []
     if (!slashQuery) return slashItems
@@ -595,27 +601,160 @@ export default function ChatMessageArea({ topic, onTopicUpdated, projectId }: Ch
     }
   }
 
-  /** 选中一条 @ 提及：把输入框里的 @查询词 替换掉，并加入引用 chips */
-  const applyMention = (item: InputCommandItem | undefined) => {
-    if (!item) return
-    const [type, id] = item.key.split(':')
-    const at = input.lastIndexOf('@')
-    if (at >= 0) {
-      let end = at + 1
-      while (end < input.length && !/\s/.test(input[end])) end++
-      const next = (input.slice(0, at) + input.slice(end)).replace(/^\s+/, '').replace(/\s+$/, '')
-      setInput(next)
-    }
-    setSelectedMentions(prev =>
-      prev.some(m => m.type === type && m.id === id) ? prev : [...prev, { type, id, label: item.label }])
+  const notifyInput = useCallback((text: string) => {
+    setInputNotice(text)
+    window.clearTimeout(inputNoticeTimerRef.current)
+    inputNoticeTimerRef.current = window.setTimeout(() => setInputNotice(null), 4000)
+  }, [])
+
+  useEffect(() => () => window.clearTimeout(inputNoticeTimerRef.current), [])
+
+  /** 把文本插入光标处（粘贴图片时同一次粘贴里的文字不能丢） */
+  const insertPastedText = (text: string) => {
+    const el = textareaRef.current
+    const start = el?.selectionStart ?? input.length
+    const end = el?.selectionEnd ?? input.length
+    const next = input.slice(0, start) + text + input.slice(end)
+    setInput(next)
     setInputMenu(null)
     requestAnimationFrame(() => {
-      const el = textareaRef.current
-      if (el) {
-        el.focus()
-        el.setSelectionRange(el.value.length, el.value.length)
-      }
+      const target = textareaRef.current
+      if (!target) return
+      target.focus()
+      const pos = start + text.length
+      target.setSelectionRange(pos, pos)
     })
+  }
+
+  const focusCaret = (cursor: number) => {
+    requestAnimationFrame(() => {
+      const el = textareaRef.current
+      if (!el) return
+      el.focus()
+      const pos = Math.min(cursor, el.value.length)
+      el.setSelectionRange(pos, pos)
+    })
+  }
+
+  /** 移除输入框中正在输入的 @ / / 查询词（只动光标所在的那个词） */
+  const removeTriggerQuery = (kind: 'mention' | 'slash') => {
+    const cursor = textareaRef.current?.selectionStart ?? input.length
+    if (kind === 'slash') {
+      if (!input.startsWith('/')) return
+      let end = cursor
+      while (end < input.length && !/[\s\n]/.test(input[end])) end++
+      const value = input.slice(end).replace(/^\s+/, '')
+      setInput(value)
+      focusCaret(0)
+      return
+    }
+    const before = input.slice(0, cursor)
+    const at = before.lastIndexOf('@')
+    if (at < 0) return
+    if (at > 0 && /[A-Za-z0-9_.-]$/.test(before.slice(0, at))) return
+    let end = cursor
+    while (end < input.length && !/[\s\n]/.test(input[end])) end++
+    const value = input.slice(0, at) + input.slice(end)
+    setInput(value)
+    focusCaret(Math.min(at, value.length))
+  }
+
+  /** 选中一条 @ 引用：移除输入中的 @查询词，加入输入框内的引用 tag */
+  const applyMention = (item: InputCommandItem | undefined) => {
+    if (!item) return
+    const sep = item.key.indexOf(':')
+    const type = sep >= 0 ? item.key.slice(0, sep) : item.key
+    const id = sep >= 0 ? item.key.slice(sep + 1) : ''
+    removeTriggerQuery('mention')
+    setSelectedMentions((prev) =>
+      prev.some((m) => m.type === type && m.id === id) ? prev : [...prev, { type, id, label: item.label }])
+    setInputMenu(null)
+  }
+
+  /** 「+」面板的技能入口：不往正文塞触发符，直接打开全部候选项 */
+  const openSlashMenu = () => {
+    setInputMenu({ kind: 'slash', query: '' })
+    requestAnimationFrame(() => textareaRef.current?.focus())
+  }
+
+  /** 选中 / 命令：移除输入中的 /查询词，加入输入框内的彩色命令 tag */
+  const applySlashItem = (item: InputCommandItem) => {
+    if (item.key === 'command:compress') {
+      setInput('')
+      setInputMenu(null)
+      void compactContext()
+      return
+    }
+    removeTriggerQuery('slash')
+    setSelectedCommand(item)
+    setInputMenu(null)
+  }
+
+  const commandTone = (key: string) =>
+    key.startsWith('agent') ? 'indigo' as const
+      : key.startsWith('project-prompt') ? 'amber' as const
+        : 'violet' as const
+
+  const mentionTone = (type: string) =>
+    type === 'note' ? 'amber' as const
+      : type === 'tag' ? 'emerald' as const
+        : type === 'knowledge' ? 'violet' as const
+          : 'sky' as const
+
+  const mentionIcon = (type: string) =>
+    type === 'tag' ? <Tag size={12} className="shrink-0" />
+      : type === 'knowledge' ? <Library size={12} className="shrink-0" />
+        : <AtSign size={12} className="shrink-0" />
+
+  const matchSkill = (name: string) => {
+    const skill = skills.find((s) => s.name === name && s.isEnabled)
+    const localSkill = localSkills.find((s) => s.name === name && s.isEnabled)
+    const allowed = !allowedSkillNames || (!!skill && allowedSkillNames.has(skill.name)) || (!!localSkill && allowedSkillNames.has(localSkill.name))
+    return (skill || localSkill) && allowed ? name : undefined
+  }
+
+  /** 按选中的命令 tag 精确还原技能 / 智能体 / 项目资产 */
+  const resolveCommandItem = (item: InputCommandItem) => {
+    const name = item.label.replace(/^\//, '')
+    let skillName: string | undefined
+    let agentId: string | undefined
+    let presetContent: string | undefined
+
+    if (item.key.startsWith('skill:') || item.key.startsWith('local:')) {
+      skillName = matchSkill(name)
+    } else if (item.key.startsWith('agent:')) {
+      const preset = presets.find((p) => p.id === item.key.slice('agent:'.length))
+      if (preset) {
+        agentId = preset.id
+        presetContent = preset.content
+      }
+    } else if (item.key.startsWith('agent-local:')) {
+      presetContent = localPresets.find((p) => p.id === item.key.slice('agent-local:'.length))?.content
+    } else if (item.key.startsWith('project-prompt:')) {
+      presetContent = copilotAssets?.prompts.find((p) => p.name === item.key.slice('project-prompt:'.length))?.content
+    } else if (item.key.startsWith('project-skill:')) {
+      presetContent = copilotAssets?.skills.find((s) => s.name === item.key.slice('project-skill:'.length))?.content
+    }
+    return { skillName, agentId, presetContent }
+  }
+
+  /** 手动输入 /name（未点选菜单）时按名称解析，同名时技能优先 */
+  const resolveCommandByName = (name: string) => {
+    const skillName = matchSkill(name)
+    if (skillName) return { skillName }
+    const preset = presets.find((p) => p.name.toLowerCase() === name.toLowerCase())
+    if (preset) return { agentId: preset.id, presetContent: preset.content }
+    const localPreset = localPresets.find((p) => p.name.toLowerCase() === name.toLowerCase())
+    if (localPreset) return { presetContent: localPreset.content }
+    const projectAsset = copilotAssets?.prompts.find((p) => p.name === name)
+      ?? copilotAssets?.skills.find((s) => s.name === name)
+    return projectAsset?.content ? { presetContent: projectAsset.content } : {}
+  }
+
+  const resolveTurnCommand = (typed: string) => {
+    if (selectedCommand) return resolveCommandItem(selectedCommand)
+    const name = typed.match(/^\/([^\s]+)/)?.[1]
+    return name ? resolveCommandByName(name) : {}
   }
 
   const fileToBase64 = (file: File): Promise<string> =>
@@ -634,13 +773,13 @@ export default function ChatMessageArea({ topic, onTopicUpdated, projectId }: Ch
       await compactContext()
       return
     }
-    if (!topic || (!input.trim() && !selectedSlashItem && attachedFiles.length === 0 && selectedMentions.length === 0 && !pastedBlock)) return
+    const typed = input.trim()
+    if (!topic || (!typed && !pastedBlock && attachments.items.length === 0 && !selectedCommand && selectedMentions.length === 0)) return
 
-    const slashPrefix = selectedSlashItem ? selectedSlashItem.label + ' ' : ''
-    const typed = (slashPrefix + input.trim()).trim()
     // 折叠的长文本块排在正文前，并带上标记：会话里折叠成块展示，自己写的那句话照常显示
     const content = [pastedBlock ? wrapLongTextBlock(pastedBlock) : '', typed].filter(Boolean).join('\n\n')
-    const mentions = selectedMentions.map(m => ({ type: m.type, id: m.id }))
+    const mentions = selectedMentions.map((m) => ({ type: m.type, id: m.id }))
+    const command = resolveTurnCommand(typed)
     setInputHistory(pushInputHistory(content))
 
     // 回复进行中：不打断当前回复，消息进入发送队列（本轮结束后自动发出）；也可在队列条上点「引导」立即注入
@@ -648,9 +787,9 @@ export default function ChatMessageArea({ topic, onTopicUpdated, projectId }: Ch
       enqueue(content)
       setInput('')
       setPastedBlock('')
-      setSelectedSlashItem(null)
+      attachments.clear()
+      setSelectedCommand(null)
       setSelectedMentions([])
-      setAttachedFiles([])
       setInputMenu(null)
       setQueueNotice(null)
       return
@@ -658,7 +797,8 @@ export default function ChatMessageArea({ topic, onTopicUpdated, projectId }: Ch
 
     setInput('')
     setPastedBlock('')
-    setSelectedSlashItem(null)
+    attachments.clear()
+    setSelectedCommand(null)
     setSelectedMentions([])
     setInputMenu(null)
 
@@ -681,16 +821,14 @@ export default function ChatMessageArea({ topic, onTopicUpdated, projectId }: Ch
     startStreaming(activeId, { content, webSearch, knowledgeBase, memory })
 
     const images: { data: string; mimeType: string; fileName?: string }[] = []
-    // 当前模型不支持视觉时忽略图片附件（对应 chip 已划掉提示）
-    if (attachedFiles.length > 0 && currentModel?.supportsVision) {
-      for (const file of attachedFiles) {
-        if (file.type.startsWith('image/')) {
-          const base64 = await fileToBase64(file)
-          images.push({ data: base64, mimeType: file.type, fileName: file.name })
-        }
+    // 当前模型不支持视觉时忽略图片附件（对应缩略图已划掉提示）
+    if (attachments.items.length > 0 && currentModel?.supportsVision) {
+      for (const file of attachments.files) {
+        const base64 = await fileToBase64(file)
+        images.push({ data: base64, mimeType: file.type, fileName: file.name })
       }
     }
-    setAttachedFiles([])
+    attachments.clear()
 
     // 如果选中了工作流，走工作流流式执行
     if (runningWorkflow) {
@@ -698,26 +836,6 @@ export default function ChatMessageArea({ topic, onTopicUpdated, projectId }: Ch
       stopStreaming(activeId)
       queryClient.invalidateQueries({ queryKey: ['chatMessages', activeId] })
       return
-    }
-
-    const skillMatch = content.match(/^\/([a-zA-Z0-9_-]+)(?:\s+(.*))?$/)
-    let detectedSkillName: string | undefined
-    let detectedAgentId: string | undefined
-    let detectedPresetContent: string | undefined
-    if (skillMatch) {
-      const name = skillMatch[1]
-      const skill = skills.find((s) => s.name === name && s.isEnabled)
-      const localSkill = localSkills.find((s) => s.name === name && s.isEnabled)
-      const skillAllowed = !allowedSkillNames || (!!skill && allowedSkillNames.has(skill.name)) || (!!localSkill && allowedSkillNames.has(localSkill.name))
-      if ((skill || localSkill) && skillAllowed) detectedSkillName = name
-      const preset = presets.find((p) => p.name.toLowerCase() === name.toLowerCase())
-      if (preset) {
-        detectedAgentId = preset.id
-        detectedPresetContent = preset.content
-      } else {
-        const localPreset = localPresets.find((p) => p.name.toLowerCase() === name.toLowerCase())
-        if (localPreset) detectedPresetContent = localPreset.content
-      }
     }
 
     // 发起流并在后台消费；切换话题不中断（按 topicId 写入全局 store）
@@ -728,10 +846,10 @@ export default function ChatMessageArea({ topic, onTopicUpdated, projectId }: Ch
         deepThinking,
         reasoningEffort: deepThinking ? reasoningEffort : undefined,
         webSearch, knowledgeBase, memory,
-        presetSystemPrompt: detectedPresetContent || selectedProjectAsset?.content || selectedPreset?.content || undefined,
+        presetSystemPrompt: command?.presetContent || selectedProjectAsset?.content || selectedPreset?.content || undefined,
         images: images.length > 0 ? images : undefined,
-        skillName: detectedSkillName,
-        agentId: detectedAgentId || selectedPreset?.id,
+        skillName: command?.skillName,
+        agentId: command?.agentId || selectedPreset?.id,
         enableTools: toolCalling,
         // 始终下发全局审批模式：auto 也必须显式覆盖，否则各工具 DefaultApproval（如 run_command=Ask）仍会逐个询问
         permissionMode,
@@ -894,10 +1012,6 @@ export default function ChatMessageArea({ topic, onTopicUpdated, projectId }: Ch
     confirm({ message: t('messageArea.deleteConfirm'), onConfirm: () => deleteMessageMutate(messageId) })
   }, [confirm, deleteMessageMutate, t])
 
-  const removeAttachedFile = (index: number) => {
-    setAttachedFiles(prev => prev.filter((_, i) => i !== index))
-  }
-
   const handlePaste = (e: React.ClipboardEvent) => {
     const items = e.clipboardData?.items
     if (!items) return
@@ -908,20 +1022,28 @@ export default function ChatMessageArea({ topic, onTopicUpdated, projectId }: Ch
         if (file) files.push(file)
       }
     }
-    // 粘贴的图片照常挂上 chip；当前模型不支持视觉时 chip 会带感叹号并划掉
-    if (files.length > 0) {
-      e.preventDefault()
-      setAttachedFiles(prev => [...prev, ...files])
-    }
+    if (files.length === 0) return
+
+    // 有文件时接管粘贴：图片挂缩略图，同一次粘贴里的文字照常插到光标处
+    e.preventDefault()
+    const hasImage = attachments.add(files)
+    if (!hasImage) notifyInput(t('messageArea.imageOnlyPaste'))
+    const text = e.clipboardData.getData('text/plain')
+    // 长文本交给输入框转折叠块（AgentInputBox 会继续处理这次粘贴）
+    if (text && !isLongText(text)) insertPastedText(text)
   }
 
-  /** “+”面板的 @ / 快捷入口：插入触发符并直接打开对应浮层 */
+  /** “+”面板的 @ / 快捷入口：@ 在光标处插入；/ 直接打开命令浮层，不往正文塞触发符 */
   const insertInputTrigger = (trigger: '@' | '/') => {
+    if (trigger === '/') {
+      openSlashMenu()
+      return
+    }
     const el = textareaRef.current
     const start = el?.selectionStart ?? input.length
     const end = el?.selectionEnd ?? input.length
     setInput(input.slice(0, start) + trigger + input.slice(end))
-    setInputMenu({ kind: trigger === '@' ? 'mention' : 'slash', query: '' })
+    setInputMenu({ kind: 'mention', query: '' })
     requestAnimationFrame(() => {
       const target = textareaRef.current
       if (!target) return
@@ -1272,6 +1394,11 @@ export default function ChatMessageArea({ topic, onTopicUpdated, projectId }: Ch
                   {queueNotice}
                 </p>
               )}
+              {inputNotice && (
+                <p className="mb-2 rounded-lg border border-amber-200 bg-amber-50/70 px-3 py-1.5 text-[11px] text-amber-800 dark:border-amber-800/50 dark:bg-amber-950/20 dark:text-amber-300">
+                  {inputNotice}
+                </p>
+              )}
               {!interactionInRail && <ToolInteractionDrawer streamKey={topicId ?? ''} streaming={isStreaming} />}
             </>
           }
@@ -1282,41 +1409,12 @@ export default function ChatMessageArea({ topic, onTopicUpdated, projectId }: Ch
           onPaste={handlePaste}
           textareaRef={textareaRef}
           menu={showSlashMenu
-            ? (filteredSlashItems.length > 0
-                ? {
-                    kind: 'slash' as const,
-                    items: filteredSlashItems,
-                    onSelect: (item: InputCommandItem) => {
-                      // 内置命令：压缩上下文（不发消息，直接调用模型压缩）
-                      if (item.key === 'command:compress') {
-                        setInput('')
-                        setInputMenu(null)
-                        void compactContext()
-                        return
-                      }
-                      setSelectedSlashItem({
-                        label: item.label,
-                        icon: item.icon,
-                        type: (item.type ?? 'skill') as 'skill' | 'agent',
-                        description: item.description,
-                      })
-                      // 项目 .github 的模板/技能：正文随本轮下发，作为系统提示
-                      if (item.key.startsWith('project-prompt:') || item.key.startsWith('project-skill:')) {
-                        const name = item.key.slice(item.key.indexOf(':') + 1)
-                        const asset = item.key.startsWith('project-prompt:')
-                          ? copilotAssets?.prompts.find((p) => p.name === name)
-                          : copilotAssets?.skills.find((s) => s.name === name)
-                        setSelectedProjectAsset(asset?.content
-                          ? { id: item.key, label: item.label, content: asset.content }
-                          : null)
-                      } else {
-                        setSelectedProjectAsset(null)
-                      }
-                      setInput('')
-                    },
-                    emptyHint: t('messageArea.noMatchingSlash'),
-                  }
-                : null)
+            ? {
+                kind: 'slash' as const,
+                items: filteredSlashItems,
+                onSelect: applySlashItem,
+                emptyHint: t('messageArea.noMatchingSlash'),
+              }
             : (showMentionMenu
                 ? {
                     kind: 'mention' as const,
@@ -1326,41 +1424,44 @@ export default function ChatMessageArea({ topic, onTopicUpdated, projectId }: Ch
                   }
                 : null)}
           chips={[
-            ...attachedFiles.map((file, i) => ({
-              id: `file:${i}`,
-              label: file.name,
-              icon: <FileText size={12} className="text-blue-500" />,
-              // 非视觉模型：粘贴进来的图片前加感叹号并划掉（发送时会跳过）
-              struck: !currentModel?.supportsVision,
-              title: currentModel?.supportsVision ? file.name : t('messageArea.imageUnsupported', { name: file.name }),
-              onRemove: () => removeAttachedFile(i),
-            })),
-            ...selectedMentions.map((m) => ({
-              id: `${m.type}:${m.id}`,
-              label: m.label,
-              tone: 'blue' as const,
-              onRemove: () => setSelectedMentions((prev) => prev.filter((x) => !(x.type === m.type && x.id === m.id))),
-            })),
-            ...(selectedSlashItem
+            ...(selectedCommand
               ? [{
-                  id: `slash:${selectedSlashItem.label}`,
-                  label: selectedSlashItem.label,
-                  tone: 'violet' as const,
-                  title: selectedSlashItem.description,
-                  onRemove: () => setSelectedSlashItem(null),
+                  id: `cmd:${selectedCommand.key}`,
+                  // tag 本身就是命令标识，不再带触发用的前导斜杠
+                  label: selectedCommand.label.replace(/^\//, ''),
+                  icon: selectedCommand.icon,
+                  tone: commandTone(selectedCommand.key),
+                  title: selectedCommand.description,
+                  onRemove: () => setSelectedCommand(null),
                 }]
               : []),
+            ...selectedMentions.map((m) => ({
+              id: `mention:${m.type}:${m.id}`,
+              label: m.label,
+              icon: mentionIcon(m.type),
+              tone: mentionTone(m.type),
+              title: m.label,
+              onRemove: () => setSelectedMentions((prev) => prev.filter((x) => !(x.type === m.type && x.id === m.id))),
+            })),
+            ...attachments.items.map((att) => ({
+              id: att.id,
+              label: att.file.name || 'image',
+              imageUrl: att.url,
+              tone: 'cyan' as const,
+              // 非视觉模型：tag 带警告并置灰（发送时会跳过）
+              struck: !currentModel?.supportsVision,
+              title: currentModel?.supportsVision ? att.file.name : t('messageArea.imageUnsupported', { name: att.file.name }),
+              onRemove: () => attachments.remove(att.id),
+            })),
           ]}
           placeholder={
-            selectedSlashItem
-              ? (selectedSlashItem.description || t('messageArea.inputFallback'))
-              : attachedFiles.length > 0
-                ? t('messageArea.attachedImages', { count: attachedFiles.length })
-                : t('messageArea.inputPlaceholder')
+            attachments.items.length > 0
+              ? t('messageArea.attachedImages', { count: attachments.items.length })
+              : t('messageArea.inputPlaceholder')
           }
           streaming={isStreaming}
           onStop={handleStop}
-          canSubmit={!!input.trim() || !!pastedBlock || attachedFiles.length > 0 || !!selectedSlashItem || selectedMentions.length > 0}
+          canSubmit={!!input.trim() || !!pastedBlock || attachments.items.length > 0 || !!selectedCommand || selectedMentions.length > 0}
           block={pastedBlock}
           onBlockChange={setPastedBlock}
           history={inputHistory}
@@ -1448,7 +1549,9 @@ export default function ChatMessageArea({ topic, onTopicUpdated, projectId }: Ch
           toolbar={
             <>
               <AgentPlusMenu
-                onFiles={(files) => setAttachedFiles((prev) => [...prev, ...files])}
+                onFiles={(files) => {
+                  if (!attachments.add(files)) notifyInput(t('messageArea.imageOnlyPaste'))
+                }}
                 onMention={() => insertInputTrigger('@')}
                 onSlash={() => insertInputTrigger('/')}
               />

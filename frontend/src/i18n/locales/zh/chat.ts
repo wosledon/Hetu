@@ -38,6 +38,7 @@ export default {
     emptyTitle: '今天想一起做点什么？',
     emptySubtitle: '记录想法、整理知识，或交给智能体完成一项任务。',
     imageUnsupported: '{{name}}（当前模型不支持图片输入，发送时会忽略）',
+    imageOnlyPaste: '目前只支持图片附件，其他文件已忽略',
     noMatchingSlash: '没有匹配的技能或智能体',
     noMatchingMention: '没有匹配的引用',
     mentionHint: '输入关键词搜索...',

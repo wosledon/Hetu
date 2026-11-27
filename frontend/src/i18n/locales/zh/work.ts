@@ -304,6 +304,7 @@ export default {
     typeToSearch: '输入关键词搜索...',
     imageAttachment: '图片附件',
     imageUnsupported: '{{name}}（当前模型不支持图片输入，发送时会忽略）',
+    imageOnlyPaste: '目前只支持图片附件，其他文件已忽略',
     referencedFile: '引用文件：{{path}}',
     selectedContext: '选中 {{label}}',
     closeNotice: '关闭提示',
