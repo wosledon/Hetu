@@ -461,6 +461,13 @@ public class WorkStreamController : ControllerBase
         }
 
         var overrides = new Dictionary<string, ToolApprovalMode>();
+        if (usesMafSkills)
+        {
+            overrides["run_skill_script"] =
+                permissionMode is WorkPermissionMode.Auto or WorkPermissionMode.Bypass
+                    ? ToolApprovalMode.Auto
+                    : ToolApprovalMode.Ask;
+        }
         var allowedToolNames = request.EnableTools ? allowedTools : new List<string>();
         if (request.EnableTools)
             options.Tools = _toolRegistry.ToToolDefinitions(allowedTools);

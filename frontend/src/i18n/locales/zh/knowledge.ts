@@ -279,6 +279,18 @@ export default {
     running: '巩固中…',
     runOnce: 'Dream 一次',
   },
+  agentMemory: {
+    title: 'Agent 会话记忆',
+    hint: '控制 MAF 会话历史召回与会话快照；关闭时仍保留数据库消息历史',
+    historyRecall: '会话历史向量召回',
+    historyRecallDesc: '启用 ChatHistoryMemoryProvider，按语义召回相关历史消息',
+    perService: '按模型调用持久化历史',
+    perServiceDesc: '每次内部模型调用前后加载/保存历史，适合长工具链',
+    retention: '保留天数',
+    retentionDesc: '后台每天清理超过该天数的向量与会话快照',
+    days: '天',
+    conflictHint: '历史向量召回与按模型调用持久化不要同时开启，否则会重复写入向量表',
+  },
   memoryUsage: {
     title: '记忆使用范围',
     hint: '三个对话面独立决定是否启用记忆（召回相关记忆 + 沉淀新记忆）；开关已从会话内移到此处',

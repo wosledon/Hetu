@@ -23,6 +23,8 @@ export const settingService = {
   testDatabase: (data: TestDatabaseRequest) => post<TestDatabaseResult>('/settings/test-database', data),
   getCompressionConfig: () => get<CompressionPipelineConfig>('/settings/compression'),
   setCompressionConfig: (data: CompressionPipelineConfig) => put<void>('/settings/compression', data),
+  getAgentMemorySettings: () => get<AgentMemorySettings>('/settings/agent-memory'),
+  setAgentMemorySettings: (data: AgentMemorySettings) => put<void>('/settings/agent-memory', data),
 
   getDreamConfig: () => get<DreamConfig>('/settings/dream'),
   setDreamConfig: (data: DreamConfig) => put<void>('/settings/dream', data),
@@ -34,6 +36,13 @@ export const settingService = {
   getWorktreeConfig: () => get<WorktreeConfig>('/settings/worktree'),
   setWorktreeConfig: (data: WorktreeConfig) => put<void>('/settings/worktree', data),
 };
+
+/** Agent 会话记忆配置：与后端 AgentMemorySettingsDto 对应 */
+export interface AgentMemorySettings {
+  enableHistoryMemory: boolean;
+  usePerServiceCallHistoryPersistence: boolean;
+  retentionDays: number;
+}
 
 /** Dream（记忆巩固）配置：与后端 DreamConfigDto 对应 */
 export interface DreamConfig {
