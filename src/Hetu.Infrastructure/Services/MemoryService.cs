@@ -252,11 +252,10 @@ public class MemoryService : IMemoryService
             {
                 new() { Role = "user", Content = extractPrompt }
             };
-            var options = new ChatOptions { Stream = false, Temperature = 0.3 };
+            var options = new ChatOptions { Temperature = 0.3 };
 
-            var response = await _text.ChatAsync(modelId, chatMessages, options, cancellationToken);
-
-            var extracted = LlmJsonExtractor.Deserialize<List<ExtractedFact>>(response);
+            var extracted = await _text.GenerateJsonAsync<List<ExtractedFact>>(
+                modelId, chatMessages, options, cancellationToken: cancellationToken);
             if (extracted == null || extracted.Count == 0)
                 return ApiResponse<List<MemoryDto>>.Ok([]);
 
@@ -420,13 +419,11 @@ public class MemoryService : IMemoryService
 
         try
         {
-            var response = await _text.ChatAsync(
+            var extracted = await _text.GenerateJsonAsync<List<ExtractedFact>>(
                 modelId,
                 [new LlmChatMessage { Role = "user", Content = extractPrompt }],
-                new ChatOptions { Stream = false, Temperature = 0.3 },
-                cancellationToken);
-
-            var extracted = LlmJsonExtractor.Deserialize<List<ExtractedFact>>(response);
+                new ChatOptions { Temperature = 0.3 },
+                cancellationToken: cancellationToken);
             if (extracted == null || extracted.Count == 0)
                 return ApiResponse<List<MemoryDto>>.Ok([]);
 

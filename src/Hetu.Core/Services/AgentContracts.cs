@@ -21,6 +21,8 @@ public class AgentLoopResult
     public List<AgentTimelineSegment> Timeline { get; set; } = new();
     /// <summary>实际执行的迭代次数</summary>
     public int Iterations { get; set; }
+    /// <summary>自动续跑的段数（不含首次执行）</summary>
+    public int ContinuationCount { get; set; }
     /// <summary>首轮请求里压缩管道处理的输入字符数（压缩前），供用量日志「输入 / 压缩后」展示；0 = 本轮无内容需要压缩</summary>
     public int FirstIterationInputChars { get; set; }
     /// <summary>首轮请求里压缩管道的输出字符数（压缩后）</summary>
@@ -29,6 +31,10 @@ public class AgentLoopResult
     public bool Cancelled { get; set; }
     /// <summary>达到迭代上限后已进行无工具收尾</summary>
     public bool IterationLimitReached { get; set; }
+    /// <summary>本轮因上下文达到硬上限而提前收尾</summary>
+    public bool ContextFull { get; set; }
+    /// <summary>本轮因连续重复/失败调用被判定为空转而提前收尾</summary>
+    public bool Stalled { get; set; }
     /// <summary>循环级错误信息（已通知 sink，可由调用方决定落库内容）</summary>
     public string? Error { get; set; }
 }
@@ -68,6 +74,13 @@ public class AgentLoopRequest
     public Guid? ModelId { get; set; }
     public string SystemPrompt { get; set; } = string.Empty;
     public IReadOnlyList<ChatMessage> Messages { get; set; } = [];
+    /// <summary>
+    /// 可选的 MAF 历史提供者。为空时 Runner 使用 InMemoryChatHistoryProvider + 消息切分；
+    /// 非空时 Messages 只应包含本轮输入，历史由提供者加载（Controller 可用 PreloadedChatHistoryProvider）。
+    /// </summary>
+    public ChatHistoryProvider? ChatHistoryProvider { get; set; }
+    /// <summary>本轮启用的技能（数据库 Guid 或本地技能 Id/名称）；交给 MAF AgentSkillsProvider 渐进式披露。</summary>
+    public IReadOnlyList<string>? SkillIds { get; set; }
     public List<string> ToolNames { get; set; } = new();
     /// <summary>调用方预加载的运行中函数（如 MCP 工具），避免 Runner 重复建连。</summary>
     public IReadOnlyList<AIFunction>? RuntimeFunctions { get; set; }
@@ -75,8 +88,12 @@ public class AgentLoopRequest
     public IReadOnlyList<AIContextProvider>? ContextProviders { get; set; }
     public List<Guid> McpServerIds { get; set; } = new();
     public int MaxIterations { get; set; } = 15;
+    /// <summary>达到单段迭代上限后自动续跑的段数；0 表示到上限直接收尾</summary>
+    public int MaxContinuations { get; set; } = 1;
     public int MaxToolCallsPerTurn { get; set; } = 5;
     public int? ContextWindowTokens { get; set; }
+    public int ProviderMaxRetries { get; set; } = 2;
+    public int ProviderRetryDelayMs { get; set; } = 400;
     public TimeSpan ToolTimeout { get; set; } = TimeSpan.FromMinutes(10);
     public string? ReasoningEffort { get; set; }
     public int? ReasoningBudgetTokens { get; set; }
@@ -95,6 +112,11 @@ public class AgentLoopRequest
     public Func<LlmToolCall, ToolApprovalMode, Task<WorkToolDecision>>? DecideToolCall { get; set; }
     public WorkToolScope? WorkScope { get; set; }
     public bool EnableTools { get; set; } = true;
+    /// <summary>
+    /// 是否存在可持续接收 approval / question / plan 的交互通道。
+    /// 工作流 Agent 节点、定时任务等无人值守场景设为 false，遇到 Ask 或交互工具时直接返回错误而不是等待超时。
+    /// </summary>
+    public bool InteractiveToolsSupported { get; set; } = true;
     public IReadOnlyList<string>? CoreToolNames { get; set; }
     public Func<IReadOnlyList<string>>? DrainSteering { get; set; }
 }

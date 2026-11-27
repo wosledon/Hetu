@@ -8,6 +8,7 @@ using Hetu.Core.Streaming;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
 using AiChatMessage = Microsoft.Extensions.AI.ChatMessage;
 using AiChatOptions = Microsoft.Extensions.AI.ChatOptions;
 
@@ -26,8 +27,23 @@ internal interface IScriptedModel
 internal sealed class ScriptedAgentFactory : IAgentFactory
 {
     private readonly IScriptedModel _provider;
+    private readonly CompressionPipelineService _compression;
+    private readonly ILocalizer _localizer;
+    private readonly ILlmUsageRecorder _usageRecorder;
 
-    public ScriptedAgentFactory(IScriptedModel provider) => _provider = provider;
+    public ScriptedAgentFactory(IScriptedModel provider)
+    {
+        _provider = provider;
+        _usageRecorder = Substitute.For<ILlmUsageRecorder>();
+        _localizer = Substitute.For<ILocalizer>();
+        _localizer.T(Arg.Any<string>()).Returns(call => call.Arg<string>());
+        _localizer.T(Arg.Any<string>(), Arg.Any<object[]>()).Returns(call => call.Arg<string>());
+        _compression = new CompressionPipelineService(
+            Substitute.For<IAppSettingService>(),
+            NullLogger<CompressionPipelineService>.Instance,
+            Substitute.For<ITextGenerationClient>(),
+            _usageRecorder);
+    }
 
     public Task<ResolvedAgentModel?> ResolveAsync(Guid? modelId, CancellationToken ct)
     {
@@ -43,7 +59,14 @@ internal sealed class ScriptedAgentFactory : IAgentFactory
         int maxIterations)
     {
         var chatClient = new ScriptedChatClient(_provider);
-        var functionClient = new FunctionInvokingChatClient(chatClient, NullLoggerFactory.Instance)
+        var observer = new AgentContextChatClient(
+            chatClient,
+            state,
+            _usageRecorder,
+            _compression,
+            _localizer,
+            NullLogger<AgentContextChatClient>.Instance);
+        var functionClient = new FunctionInvokingChatClient(observer, NullLoggerFactory.Instance)
         {
             MaximumIterationsPerRequest = Math.Max(1, maxIterations),
             AllowConcurrentInvocation = false,
@@ -106,17 +129,6 @@ internal sealed class ScriptedAgentFactory : IAgentFactory
                             break;
                         case LlmStreamEventType.ToolCalls:
                             if (chunk.ToolCalls != null) toolCalls.AddRange(chunk.ToolCalls);
-                            break;
-                        case LlmStreamEventType.Usage:
-                            if (chunk.Usage != null)
-                                yield return new ChatResponseUpdate(ChatRole.Assistant,
-                                [
-                                    new UsageContent(new UsageDetails
-                                    {
-                                        InputTokenCount = chunk.Usage.PromptTokens,
-                                        OutputTokenCount = chunk.Usage.CompletionTokens,
-                                    })
-                                ]);
                             break;
                     }
                 }

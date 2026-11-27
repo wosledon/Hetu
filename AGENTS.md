@@ -123,10 +123,19 @@ EF Core 的 SQLite provider **不支持在 SQL 中排序或聚合 `DateTimeOffse
   `ChatClientAgent` 与 `ToolApprovalAgent`；不要在 Core 里重新实现模型/工具循环。
 - 运行中引导（`AgentSteeringHub`）通过 `SteeringContextProvider` 注入；权限模式（plan/readonly/ask/auto/bypass）折算为
   MAF 审批管道的放行/询问/拒绝，`ToolApprovalAgent` 负责自动放行，`ask` 通过 `ToolExecutionService` 等待前端。
-  工作流工具节点没有审批通道，`ToolNodeExecutor` 必须传 `interactiveApprovalSupported: false`，遇到 `ask` 返回明确错误而不是等待。
-- 对话历史由 MAF `InMemoryChatHistoryProvider` 承载：Controller 仍负责按业务规则构建消息（自动摘要、RAG / @ 注入），
-  `HetuAgentRunner` 只把「最后一条 user 消息」作为本轮输入，之前的消息由历史提供者加载；历史压缩通过 `HetuChatReducer`
-  （`ChatReducer`）执行，长历史会自动摘要旧消息；不要在 Agent 内部再手写一套历史循环。
+  工作流 Agent / 工具节点没有审批或交互通道：`AgentNodeExecutor` 必须设 `InteractiveToolsSupported = false`，
+  `ToolNodeExecutor` 必须传 `interactiveInputSupported: false`；遇到 `ask` / `ask_question` / `plan` 直接返回明确错误而不是等待超时。
+- 对话历史统一交给 MAF `ChatHistoryProvider`：对话 / Code 会话由 Controller 从数据库加载历史并构造
+  `PreloadedChatHistoryProvider`，`HetuAgentRunner` 只把「最后一条 user 消息」作为本轮输入；其他入口可回落到
+  `InMemoryChatHistoryProvider`。历史压缩通过 `HetuChatReducer`（`ChatReducer`）执行，长历史会自动摘要旧消息；
+  不要在 Agent 内部再手写一套历史循环。
+- RAG / steering / @ 引用等消息类 `AIContextProvider` 注册在 chat client 管道（`UseAIContextProviders`），
+  每次模型调用前执行；`AgentSkillsProvider` 必须留在 agent 级（它要注入工具，不能被 `AgentContextChatClient` 覆盖）。
+- 技能广告走 MAF `AgentSkillsProvider` + 自定义 `AgentSkillsSource`，不要再把技能清单手工拼进 system prompt。
+- 子 Agent 使用 `AIAgent.AsAIFunction`（agent-as-tool）暴露给父 Agent；业务进度仍通过 `IAgentLoopSink` 转发。
+- 非 Agent 文本任务需要 JSON 时使用 `ITextGenerationClient.ChatJsonWithUsageAsync<T>` / `ChatResponseFormatJson`，
+  `LlmJsonExtractor` 只作为不支持 JSON Schema 的 Provider 的兜底。
+- Agent 管道用 `AIAgentBuilder.UseOpenTelemetry` 包裹，保留 MAF 原生 tracing；不要另建一套调用链追踪。
 - Agent 消息契约使用 MEAI `ChatMessage`；`LlmChatMessage` 只保留在数据库/文本任务边界，转换集中在 `ChatMessageConversion`。
 - 工具执行器仍是 `IToolExecutor` 业务抽象；交给 MAF 的边界统一为 `AIFunction`（`HetuAIFunction` / 原生 `McpClientTool`），
   不要再建第二套工具循环或工具定义协议。

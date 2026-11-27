@@ -394,7 +394,7 @@ public class GraphService : IGraphService
 
         // 调用模型：拿正文的同时取用量与延迟，供请求日志展示
         var clock = System.Diagnostics.Stopwatch.StartNew();
-        var callResult = await _text.ChatWithUsageAsync(
+        var callResult = await _text.ChatJsonWithUsageAsync<ExtractionResult>(
             scenarioModelId,
             [new LlmChatMessage { Role = "user", Content = prompt }],
             new ChatOptions
@@ -402,7 +402,7 @@ public class GraphService : IGraphService
                 ModelId = string.Empty,
                 SystemPrompt = "你是知识图谱提取助手。只输出 JSON，不要输出其他内容。",
             },
-            cancellationToken);
+            cancellationToken: cancellationToken);
         clock.Stop();
         if (string.IsNullOrWhiteSpace(callResult.Content))
             return ApiResponse<ExtractGraphResultDto>.Fail(_localizer.T("graph.modelUnavailable"));

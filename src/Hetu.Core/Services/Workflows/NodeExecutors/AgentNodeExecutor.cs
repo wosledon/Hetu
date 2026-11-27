@@ -114,6 +114,8 @@ public class AgentNodeExecutor : INodeExecutor
             UsageRefId = ctx.RunId,
             QuestionHandler = ctx.QuestionHandler,
             DecideToolCall = ctx.DecideToolCall,
+            // 工作流运行没有 approval/question/plan 的 SSE 交互通道，遇到交互工具直接返回错误而不是等待超时
+            InteractiveToolsSupported = false,
             WorkScope = ctx.WorkScope,
             Sink = new CollectingAgentLoopSink(sink, ctx.RunId, node.Id)
         };

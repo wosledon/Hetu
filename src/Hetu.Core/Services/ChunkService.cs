@@ -2,7 +2,6 @@ using System.Text;
 using System.Text.RegularExpressions;
 using Hetu.Core.Entities;
 using Hetu.Core.Interfaces;
-using Hetu.Core.Utilities;
 using Hetu.Shared.Notes;
 using Microsoft.Extensions.Logging;
 
@@ -176,31 +175,19 @@ public class ChunkService : IChunkService
             MaxTokens = 4096
         };
 
-        var result = await _text.ChatAsync(modelId, messages, options, cancellationToken);
-        if (string.IsNullOrWhiteSpace(result))
-            return new List<NoteChunk>();
-
-        var chunks = ParseLlmChunks(result.Trim());
-        if (chunks.Count == 0)
+        var items = await _text.GenerateJsonAsync<List<LlmChunkResult>>(
+            modelId, messages, options, cancellationToken: cancellationToken);
+        if (items == null || items.Count == 0)
         {
-            var preview = result.Trim();
-            _logger.LogWarning(
-                "[Chunk] LLM 分块结果解析为空，响应长度={Length}，前缀={Prefix}",
-                result.Length,
-                preview.Length > 200 ? preview[..200] : preview);
+            _logger.LogWarning("[Chunk] LLM 分块结果为空或解析失败");
+            return [];
         }
 
-        return chunks;
+        return BuildChunks(items);
     }
 
-    /// <summary>
-    /// 解析 LLM 返回的 JSON 分块结果
-    /// </summary>
-    private static List<NoteChunk> ParseLlmChunks(string json)
+    private static List<NoteChunk> BuildChunks(List<LlmChunkResult> items)
     {
-        var items = LlmJsonExtractor.Deserialize<List<LlmChunkResult>>(json);
-        if (items == null || items.Count == 0) return [];
-
         var chunks = new List<NoteChunk>(items.Count);
         for (var i = 0; i < items.Count; i++)
         {

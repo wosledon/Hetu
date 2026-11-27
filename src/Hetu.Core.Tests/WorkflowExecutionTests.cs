@@ -420,15 +420,12 @@ public class WorkflowExecutionTests
         return root;
     }
 
-    private static string ToolCallsFrame(string id, string name, string arguments) => JsonSerializer.Serialize(new
-    {
-        type = "tool_calls",
-        toolCalls = new[] { new { id, name, arguments } },
-    });
+    private static string ToolCallsFrame(string id, string name, string arguments)
+        => $"<tool_call>{JsonSerializer.Serialize(new { id, name, arguments = JsonDocument.Parse(arguments).RootElement })}</tool_call>";
 
-    private static string FinishFrame(string reason) => JsonSerializer.Serialize(new { type = "finish", reason });
+    private static string FinishFrame(string reason) => string.Empty;
 
-    private static string ContentFrame(string text) => JsonSerializer.Serialize(new { type = "content", text });
+    private static string ContentFrame(string text) => text;
 
     private sealed class HumanApprovalSink : IWorkflowEventSink
     {

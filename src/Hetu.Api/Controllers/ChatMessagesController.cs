@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
+using Hetu.Agents;
 using Hetu.Api.Services;
 using Hetu.Api.Streaming;
 using Hetu.Core.Entities;
@@ -259,6 +260,12 @@ public class ChatMessagesController : ControllerBase
             }
         }
 
+        // 历史交给 MAF ChatHistoryProvider；本轮只把最后一条 user 消息作为输入。
+        var lastUserIndex = Math.Max(0, chatMessages.FindLastIndex(m => m.Role == "user"));
+        var historyProvider = new PreloadedChatHistoryProvider(
+            chatMessages.Take(lastUserIndex).ToChatMessages());
+        var inputMessages = chatMessages.Skip(lastUserIndex).ToList();
+
         var ragProvider = new RagContextProvider(
             _contextInjector, request.WebSearch, request.KnowledgeBase, request.Memory,
             request.Content ?? string.Empty, writer, modelInfo.ModelId, topicId, projectId: null);
@@ -276,10 +283,13 @@ public class ChatMessagesController : ControllerBase
             // Provider 已在上面解析（含 API Key 解密失败的友好报错），此处复用同一实例
             ModelId = modelId,
             SystemPrompt = options.SystemPrompt ?? string.Empty,
-            Messages = chatMessages.ToChatMessages(),
+            Messages = inputMessages.ToChatMessages(),
+            ChatHistoryProvider = historyProvider,
+            SkillIds = agentPreset is null ? null : ParseStringList(agentPreset.SkillIds),
             ToolNames = useToolCalling ? options.Tools?.Select(t => t.Name).ToList() ?? new List<string>() : new List<string>(),
             McpServerIds = new List<Guid>(),
             MaxIterations = profile.MaxAgentIterations,
+            MaxContinuations = 2,
             MaxToolCallsPerTurn = profile.MaxToolCallsPerTurn,
             ReasoningEffort = options.ReasoningEffort,
             ReasoningBudgetTokens = options.ReasoningBudgetTokens,
@@ -507,7 +517,7 @@ public class ChatMessagesController : ControllerBase
     {
         // ModelId 留空：provider 创建时已注入正确的模型名（_modelId），
         // 这里的 modelId 是数据库主键 Guid，绝不能当模型名发给 LLM。
-        var options = new ChatOptions { Stream = true };
+        var options = new ChatOptions();
         var profile = BuiltinProfiles.Knowledge;
 
         string? skillPrompt = null;
@@ -554,14 +564,13 @@ public class ChatMessagesController : ControllerBase
     }
 
     /// <summary>
-    /// 组装专业智能体的能力说明：可管理的子智能体 + 可使用的技能，注入系统提示词。
-    /// 技能支持数据库技能（Guid）与本地技能（local: 前缀 ID / 名称）。
+    /// 组装专业智能体的能力说明：可管理的子智能体，注入系统提示词。
+    /// 技能广告由 MAF AgentSkillsProvider 负责。
     /// </summary>
     private async Task<string?> BuildProfessionalCapabilityPromptAsync(PromptPreset agent, CancellationToken ct)
     {
         var subAgentIds = ParseGuidList(agent.SubAgentIds);
-        var skillRefs = ParseStringList(agent.SkillIds);
-        if (subAgentIds.Count == 0 && skillRefs.Count == 0) return null;
+        if (subAgentIds.Count == 0) return null;
 
         var sb = new StringBuilder();
         sb.AppendLine("# 专业智能体能力");
@@ -579,44 +588,6 @@ public class ChatMessagesController : ControllerBase
                 foreach (var sub in subAgents)
                     sb.AppendLine($"- {sub.Name}（{sub.Category}）");
                 sb.AppendLine("处理匹配某个子智能体专业领域的子任务时，以该子智能体的人设与职责范围内执行；不越出其能力范围。");
-            }
-        }
-
-        if (skillRefs.Count > 0)
-        {
-            var dbSkillGuids = skillRefs
-                .Where(r => Guid.TryParse(r, out _))
-                .Select(Guid.Parse)
-                .ToHashSet();
-            var localResult = await _localSkillService.ScanAllAsync(ct);
-            var localSkills = localResult.Data ?? [];
-
-            var lines = new List<string>();
-            if (dbSkillGuids.Count > 0)
-            {
-                var dbSkills = (await _unitOfWork.Skills.GetAllAsync(ct))
-                    .Where(s => s.IsEnabled && dbSkillGuids.Contains(s.Id))
-                    .OrderBy(s => s.SortOrder)
-                    .ToList();
-                lines.AddRange(dbSkills.Select(s => $"- /{s.Name}：{s.Description}"));
-            }
-
-            // 非 Guid 的引用按本地技能匹配：local:{dir}:{name} 或技能名
-            var localRefs = skillRefs.Where(r => !Guid.TryParse(r, out _)).ToList();
-            foreach (var name in localRefs
-                .Select(refId => localSkills.FirstOrDefault(s => s.Id == refId)?.Name ?? refId)
-                .Distinct(StringComparer.OrdinalIgnoreCase))
-            {
-                var skill = localSkills.FirstOrDefault(s => string.Equals(s.Name, name, StringComparison.OrdinalIgnoreCase) && s.IsEnabled);
-                if (skill != null) lines.Add($"- /{skill.Name}：{skill.Description}（本地）");
-            }
-
-            if (lines.Count > 0)
-            {
-                sb.AppendLine();
-                sb.AppendLine("## 可使用的技能");
-                foreach (var line in lines) sb.AppendLine(line);
-                sb.AppendLine("仅允许使用以上列出的技能；用户请求其他技能时，说明当前智能体无权使用该技能，建议切换到对应智能体。");
             }
         }
 
@@ -748,7 +719,6 @@ public class ChatMessagesController : ControllerBase
         var effectiveNames = _promptComposer.ResolveEffectiveTools(profile, request.EnabledTools);
         var definitions = _toolRegistry.ToToolDefinitions(effectiveNames);
         options.Tools = definitions;
-        options.ToolChoice = "auto";
 
         if (request.ToolApprovalOverrides != null)
         {

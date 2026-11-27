@@ -5,6 +5,7 @@ using Hetu.Core.Services;
 using Hetu.Core.Services.Tools;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Client;
 using AiChatOptions = Microsoft.Extensions.AI.ChatOptions;
@@ -28,6 +29,7 @@ internal sealed class HetuAgentRunner : IAgentRunner
     private readonly McpClientProvider _mcpClients;
     private readonly ILocalizer _localizer;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IServiceProvider _services;
     private readonly ILogger<HetuAgentRunner> _logger;
 
     public HetuAgentRunner(
@@ -39,6 +41,7 @@ internal sealed class HetuAgentRunner : IAgentRunner
         McpClientProvider mcpClients,
         ILocalizer localizer,
         IUnitOfWork unitOfWork,
+        IServiceProvider services,
         ILogger<HetuAgentRunner> logger)
     {
         _agentFactory = agentFactory;
@@ -49,6 +52,7 @@ internal sealed class HetuAgentRunner : IAgentRunner
         _mcpClients = mcpClients;
         _localizer = localizer;
         _unitOfWork = unitOfWork;
+        _services = services;
         _logger = logger;
     }
 
@@ -95,113 +99,150 @@ internal sealed class HetuAgentRunner : IAgentRunner
 
     public async Task<AgentLoopResult> RunAsync(AgentLoopRequest request, CancellationToken ct)
     {
-        var resolved = await _agentFactory.ResolveAsync(request.ModelId, ct)
-                       ?? throw new InvalidOperationException(_localizer.T("model.noModelConfigured"));
-        request.ModelId ??= resolved.Model.Id;
-        var mcpTools = request.RuntimeFunctions ?? await LoadMcpToolsAsync(request.McpServerIds, ct);
-        var state = new AgentRunState(request);
-        state.Result.ModelId = resolved.Model.Id.ToString();
+        PreparedAgentRun prepared;
+        try
+        {
+            prepared = await PrepareAgentAsync(request, ct);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            return new AgentLoopResult { Cancelled = true };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[Agent] 初始化失败 session={SessionId}", request.SessionId);
+            if (request.Sink != null)
+            {
+                try { await request.Sink.OnErrorAsync(ex.Message); } catch { }
+            }
+            return new AgentLoopResult { Error = ex.Message };
+        }
+
+        var state = prepared.State;
+        var maxIterations = prepared.MaxIterations;
 
         try
         {
-            PrepareHistory(state);
-            BuildTools(state, mcpTools);
-
-            var (history, inputMessages) = SplitHistoryMessages(state.ChatMessages);
-            var inputChars = inputMessages.Sum(message => message.Text.Length);
-            var options = BuildAgentOptions(state, resolved, history, inputChars);
-            var agent = _agentFactory.Create(resolved, options, state, request.MaxIterations > 0 ? request.MaxIterations : DefaultMaxIterations);
-
-            if (state.Functions.Values.OfType<ApprovalRequiredAIFunction>().Any())
-            {
-                agent = new ToolApprovalAgent(agent, new ToolApprovalAgentOptions
-                {
-                    MaxAutoApprovalIterations = 50,
-                    AutoApprovalRules = [async context => await ShouldAutoApproveAsync(state, context)],
-                });
-            }
-
+            var agent = prepared.Agent;
+            var inputMessages = prepared.InputMessages;
             var session = await agent.CreateSessionAsync(ct);
             var runOptions = new ChatClientAgentRunOptions();
             var input = inputMessages;
+            var continuation = 0;
 
             while (true)
             {
-                var approvals = new List<ToolApprovalRequestContent>();
-                await foreach (var update in agent.RunStreamingAsync(input, session, runOptions, ct))
+                state.BeginSegment();
+                while (true)
                 {
-                    foreach (var content in update.Contents)
+                    var approvals = new List<ToolApprovalRequestContent>();
+                    await foreach (var update in agent.RunStreamingAsync(input, session, runOptions, ct))
                     {
-                        switch (content)
+                        foreach (var content in update.Contents)
                         {
-                            case TextContent text:
-                                await state.AppendTextAsync(text.Text);
-                                break;
-                            case TextReasoningContent thinking:
-                                await state.AppendThinkingAsync(thinking.Text);
-                                break;
-                            case ToolApprovalRequestContent approval:
-                                approvals.Add(approval);
-                                break;
-                            case FunctionCallContent call:
-                                state.ApprovalToolNames[call.CallId] = call.Name;
-                                state.ToolCallArguments[call.CallId] = JsonSerializer.Serialize(call.Arguments);
-                                break;
-                            case FunctionResultContent result when !state.RecordedToolCallIds.Contains(result.CallId):
-                                {
-                                    // 审批被拒绝或原生 MCP 工具等未进入 HetuAIFunction 的结果，由 MAF 直接生成；
-                                    // 补 tool_call/tool_result，避免前端卡片悬挂或缺参数。
-                                    var resultText = ChatMessageConversion.ConvertToolResult(result.Result);
-                                    var name = state.ApprovalToolNames.GetValueOrDefault(result.CallId) ?? "tool";
-                                    var arguments = state.ToolCallArguments.GetValueOrDefault(result.CallId) ?? "{}";
-                                    var isError = result.Exception is not null;
-                                    state.AppendToolCall(new AgentToolCallRecord
-                                    {
-                                        Id = result.CallId,
-                                        Name = name,
-                                        Arguments = arguments,
-                                        Result = resultText,
-                                        IsError = isError,
-                                    });
-                                    await state.Sink.OnEventAsync(new
-                                    {
-                                        type = "tool_call",
-                                        id = result.CallId,
-                                        name,
-                                        arguments,
-                                    });
-                                    await state.Sink.OnEventAsync(new
-                                    {
-                                        type = "tool_result",
-                                        id = result.CallId,
-                                        name,
-                                        content = resultText,
-                                        isError,
-                                    });
-                                    await state.Sink.OnToolCallAsync(new LlmToolCall { Id = result.CallId, Name = name, Arguments = arguments });
-                                    await state.Sink.OnToolResultAsync(result.CallId, resultText, isError);
+                            switch (content)
+                            {
+                                case TextContent text:
+                                    await state.AppendTextAsync(text.Text);
                                     break;
-                                }
+                                case TextReasoningContent thinking:
+                                    await state.AppendThinkingAsync(thinking.Text);
+                                    break;
+                                case ToolApprovalRequestContent approval:
+                                    approvals.Add(approval);
+                                    break;
+                                case FunctionCallContent call:
+                                    state.ApprovalToolNames[call.CallId] = call.Name;
+                                    state.ToolCallArguments[call.CallId] = JsonSerializer.Serialize(call.Arguments);
+                                    break;
+                                case FunctionResultContent result when !state.RecordedToolCallIds.Contains(result.CallId):
+                                    {
+                                        // 审批被拒绝或原生 MCP 工具等未进入 HetuAIFunction 的结果，由 MAF 直接生成；
+                                        // 补 tool_call/tool_result，避免前端卡片悬挂或缺参数。
+                                        var resultText = ChatMessageConversion.ConvertToolResult(result.Result);
+                                        var name = state.ApprovalToolNames.GetValueOrDefault(result.CallId) ?? "tool";
+                                        var arguments = state.ToolCallArguments.GetValueOrDefault(result.CallId) ?? "{}";
+                                        var isError = result.Exception is not null;
+                                        state.AppendToolCall(new AgentToolCallRecord
+                                        {
+                                            Id = result.CallId,
+                                            Name = name,
+                                            Arguments = arguments,
+                                            Result = resultText,
+                                            IsError = isError,
+                                        });
+                                        await state.Sink.OnEventAsync(new
+                                        {
+                                            type = "tool_call",
+                                            id = result.CallId,
+                                            name,
+                                            arguments,
+                                        });
+                                        await state.Sink.OnEventAsync(new
+                                        {
+                                            type = "tool_result",
+                                            id = result.CallId,
+                                            name,
+                                            content = resultText,
+                                            isError,
+                                        });
+                                        await state.Sink.OnToolCallAsync(new LlmToolCall { Id = result.CallId, Name = name, Arguments = arguments });
+                                        await state.Sink.OnToolResultAsync(result.CallId, resultText, isError);
+                                        break;
+                                    }
+                            }
                         }
                     }
+
+                    if (approvals.Count == 0) break;
+
+                    var responses = new List<AIContent>();
+                    foreach (var approval in approvals)
+                    {
+                        var response = await RequestApprovalAsync(state, approval, ct);
+                        responses.Add(response);
+                    }
+                    input = [new ChatMessage(ChatRole.User, responses)];
                 }
 
-                if (approvals.Count == 0) break;
+                if (state.Result.Cancelled || ct.IsCancellationRequested) break;
 
-                var responses = new List<AIContent>();
-                foreach (var approval in approvals)
+                // MAF 在每段达到 MaximumIterationsPerRequest 时会自动做一次无工具收尾。
+                // 若本段仍有实际进展且未超过续跑次数，换一条“继续”指令再开一段。
+                var hitLimit = state.SegmentModelRequests >= maxIterations && state.SegmentToolCallCount > 0;
+                if (hitLimit
+                    && state.SegmentProgress
+                    && !state.ContextFull
+                    && !state.IsStalled
+                    && continuation < Math.Max(0, request.MaxContinuations))
                 {
-                    var response = await RequestApprovalAsync(state, approval, ct);
-                    responses.Add(response);
+                    continuation++;
+                    state.Result.ContinuationCount = continuation;
+                    await state.Sink.OnEventAsync(new
+                    {
+                        type = "notice",
+                        kind = "iteration_continue",
+                        text = _localizer.T("agent.iterationContinue"),
+                    });
+                    input = [new ChatMessage(ChatRole.User, _localizer.T("agent.iterationContinuePrompt"))];
+                    continue;
                 }
-                input = [new ChatMessage(ChatRole.User, responses)];
+
+                if (hitLimit)
+                {
+                    state.Result.IterationLimitReached = true;
+                    await state.Sink.OnEventAsync(new
+                    {
+                        type = "notice",
+                        kind = "iteration_limit",
+                        text = _localizer.T("agent.iterationLimitNotice"),
+                    });
+                }
+                break;
             }
 
             if (string.IsNullOrWhiteSpace(state.Result.Content) && state.Result.ToolCalls.Count > 0)
                 state.Result.Content = _localizer.T("chat.noOutputWithTools", string.Join("、", state.Result.ToolCalls.Select(t => t.Name).Distinct()));
-            if (state.IterationCount >= (request.MaxIterations > 0 ? request.MaxIterations : DefaultMaxIterations)
-                && state.Result.ToolCalls.Count > 0)
-                state.Result.IterationLimitReached = true;
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
@@ -217,6 +258,60 @@ internal sealed class HetuAgentRunner : IAgentRunner
 
         return state.Result;
     }
+
+    public async Task<(AIFunction Function, AgentLoopResult Result)> CreateSubAgentFunctionAsync(
+        AgentLoopRequest request,
+        string name,
+        string description,
+        CancellationToken ct)
+    {
+        var prepared = await PrepareAgentAsync(request, ct);
+        var function = prepared.Agent.AsAIFunction(new AIFunctionFactoryOptions
+        {
+            Name = name,
+            Description = description,
+        });
+        return (function, prepared.State.Result);
+    }
+
+    private async Task<PreparedAgentRun> PrepareAgentAsync(AgentLoopRequest request, CancellationToken ct)
+    {
+        var resolved = await _agentFactory.ResolveAsync(request.ModelId, ct)
+                       ?? throw new InvalidOperationException(_localizer.T("model.noModelConfigured"));
+        request.ModelId ??= resolved.Model.Id;
+        var mcpTools = request.RuntimeFunctions ?? await LoadMcpToolsAsync(request.McpServerIds, ct);
+        var state = new AgentRunState(request);
+        state.Result.ModelId = resolved.Model.Id.ToString();
+        state.ResolveContextLimits(request.ContextWindowTokens ?? resolved.Model.ContextWindow);
+        var maxIterations = request.MaxIterations > 0 ? request.MaxIterations : DefaultMaxIterations;
+
+        PrepareHistory(state);
+        BuildTools(state, mcpTools);
+
+        var (history, inputMessages) = state.Request.ChatHistoryProvider is not null
+            ? ([], (IReadOnlyList<ChatMessage>)state.ChatMessages)
+            : SplitHistoryMessages(state.ChatMessages);
+        var inputChars = (int)ChatMessageMetrics.CountChars(inputMessages);
+        var options = BuildAgentOptions(state, resolved, history, inputChars);
+        var agent = _agentFactory.Create(resolved, options, state, maxIterations);
+
+        if (state.Functions.Values.OfType<ApprovalRequiredAIFunction>().Any())
+        {
+            agent = new ToolApprovalAgent(agent, new ToolApprovalAgentOptions
+            {
+                MaxAutoApprovalIterations = 50,
+                AutoApprovalRules = [async context => await ShouldAutoApproveAsync(state, context)],
+            });
+        }
+
+        return new PreparedAgentRun(agent, state, inputMessages, maxIterations);
+    }
+
+    private sealed record PreparedAgentRun(
+        AIAgent Agent,
+        AgentRunState State,
+        IReadOnlyList<ChatMessage> InputMessages,
+        int MaxIterations);
 
     private static void PrepareHistory(AgentRunState state)
     {
@@ -303,6 +398,9 @@ internal sealed class HetuAgentRunner : IAgentRunner
         int inputChars,
         int? contextWindowTokens)
     {
+        if (state.Request.ChatHistoryProvider is not null)
+            return state.Request.ChatHistoryProvider;
+
         var initial = history.ToList();
         return new InMemoryChatHistoryProvider(new InMemoryChatHistoryProviderOptions
         {
@@ -332,6 +430,18 @@ internal sealed class HetuAgentRunner : IAgentRunner
         var contextProviders = new List<AIContextProvider>();
         if (request.ContextProviders != null) contextProviders.AddRange(request.ContextProviders);
         if (request.DrainSteering != null) contextProviders.Add(new SteeringContextProvider(state));
+        if (request.SkillIds is { Count: > 0 }
+            && _services.GetService<ILocalSkillService>() is { } localSkills)
+        {
+            contextProviders.Add(new AgentSkillsProvider(
+                new HetuAgentSkillsSource(_unitOfWork, localSkills, request.SkillIds),
+                new AgentSkillsProviderOptions
+                {
+                    DisableLoadSkillApproval = true,
+                    DisableReadSkillResourceApproval = true,
+                    DisableRunSkillScriptApproval = true,
+                }));
+        }
 
         var chatOptions = new AiChatOptions
         {
@@ -341,20 +451,14 @@ internal sealed class HetuAgentRunner : IAgentRunner
             Temperature = request.Temperature is { } temperature ? (float?)temperature : null,
             MaxOutputTokens = request.MaxTokens,
             ModelId = model.Model.ModelId,
-            Reasoning = string.IsNullOrWhiteSpace(request.ReasoningEffort)
-                ? null
-                : new ReasoningOptions { Effort = ParseReasoningEffort(request.ReasoningEffort) },
-            AdditionalProperties = new AdditionalPropertiesDictionary
-            {
-                ["ReasoningBudgetTokens"] = request.ReasoningBudgetTokens,
-            },
+            Reasoning = ReasoningOptionsMapper.Create(request.ReasoningEffort, request.ReasoningBudgetTokens),
         };
 
         return new ChatClientAgentOptions
         {
             Name = "hetu",
             ChatOptions = chatOptions,
-            ChatHistoryProvider = CreateChatHistoryProvider(history, state, inputChars, state.Request.ContextWindowTokens ?? model.Model.ContextWindow),
+            ChatHistoryProvider = CreateChatHistoryProvider(history, state, inputChars, state.ContextWindowTokens),
             AIContextProviders = contextProviders.Count > 0 ? contextProviders : null,
             UseProvidedChatClientAsIs = true,
         };
@@ -382,6 +486,12 @@ internal sealed class HetuAgentRunner : IAgentRunner
         }
         if (decision.Mode != ToolApprovalMode.Ask)
             return request.CreateResponse(true);
+        if (!state.Request.InteractiveToolsSupported)
+        {
+            var unavailable = _localizer.T("toolExec.approvalUnavailable", name);
+            await EmitDeniedToolAsync(state, callId, name, arguments, unavailable);
+            return request.CreateResponse(false, unavailable);
+        }
 
         var pending = _toolExecution.RegisterApproval(state.Request.SessionId, callId);
         await state.Sink.OnEventAsync(new
@@ -523,14 +633,4 @@ internal sealed class HetuAgentRunner : IAgentRunner
         return sb.ToString().TrimEnd();
     }
 
-    private static ReasoningEffort ParseReasoningEffort(string value) => value.Trim().ToLowerInvariant() switch
-    {
-        "none" => ReasoningEffort.None,
-        "minimal" => ReasoningEffort.Low,
-        "low" => ReasoningEffort.Low,
-        "medium" => ReasoningEffort.Medium,
-        "high" => ReasoningEffort.High,
-        "xhigh" or "max" => ReasoningEffort.ExtraHigh,
-        _ => ReasoningEffort.Medium,
-    };
-}
+    }

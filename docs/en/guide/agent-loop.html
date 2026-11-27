@@ -62,20 +62,22 @@
       <ol>
         <li><strong>Resolve the model</strong>: a <code>ModelId</code> on the request creates that provider, otherwise the default chat model is used; if neither exists the run throws instead of silently substituting another model.</li>
         <li><strong>Load tools</strong>: built-in / session tools first, then <code>tools/list</code> from the MCP servers bound to the session; the merged set refreshes the tool schemas and system prompt.</li>
-        <li><strong>Enter the loop</strong> (15 iterations by default): each iteration first drains steering into context; history is loaded by <code>InMemoryChatHistoryProvider</code> and compressed by <code>HetuChatReducer</code> before use, then the model is called.</li>
+        <li><strong>Enter the loop</strong> (15 iterations per segment by default): each iteration first drains steering into context. Chat and code sessions load history from the database into <code>PreloadedChatHistoryProvider</code>; other entries use <code>InMemoryChatHistoryProvider</code>. History is compressed by <code>HetuChatReducer</code> before use, then the model is called. When a single request exceeds 40% of the context window, <code>AgentContextChatClient</code> runs long text through the compression pipeline once more; above 80% it stops tool calls and wraps up. RAG / steering <code>AIContextProvider</code>s live in the chat-client pipeline and run before every model call; <code>AgentSkillsProvider</code> runs at agent level so it can inject skill tools.</li>
         <li><strong>Handle output</strong>: prose and thinking stream out as events; tool calls go to the caller's decider, which either executes them or requests approval.</li>
         <li><strong>Feed results back</strong>: tool results enter the context and are pushed to the UI; per-iteration prose, thinking, tools and usage accumulate into the run result.</li>
-        <li><strong>Finish</strong>: the run ends when no further tool calls arrive. At the iteration cap MAF automatically performs one final request without tools and marks <code>iteration_limit</code>. The caller persists messages, records usage and appends <code>done</code>.</li>
+        <li><strong>Finish</strong>: the run ends when no further tool calls arrive. At the per-segment iteration cap MAF automatically performs one final request without tools. If the segment made real progress and <code>MaxContinuations</code> is not exhausted, the runner emits an <code>iteration_continue</code> notice and automatically starts the next segment; only after continuations are used up does it mark <code>iteration_limit</code>. The caller persists messages, records usage and appends <code>done</code>.</li>
       </ol>
 
       <h2>Key parameters</h2>
       <div class="table-wrap"><table>
         <thead><tr><th>Parameter</th><th>Default</th><th>Meaning</th></tr></thead>
         <tbody>
-          <tr><td><code>MaxIterations</code></td><td>15</td><td>Iteration cap; a value ≤ 0 falls back to 15 to prevent infinite loops</td></tr>
+          <tr><td><code>MaxIterations</code></td><td>15</td><td>Per-segment iteration cap; a value ≤ 0 falls back to 15 to prevent infinite loops</td></tr>
+          <tr><td><code>MaxContinuations</code></td><td>1 (2 from chat / code pages)</td><td>Automatic continuation segments after a segment hits the cap with real progress; 0 wraps up immediately</td></tr>
           <tr><td><code>MaxToolCallsPerTurn</code></td><td>5</td><td>Per-turn tool budget; excess calls are skipped with an error result (the run continues and the model can retry in smaller batches)</td></tr>
 
           <tr><td><code>ToolTimeout</code></td><td>10 minutes</td><td>Default per-tool execution cap; the shorter of this and the tool's own <code>Timeout</code> wins, and it cancels the tool's own token</td></tr>
+          <tr><td><code>ProviderMaxRetries</code> / <code>ProviderRetryDelayMs</code></td><td>2 / 400ms</td><td>Bounded retries for transient provider errors and empty turns; once streaming output has been shown to the UI it is not retried</td></tr>
           <tr><td><code>CompressHistory</code></td><td>true</td><td>Set false to skip history compression when debugging compression side effects</td></tr>
           <tr><td><code>EnableTools</code></td><td>true</td><td>When off, no tool schemas are sent — plain conversation mode</td></tr>
           <tr><td><code>CoreToolNames</code></td><td>null</td><td>When set, only these core tools are exposed; the rest follow session configuration</td></tr>
@@ -94,7 +96,7 @@
       <div class="table-wrap"><table>
         <thead><tr><th>Behaviour</th><th>Implementation</th></tr></thead>
         <tbody>
-          <tr><td>Scope</td><td>The current user message is sent directly as this turn's input and is never compressed as history; <code>InMemoryChatHistoryProvider</code> only loads and compresses earlier messages, preserving the exact request. Tool output produced by the active turn has a separate deterministic budget: old results are compacted while ToolCallId linkage and recent results are preserved</td></tr>
+          <tr><td>Scope</td><td>The current user message is sent directly as this turn's input by default; <code>InMemoryChatHistoryProvider</code> only loads and compresses earlier messages. If a single request exceeds 40% of the context window (Anchor), <code>AgentContextChatClient</code> runs long text through the compression pipeline once more (SHA-256 caching keeps the same slice stable); above 80% it stops tool calls and wraps up. Tool output produced by the active turn has a separate deterministic budget: old results are compacted while ToolCallId linkage and recent results are preserved</td></tr>
           <tr><td>Deduplication</td><td><code>CompressionPipelineService.PrepareForContextAsync</code> caches compressed content by SHA-256, so the same slice is not recompressed across iterations</td></tr>
           <tr><td>Method</td><td>Long messages go through the compression pipeline first; when history reaches 80% of the context window, older messages are summarized by the current model, the most recent 6 are kept, then the remainder is compressed</td></tr>
           <tr><td>Cost visibility</td><td>The first iteration estimates system prompt and tool schema character cost and logs it, separating "heavy prompt" from "long history"</td></tr>
@@ -114,7 +116,7 @@
         <tbody>
           <tr><td><code>IAgentLoopSink.OnEventAsync</code></td><td>Structured event passthrough: SSE writes frames verbatim, non-streaming callers may ignore it</td></tr>
           <tr><td><code>IAgentLoopSink.OnSteeringAsync</code></td><td>Callback when a steer is accepted</td></tr>
-          <tr><td><code>Hooks.AfterToolResultAsync</code> / <code>AfterToolResultsAsync</code></td><td>Persist each result immediately, then run batch post-processing such as file-change tracking; later interaction waits cannot delay earlier history</td></tr>
+          <tr><td><code>Hooks.AfterToolResultAsync</code> / <code>AfterToolResultsAsync</code></td><td>Persist each result immediately, then run post-processing such as file-change tracking and checkpoints; later interaction waits cannot delay earlier history</td></tr>
           <tr><td>Caller duties</td><td>Persist messages, record usage (<code>ILlmUsageRecorder</code>) and append the <code>done</code> frame; code sessions persist only the terminal <code>subagent</code> frame (with the inner timeline <code>entries</code>) for replay</td></tr>
         </tbody>
       </table></div>
@@ -124,7 +126,10 @@
         <li><strong>Model unavailable</strong>: throws, and the UI receives an error frame — no silent model substitution.</li>
         <li><strong>A single MCP server fails</strong>: that server is skipped, other tools keep working.</li>
         <li><strong>Cancellation</strong>: <code>OperationCanceledException</code> is not swallowed, and parsed tools that have not started never execute after cancellation; the caller decides whether it means "cancelled" or "requeue".</li>
-        <li><strong>Tool protocol errors</strong>: textual <code>&lt;tool_call&gt;</code> markup is parsed across deltas. Truncated calls, malformed arguments and batches above the per-turn limit are rejected. Unrecognized text is preserved verbatim but never executed.</li>
+        <li><strong>Tool protocol errors</strong>: textual <code>&lt;tool_call&gt;</code> markup is parsed across deltas and converted to MAF <code>FunctionCallContent</code>. Truncated calls, malformed arguments and batches above the per-turn limit are never executed. Unrecognized text is preserved verbatim.</li>
+        <li><strong>Provider errors</strong>: transient errors and empty turns are retried a bounded number of times (<code>ProviderMaxRetries</code>); once prose has been streamed to the UI, no retry happens to avoid duplicate output.</li>
+        <li><strong>Spinning / context exhaustion</strong>: the same call failing twice is skipped on the third attempt; two consecutive iterations with only duplicate calls count as stalled. Stalled or over the hard context cap, tool calls stop, a <code>notice</code> is emitted and the model wraps up.</li>
+        <li><strong>No interaction channel</strong>: unattended entries such as workflow agent/tool nodes use <code>InteractiveToolsSupported = false</code>; <code>Ask</code>, <code>ask_question</code> and <code>plan</code> return a clear error instead of waiting for a timeout.</li>
         <li><strong>Compression failure</strong>: the pipeline degrades internally only (missing provider or a non-shorter result returns the original text).</li>
       </ul>
 
@@ -135,9 +140,10 @@
         <li>Chat and code sessions differ in their <strong>permission decider and tool set</strong>, not in the kernel (code sessions bring <code>work_*</code> tools and a workspace scope).</li>
         <li>Kanban and workflows reuse the same kernel, swapping the event outlet for run-step / node-event recording.</li>
         <li>Identical read-only calls within one turn reuse the previous result; the same call failing twice in a row is skipped the third time to stop loops burning the iteration budget.</li>
-        <li>Consecutive read-only file tools (list dir / read file / glob / grep) run in parallel within a batch; remote SSH projects stay sequential to avoid sharing a runner.</li>
+        <li>Tool calls run serially by default (<code>AllowConcurrentInvocation = false</code>) so file-change order, checkpoints and approval events stay consistent; remote SSH projects also stay sequential to avoid sharing a runner.</li>
         <li>MCP clients are pooled per connection config and handshake once per process; SSE content/thinking deltas are coalesced to ~60ms or 512 characters.</li>
-        <li>The <code>work_task</code> sub-agent also runs on the same kernel: read-only tool whitelist with a 12-iteration / 3-minute cap, so textual tool-call parsing, argument validation and truncation protection match the main session.</li>
+        <li>The <code>work_task</code> sub-agent is exposed through <code>AIAgent.AsAIFunction</code> (agent-as-tool): read-only tool whitelist with a 12-iteration / 3-minute cap, while <code>SubAgentSink</code> still turns its events into <code>subagent</code> frames.</li>
+        <li>The agent pipeline is wrapped with <code>AIAgentBuilder.UseOpenTelemetry</code>, keeping MAF-native tracing; non-agent text tasks use <code>ChatJsonWithUsageAsync&lt;T&gt;</code> / <code>ChatResponseFormatJson</code> for structured output.</li>
       </ul>
 
       <h2>Debugging hints</h2>

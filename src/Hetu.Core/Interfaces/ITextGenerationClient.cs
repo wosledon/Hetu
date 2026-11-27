@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Hetu.Core.Utilities;
 
 namespace Hetu.Core.Interfaces;
 
@@ -35,6 +36,36 @@ public interface ITextGenerationClient
         IReadOnlyList<LlmChatMessage> messages,
         ChatOptions options,
         CancellationToken cancellationToken = default);
+
+    /// <summary>结构化 JSON 输出：Provider 支持时使用 JSON Schema，返回原始 JSON 与用量。</summary>
+    Task<LlmChatResult> ChatJsonWithUsageAsync<T>(
+        Guid? modelId,
+        IReadOnlyList<LlmChatMessage> messages,
+        ChatOptions options,
+        JsonSerializerOptions? jsonSerializerOptions = null,
+        CancellationToken cancellationToken = default) where T : class;
+
+    /// <summary>结构化 JSON 输出并反序列化；解析失败时回退到 LlmJsonExtractor 的宽松解析。</summary>
+    async Task<T?> GenerateJsonAsync<T>(
+        Guid? modelId,
+        IReadOnlyList<LlmChatMessage> messages,
+        ChatOptions options,
+        JsonSerializerOptions? jsonSerializerOptions = null,
+        CancellationToken cancellationToken = default) where T : class
+    {
+        var result = await ChatJsonWithUsageAsync<T>(
+            modelId, messages, options, jsonSerializerOptions, cancellationToken);
+        if (string.IsNullOrWhiteSpace(result.Content)) return default;
+
+        try
+        {
+            return JsonSerializer.Deserialize<T>(result.Content, jsonSerializerOptions ?? JsonSerializerOptions.Web);
+        }
+        catch (JsonException)
+        {
+            return LlmJsonExtractor.Deserialize<T>(result.Content);
+        }
+    }
 
     Task<string> CompleteAsync(
         Guid? modelId,

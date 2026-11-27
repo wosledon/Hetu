@@ -149,6 +149,33 @@ public class HetuAgentRunnerTests
     }
 
     [Fact]
+    public async Task RunAsync_自定义历史提供者_只传当前输入()
+    {
+        var provider = new ScriptedProvider([[ContentFrame("新回答")]]);
+        await using var services = CreateServices(CreateExecutor("test_tool", ToolApprovalMode.Auto), provider);
+        var runner = services.GetRequiredService<IAgentRunner>();
+        var history = new PreloadedChatHistoryProvider(
+        [
+            new ChatMessage(ChatRole.User, "历史问题"),
+            new ChatMessage(ChatRole.Assistant, "历史回答"),
+        ]);
+
+        var result = await runner.RunAsync(new AgentLoopRequest
+        {
+            Messages = [new ChatMessage(ChatRole.User, "新问题")],
+            ChatHistoryProvider = history,
+            SessionId = "custom-history",
+            CompressHistory = false,
+        }, CancellationToken.None);
+
+        Assert.Null(result.Error);
+        var received = Assert.Single(provider.ReceivedMessages);
+        Assert.Contains(received, message => message.Content.Contains("历史问题", StringComparison.Ordinal));
+        Assert.Contains(received, message => message.Content.Contains("历史回答", StringComparison.Ordinal));
+        Assert.Contains(received, message => message.Content.Contains("新问题", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task RunAsync_上下文接近上限_由ChatReducer自动摘要旧消息()
     {
         var provider = new ScriptedProvider([[ContentFrame("继续"), FinishFrame("stop")]]);
@@ -189,12 +216,240 @@ public class HetuAgentRunnerTests
             new Dictionary<string, ToolApprovalMode>(),
             [],
             _ => Task.CompletedTask,
-            _ => Task.CompletedTask,
             CancellationToken.None,
-            interactiveApprovalSupported: false);
+            interactiveInputSupported: false);
 
         Assert.True(results[0].isError);
         Assert.Equal("toolExec.approvalUnavailable", results[0].content);
+    }
+
+    [Fact]
+    public async Task RunAsync_无交互通道_Ask直接返回错误不等待()
+    {
+        var executor = CreateExecutor("write_tool", ToolApprovalMode.Ask);
+        var provider = new ScriptedProvider([
+            [ToolCallsFrame("call-1", "write_tool", """{"path":"a.txt"}""")],
+            [ContentFrame("收尾")],
+        ]);
+        await using var services = CreateServices(executor, provider);
+        var runner = services.GetRequiredService<IAgentRunner>();
+
+        var result = await runner.RunAsync(new AgentLoopRequest
+        {
+            ToolNames = ["write_tool"],
+            SessionId = "no-interaction",
+            CompressHistory = false,
+            InteractiveToolsSupported = false,
+            MaxIterations = 3,
+            MaxContinuations = 0,
+            Sink = new CapturingSink(),
+        }, CancellationToken.None);
+
+        Assert.Null(result.Error);
+        Assert.Contains("收尾", result.Content);
+        Assert.Contains(result.ToolCalls, call =>
+            call.Name == "write_tool"
+            && call.IsError
+            && call.Result == "toolExec.approvalUnavailable");
+    }
+
+    [Fact]
+    public async Task RunAsync_重复只读调用_复用结果不重复执行()
+    {
+        var executions = 0;
+        var executor = CreateExecutor("read_tool", ToolApprovalMode.Auto);
+        executor.ExecuteAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                executions++;
+                return ToolExecutionResult.Success("file-content");
+            });
+
+        var provider = new ScriptedProvider([
+            [ToolCallsFrame("call-1", "read_tool", """{"path":"a.txt"}""")],
+            [ToolCallsFrame("call-2", "read_tool", """{"path":"a.txt"}""")],
+            [ContentFrame("完成")],
+        ]);
+        await using var services = CreateServices(executor, provider);
+        var runner = services.GetRequiredService<IAgentRunner>();
+        var sink = new CapturingSink();
+
+        var result = await runner.RunAsync(new AgentLoopRequest
+        {
+            ToolNames = ["read_tool"],
+            SessionId = "reuse-read",
+            CompressHistory = false,
+            MaxIterations = 4,
+            MaxContinuations = 0,
+            Sink = sink,
+        }, CancellationToken.None);
+
+        Assert.Null(result.Error);
+        Assert.Equal(1, executions);
+        Assert.Contains("完成", result.Content);
+        Assert.Contains(sink.Events, e => e.Contains("toolExec.reusedResult", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task RunAsync_同一调用连续失败两次_第三次被拦下()
+    {
+        var executions = 0;
+        var executor = CreateExecutor("write_tool", ToolApprovalMode.Auto);
+        executor.ExecuteAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                executions++;
+                return ToolExecutionResult.Error("boom");
+            });
+
+        var provider = new ScriptedProvider([
+            [ToolCallsFrame("call-1", "write_tool", """{"path":"a.txt"}""")],
+            [ToolCallsFrame("call-2", "write_tool", """{"path":"a.txt"}""")],
+            [ToolCallsFrame("call-3", "write_tool", """{"path":"a.txt"}""")],
+            [ContentFrame("已停止")],
+        ]);
+        await using var services = CreateServices(executor, provider);
+        var runner = services.GetRequiredService<IAgentRunner>();
+        var sink = new CapturingSink();
+
+        var result = await runner.RunAsync(new AgentLoopRequest
+        {
+            ToolNames = ["write_tool"],
+            SessionId = "repeat-failure",
+            CompressHistory = false,
+            MaxIterations = 5,
+            MaxContinuations = 0,
+            Sink = sink,
+        }, CancellationToken.None);
+
+        Assert.Null(result.Error);
+        Assert.Equal(2, executions);
+        Assert.Contains("已停止", result.Content);
+        Assert.Contains(sink.Events, e => e.Contains("toolExec.repeatedFailure", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task RunAsync_连续重复只读调用_停滞检测后收尾()
+    {
+        var executor = CreateExecutor("read_tool", ToolApprovalMode.Auto);
+        executor.ExecuteAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(_ => ToolExecutionResult.Success("file-content"));
+        var provider = new ScriptedProvider([
+            [ToolCallsFrame("call-1", "read_tool", """{"path":"a.txt"}""")],
+            [ToolCallsFrame("call-2", "read_tool", """{"path":"a.txt"}""")],
+            [ToolCallsFrame("call-3", "read_tool", """{"path":"a.txt"}""")],
+            [ContentFrame("收尾")],
+        ]);
+        await using var services = CreateServices(executor, provider);
+        var runner = services.GetRequiredService<IAgentRunner>();
+        var sink = new CapturingSink();
+
+        var result = await runner.RunAsync(new AgentLoopRequest
+        {
+            ToolNames = ["read_tool"],
+            SessionId = "stalled",
+            CompressHistory = false,
+            MaxIterations = 5,
+            MaxContinuations = 0,
+            Sink = sink,
+        }, CancellationToken.None);
+
+        Assert.Null(result.Error);
+        Assert.True(result.Stalled);
+        Assert.Contains("收尾", result.Content);
+        Assert.Contains(sink.Events, e => e.Contains("agent_stalled", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task RunAsync_达到单段迭代上限且有进展_自动续跑()
+    {
+        var executions = 0;
+        var executor = CreateExecutor("write_tool", ToolApprovalMode.Auto);
+        executor.ExecuteAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                executions++;
+                return ToolExecutionResult.Success("ok");
+            });
+        var provider = new ScriptedProvider([
+            [ToolCallsFrame("call-1", "write_tool", """{"path":"a.txt"}""")],
+            [ContentFrame("第一段")],
+            [ContentFrame("第二段")],
+        ]);
+        await using var services = CreateServices(executor, provider);
+        var runner = services.GetRequiredService<IAgentRunner>();
+        var sink = new CapturingSink();
+
+        var result = await runner.RunAsync(new AgentLoopRequest
+        {
+            ToolNames = ["write_tool"],
+            SessionId = "continuation",
+            CompressHistory = false,
+            MaxIterations = 1,
+            MaxContinuations = 1,
+            Sink = sink,
+        }, CancellationToken.None);
+
+        Assert.Null(result.Error);
+        Assert.Equal(1, executions);
+        Assert.Equal(1, result.ContinuationCount);
+        Assert.Contains("第一段", result.Content);
+        Assert.Contains("第二段", result.Content);
+        Assert.Contains(sink.Events, e => e.Contains("iteration_continue", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task RunAsync_单轮请求超过锚点_压缩长文本并通知()
+    {
+        var executor = CreateExecutor("write_tool", ToolApprovalMode.Auto);
+        var provider = new ScriptedProvider([[ContentFrame("完成")]]);
+        await using var services = CreateServices(executor, provider);
+        var runner = services.GetRequiredService<IAgentRunner>();
+        var sink = new CapturingSink();
+        var repeatedLog = string.Join('\n', Enumerable.Repeat(
+            "2026-01-01 ERROR repeated log line with some payload 123", 200));
+
+        var result = await runner.RunAsync(new AgentLoopRequest
+        {
+            Messages = [new ChatMessage(ChatRole.User, repeatedLog)],
+            SessionId = "context-anchor",
+            CompressHistory = false,
+            ContextWindowTokens = 5000,
+            MaxIterations = 1,
+            MaxContinuations = 0,
+            Sink = sink,
+        }, CancellationToken.None);
+
+        Assert.Null(result.Error);
+        Assert.False(result.ContextFull);
+        Assert.Contains("完成", result.Content);
+        Assert.Contains(sink.Events, e => e.Contains("context_anchor", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task RunAsync_上下文超过硬上限_停止工具调用并收尾()
+    {
+        var executor = CreateExecutor("write_tool", ToolApprovalMode.Auto);
+        var provider = new ScriptedProvider([[ContentFrame("收尾")]]);
+        await using var services = CreateServices(executor, provider);
+        var runner = services.GetRequiredService<IAgentRunner>();
+        var sink = new CapturingSink();
+
+        var result = await runner.RunAsync(new AgentLoopRequest
+        {
+            Messages = [new ChatMessage(ChatRole.User, new string('x', 40))],
+            SessionId = "context-full",
+            CompressHistory = false,
+            ContextWindowTokens = 1,
+            MaxIterations = 1,
+            MaxContinuations = 0,
+            Sink = sink,
+        }, CancellationToken.None);
+
+        Assert.Null(result.Error);
+        Assert.True(result.ContextFull);
+        Assert.Contains("收尾", result.Content);
+        Assert.Contains(sink.Events, e => e.Contains("context_full", StringComparison.Ordinal));
     }
 
     private static async Task WaitUntilAsync(Func<bool> condition)
@@ -247,14 +502,11 @@ public class HetuAgentRunnerTests
         return services.BuildServiceProvider();
     }
 
-    private static string ToolCallsFrame(string id, string name, string arguments) => JsonSerializer.Serialize(new
-    {
-        type = "tool_calls",
-        toolCalls = new[] { new { id, name, arguments } },
-    });
+    private static string ToolCallsFrame(string id, string name, string arguments)
+        => $"<tool_call>{JsonSerializer.Serialize(new { id, name, arguments = JsonDocument.Parse(arguments).RootElement })}</tool_call>";
 
-    private static string FinishFrame(string reason) => JsonSerializer.Serialize(new { type = "finish", reason });
-    private static string ContentFrame(string text) => JsonSerializer.Serialize(new { type = "content", text });
+    private static string FinishFrame(string reason) => string.Empty;
+    private static string ContentFrame(string text) => text;
 
     private sealed class CapturingSink : IAgentLoopSink
     {
