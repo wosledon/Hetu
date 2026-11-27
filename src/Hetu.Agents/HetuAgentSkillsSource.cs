@@ -18,47 +18,83 @@ internal sealed class HetuAgentSkillsSource : AgentSkillsSource
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILocalSkillService _localSkills;
     private readonly IReadOnlyList<string> _skillIds;
+    private readonly IReadOnlyList<string> _extraDirectories;
 
     public HetuAgentSkillsSource(
         IUnitOfWork unitOfWork,
         ILocalSkillService localSkills,
-        IReadOnlyList<string> skillIds)
+        IReadOnlyList<string> skillIds,
+        IReadOnlyList<string>? extraDirectories = null)
     {
         _unitOfWork = unitOfWork;
         _localSkills = localSkills;
         _skillIds = skillIds;
+        _extraDirectories = extraDirectories ?? [];
     }
 
     public override Task<IList<AgentSkill>> GetSkillsAsync(
         AgentSkillsSourceContext context,
         CancellationToken cancellationToken = default)
-        => LoadSkillsAsync(cancellationToken);
+        => LoadSkillsAsync(context, cancellationToken);
 
-    internal async Task<IList<AgentSkill>> LoadSkillsAsync(CancellationToken cancellationToken = default)
+    internal Task<IList<AgentSkill>> LoadSkillsAsync(CancellationToken cancellationToken = default)
+        => LoadSkillsAsync(null, cancellationToken);
+
+    internal async Task<IList<AgentSkill>> LoadSkillsAsync(
+        AgentSkillsSourceContext? context,
+        CancellationToken cancellationToken = default)
     {
-        if (_skillIds.Count == 0) return [];
-
         var requested = new HashSet<string>(_skillIds, StringComparer.OrdinalIgnoreCase);
+        var configuredDirectories = (await _localSkills.GetDirectoriesAsync(cancellationToken))?.Data ?? [];
+        var directories = configuredDirectories.Concat(_extraDirectories)
+            .Where(Directory.Exists)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (requested.Count == 0 && directories.Count == 0) return [];
+
         var skills = new List<AgentSkill>();
         var usedNames = new HashSet<string>(StringComparer.Ordinal);
 
-        var localResult = await _localSkills.ScanAllAsync(cancellationToken);
-        foreach (var local in (localResult.Data ?? []).Where(skill =>
-                     skill.IsEnabled && (requested.Contains(skill.Id) || requested.Contains(skill.Name))))
+        if (requested.Count > 0)
         {
-            var instructions = ReadLocalInstructions(local);
-            Add(skills, usedNames, local.Name, local.Description, instructions);
+            var localResult = await _localSkills.ScanAllAsync(cancellationToken);
+            foreach (var local in (localResult?.Data ?? []).Where(skill =>
+                         skill.IsEnabled && (requested.Contains(skill.Id) || requested.Contains(skill.Name))))
+            {
+                var instructions = ReadLocalInstructions(local);
+                Add(skills, usedNames, local.Name, local.Description, instructions);
+            }
+
+            var dbSkills = await _unitOfWork.Skills.FindAsync(skill => skill.IsEnabled, cancellationToken);
+            foreach (var skill in dbSkills.Where(skill =>
+                         requested.Contains(skill.Id.ToString()) || requested.Contains(skill.Name)))
+            {
+                Add(skills, usedNames, skill.Name, skill.Description, ReadConfigInstructions(skill.Config));
+            }
         }
 
-        var dbSkills = await _unitOfWork.Skills.FindAsync(skill => skill.IsEnabled, cancellationToken);
-        foreach (var skill in dbSkills.Where(skill =>
-                     requested.Contains(skill.Id.ToString()) || requested.Contains(skill.Name)))
+        if (context is not null && directories.Count > 0)
         {
-            Add(skills, usedNames, skill.Name, skill.Description, ReadConfigInstructions(skill.Config));
+            using var fileSource = new AgentFileSkillsSource(directories);
+            var fileSkills = await fileSource.GetSkillsAsync(context, cancellationToken);
+            foreach (var skill in fileSkills)
+            {
+                var name = skill.Frontmatter.Name;
+                if (requested.Count > 0 && !IsRequested(requested, name)) continue;
+                if (!usedNames.Add(name)) continue;
+                skills.Add(skill);
+            }
         }
 
         return skills;
     }
+
+    private static bool IsRequested(IReadOnlySet<string> requested, string name)
+        => requested.Contains(name)
+           || requested.Any(id =>
+               id.EndsWith(":" + name, StringComparison.OrdinalIgnoreCase)
+               || id.EndsWith("/" + name, StringComparison.OrdinalIgnoreCase));
 
     private static void Add(
         List<AgentSkill> skills,

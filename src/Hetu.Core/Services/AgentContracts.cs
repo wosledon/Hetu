@@ -81,6 +81,12 @@ public class AgentLoopRequest
     public ChatHistoryProvider? ChatHistoryProvider { get; set; }
     /// <summary>本轮启用的技能（数据库 Guid 或本地技能 Id/名称）；交给 MAF AgentSkillsProvider 渐进式披露。</summary>
     public IReadOnlyList<string>? SkillIds { get; set; }
+    /// <summary>额外的技能目录（如项目 .github/skills），交给 MAF AgentFileSkillsSource。</summary>
+    public IReadOnlyList<string>? SkillDirectories { get; set; }
+    /// <summary>是否启用 MAF ChatHistoryMemoryProvider（会话历史向量召回）。</summary>
+    public bool EnableHistoryMemory { get; set; }
+    /// <summary>是否让 MAF 在每次内部模型调用前后加载/持久化历史（长工具链更及时）。</summary>
+    public bool UsePerServiceCallHistoryPersistence { get; set; }
     public List<string> ToolNames { get; set; } = new();
     /// <summary>调用方预加载的运行中函数（如 MCP 工具），避免 Runner 重复建连。</summary>
     public IReadOnlyList<AIFunction>? RuntimeFunctions { get; set; }

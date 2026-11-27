@@ -102,6 +102,14 @@
         </tbody>
       </table></div>
 
+      <h2>会话持久化与长期历史</h2>
+      <ul>
+        <li>Chat / Code 会话把 MAF <code>AgentSession</code> 序列化到 <code>AppSettings</code>（key 前缀 <code>agent-session:</code>），跨请求恢复；消息历史仍以数据库为准。</li>
+        <li>设置 <code>EnableHistoryMemory=true</code> 后启用 <code>ChatHistoryMemoryProvider</code>，由 <code>HetuChatHistoryVectorStore</code> 在本地 SQLite / PostgreSQL 保存消息与 embedding，并按余弦相似度召回相关历史。</li>
+        <li><code>UsePerServiceCallHistoryPersistence=true</code> 让 MAF 在每次内部模型调用前后加载/持久化历史；它和 <code>EnableHistoryMemory</code> 不要同时开启。</li>
+        <li>本地项目的 <code>.github/skills</code> 走 <code>AgentFileSkillsSource</code>；SSH 远端项目保留 <code>work_skill</code> 兼容读取。</li>
+      </ul>
+
       <h2>工具装载与 MCP</h2>
       <ul>
         <li>MCP 服务器在 <strong>不存在 / 已禁用</strong> 时直接跳过并记 warning；单个服务器加载失败只记 error 并继续本轮，不让一个坏配置拖垮整轮对话。</li>

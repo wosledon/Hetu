@@ -343,7 +343,20 @@ public class WorkStreamController : ControllerBase
             topicId: null, projectId: project.ManagedProjectId);
 
         var profile = BuiltinProfiles.Work;
-        var allowedTools = profile.AllowedTools.Concat(mcpToolNames).ToList();
+        var skillIds = ParseStrings(project.SkillIds);
+        if (!string.IsNullOrWhiteSpace(request.SkillName)) skillIds.Add(request.SkillName);
+        var skillsDirectory = Path.Combine(root, ".github", "skills");
+        var usesMafSkills = !runner.IsRemote
+                            && (skillIds.Count > 0 || Directory.Exists(skillsDirectory));
+        var allowedTools = profile.AllowedTools.Concat(mcpToolNames)
+            .Where(tool => !(usesMafSkills && string.Equals(tool, "work_skill", StringComparison.OrdinalIgnoreCase)))
+            .ToList();
+        var enableHistoryMemory = string.Equals(
+            (await _unitOfWork.AppSettings.GetByKeyAsync("EnableHistoryMemory", ct))?.Value,
+            "true", StringComparison.OrdinalIgnoreCase);
+        var perServiceHistory = string.Equals(
+            (await _unitOfWork.AppSettings.GetByKeyAsync("UsePerServiceCallHistoryPersistence", ct))?.Value,
+            "true", StringComparison.OrdinalIgnoreCase);
         // 工具清单由 Agent Loop 统一拼进系统提示（ComposeSystemPrompt），此处不再重复一份
         var systemPromptParts = new List<string>
         {
@@ -395,7 +408,7 @@ public class WorkStreamController : ControllerBase
             _logger.LogWarning(ex, "[WorkStream] 加载 .github 资产失败，本轮按无资产继续");
             copilotAssets = WorkCopilotAssets.Empty;
         }
-        var copilotContext = WorkCopilotAssets.BuildContext(copilotAssets, root);
+        var copilotContext = WorkCopilotAssets.BuildContext(copilotAssets, root, includeSkills: !usesMafSkills);
         if (!string.IsNullOrWhiteSpace(copilotContext))
             systemPromptParts.Add($"\n{copilotContext}");
 
@@ -413,7 +426,7 @@ public class WorkStreamController : ControllerBase
 
         // /skill 命令：提示 Agent 先用 work_skill 读取完整技能说明
         if (!string.IsNullOrWhiteSpace(request.SkillName))
-            systemPromptParts.Add($"\n用户通过 /{request.SkillName} 选择了技能：请先调用 work_skill 读取「{request.SkillName}」的完整说明，再严格按说明执行。");
+            systemPromptParts.Add($"\n用户通过 /{request.SkillName} 选择了技能：请先调用 {(usesMafSkills ? "load_skill" : "work_skill")} 读取「{request.SkillName}」的完整说明，再严格按说明执行。");
 
         var gitContext = await WorkProjectRules.BuildGitContextAsync(root, ct);
         if (!string.IsNullOrWhiteSpace(gitContext))
@@ -476,7 +489,10 @@ public class WorkStreamController : ControllerBase
             SystemPrompt = options.SystemPrompt ?? string.Empty,
             Messages = inputMessages.ToChatMessages(),
             ChatHistoryProvider = historyProvider,
-            SkillIds = ParseStrings(project.SkillIds),
+            SkillIds = skillIds.Count > 0 ? skillIds : null,
+            SkillDirectories = usesMafSkills ? [skillsDirectory] : null,
+            EnableHistoryMemory = enableHistoryMemory,
+            UsePerServiceCallHistoryPersistence = perServiceHistory,
             ToolNames = allowedToolNames,
             RuntimeFunctions = mcpTools,
             McpServerIds = new List<Guid>(),

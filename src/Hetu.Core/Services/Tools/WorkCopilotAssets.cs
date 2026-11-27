@@ -359,7 +359,7 @@ public static class WorkCopilotAssets
     /// 把 .github 资产拼成注入 system prompt 的上下文：
     /// 指令全文注入；智能体/提示词/技能给出索引与文件路径，按需读取。
     /// </summary>
-    public static string BuildContext(CopilotAssets assets, string root)
+    public static string BuildContext(CopilotAssets assets, string root, bool includeSkills = true)
     {
         if (assets.IsEmpty) return string.Empty;
 
@@ -411,7 +411,7 @@ public static class WorkCopilotAssets
                 sb.AppendLine($"- /{prompt.Name}: {Shorten(prompt.Description)}");
         }
 
-        if (assets.Skills.Count > 0)
+        if (includeSkills && assets.Skills.Count > 0)
         {
             sb.AppendLine();
             sb.AppendLine("### 仓库技能（.github/skills）");
