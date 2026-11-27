@@ -325,14 +325,14 @@ public class WorkStreamController : ControllerBase
         // 输入框 @ 引用（笔记 / 笔记本 / 标签 / 知识库）：作为 MAF AIContextProvider 在本轮首次模型调用前解析
         var mentionProvider = new MentionContextProvider(_mentionContext, request.Mentions, writer);
 
-        // 图片附件（视觉模型多模态输入）：与对话会话共用同一挂载规则
-        ChatContextInjector.AttachImages(request.Images, modelInfo.ProviderType, chatMessages);
-
         // 历史交给 MAF ChatHistoryProvider；本轮只把最后一条 user 消息作为输入。
         var lastUserIndex = Math.Max(0, chatMessages.FindLastIndex(m => m.Role == "user"));
         var historyProvider = new PreloadedChatHistoryProvider(
             chatMessages.Take(lastUserIndex).ToChatMessages());
         var inputMessages = chatMessages.Skip(lastUserIndex).ToList();
+        var inputChatMessages = inputMessages.ToChatMessages();
+        // 图片附件（视觉模型多模态输入）：与对话会话共用同一挂载规则
+        ChatContextInjector.AttachImages(request.Images, inputChatMessages);
 
         // 网络搜索 / 知识库 / 记忆：与对话会话共用同一套 RAG 注入与 SSE 事件；
         // 作为 MAF AIContextProvider 在本轮首次模型调用前执行一次。
@@ -469,14 +469,13 @@ public class WorkStreamController : ControllerBase
                     : ToolApprovalMode.Ask;
         }
         var allowedToolNames = request.EnableTools ? allowedTools : new List<string>();
-        if (request.EnableTools)
-            options.Tools = _toolRegistry.ToToolDefinitions(allowedTools);
+        var toolSchemaChars = request.EnableTools ? _toolRegistry.EstimateSchemaChars(allowedTools) : 0;
 
         var fileChanges = new List<object>();
         var usageTotal = new WorkMessageUsage();
         var executedToolNames = new List<string>();
         var sink = new SseAgentSink(writer, this, sessionId);
-        var hooks = new WorkStreamHooks(this, sessionId, project, root, runner, writer, fileChanges, executedToolNames, chatMessages, options, modelId);
+        var hooks = new WorkStreamHooks(this, sessionId, project, root, runner, writer, fileChanges, executedToolNames, chatMessages, options.SystemPrompt, toolSchemaChars, modelId);
 
         // 权限模式实时生效：会话进行中切换审批档位 / 交互模式时，后续工具调用按新档位裁决，
         // 不再沿用回合开始时的快照（否则用户切到「无需确认」后仍会逐个弹审批）
@@ -494,7 +493,7 @@ public class WorkStreamController : ControllerBase
         {
             ModelId = modelId,
             SystemPrompt = options.SystemPrompt ?? string.Empty,
-            Messages = inputMessages.ToChatMessages(),
+            Messages = inputChatMessages,
             ChatHistoryProvider = historyProvider,
             SkillIds = skillIds.Count > 0 ? skillIds : null,
             SkillDirectories = usesMafSkills ? [skillsDirectory] : null,
@@ -733,7 +732,8 @@ public class WorkStreamController : ControllerBase
             List<object> fileChanges,
             List<string> executedToolNames,
             List<LlmChatMessage> messages,
-            ChatOptions options,
+            string? systemPrompt,
+            int toolSchemaChars,
             Guid? modelId)
         {
             _owner = owner;
@@ -746,11 +746,13 @@ public class WorkStreamController : ControllerBase
             _executedToolNames = executedToolNames;
             _modelId = modelId;
             _messages = messages;
-            _options = options;
+            _systemPrompt = systemPrompt;
+            _toolSchemaChars = toolSchemaChars;
         }
 
         private readonly List<LlmChatMessage> _messages;
-        private readonly ChatOptions _options;
+        private readonly string? _systemPrompt;
+        private readonly int _toolSchemaChars;
 
         /// <summary>最近一次迭代耗时（Provider 未分批上报 latency 时用于会话累计）</summary>
         public int LastIterationMs { get; private set; }
@@ -775,7 +777,7 @@ public class WorkStreamController : ControllerBase
             LastIterationMs = (int)_iterationClock.ElapsedMilliseconds;
             _iterationClock.Restart();
             // 只记首轮：后续迭代的 messages/工具已被本轮工具结果撑大，不是本轮起始规模
-            if (iteration == 0) FirstIterationEstimate = LlmTokenEstimator.EstimateRequestTokens(_messages, _options.SystemPrompt, _options.Tools);
+            if (iteration == 0) FirstIterationEstimate = LlmTokenEstimator.EstimateRequestTokens(_messages, _systemPrompt, _toolSchemaChars);
             if (usage is { PromptTokens: > 0 } && FirstIterationUsage == null) FirstIterationUsage = usage;
 
             // 思考过程落库：结束后历史回放时仍可见（完整保存，不截断）
@@ -925,25 +927,11 @@ public class WorkStreamController : ControllerBase
     private static string Truncate(string text, int max = 4000)
         => string.IsNullOrEmpty(text) || text.Length <= max ? text : text[..max] + "\n…（内容过长已截断）";
 
-    /// <summary>解析本轮生效的权限模式：请求显式指定优先，其次兼容旧的 ToolApprovalMode，最后回落到会话持久值</summary>
+    /// <summary>解析本轮生效的权限模式：请求显式指定优先，否则回落到会话持久值</summary>
     private static WorkPermissionMode ResolvePermissionMode(SendWorkMessageRequest request, WorkSessionDto session)
-    {
-        if (WorkToolPolicy.IsValidValue(request.PermissionMode))
-            return WorkToolPolicy.Parse(request.PermissionMode);
-
-        if (!string.IsNullOrWhiteSpace(request.ToolApprovalMode) &&
-            Enum.TryParse<ToolApprovalMode>(request.ToolApprovalMode, true, out var legacy))
-        {
-            return legacy switch
-            {
-                ToolApprovalMode.Bypass => WorkPermissionMode.Bypass,
-                ToolApprovalMode.Auto => WorkPermissionMode.Auto,
-                _ => WorkPermissionMode.Ask
-            };
-        }
-
-        return WorkToolPolicy.Parse(session.PermissionMode);
-    }
+        => WorkToolPolicy.Parse(WorkToolPolicy.IsValidValue(request.PermissionMode)
+            ? request.PermissionMode
+            : session.PermissionMode);
 
     /// <summary>解析项目上以 JSON 数组保存的 Guid 列表</summary>
     private static List<Guid> ParseGuidList(string? json)

@@ -32,7 +32,7 @@ export function useWorkflowRun(onOutput?: (text: string) => void, initialWorkflo
     if (abortOnUnmount) controllerRef.current?.abort()
   }, [abortOnUnmount])
 
-  const run = useCallback(async (input: string, topicId?: string, toolApprovalMode?: string, workSessionId?: string, agentMode?: string, modelId?: string) => {
+  const run = useCallback(async (input: string, topicId?: string, permissionMode?: string, workSessionId?: string, agentMode?: string, modelId?: string) => {
     if (!workflow || controllerRef.current) return false
     setNodes([])
     runIdRef.current = ''
@@ -96,7 +96,7 @@ export function useWorkflowRun(onOutput?: (text: string) => void, initialWorkflo
           onOutput?.(i18n.t('workflows:run.failedWith', { error: err }))
         },
         controller.signal,
-        toolApprovalMode,
+        permissionMode,
         workSessionId,
         agentMode,
         modelId)

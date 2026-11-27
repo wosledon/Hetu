@@ -165,8 +165,9 @@ public class KanbanTaskExecutor : IKanbanTaskExecutor
                     task.WorkflowId.Value, brief, cancellationToken,
                     sink: new WorkflowRunSink(stepWriter, cancellationToken),
                     chatTopicId: null,
-                    globalApprovalMode: "Auto",
-                    questionHandler: OnQuestionAsync);
+                    questionHandler: OnQuestionAsync,
+                    // 看板任务无人值守：工作流内 Agent 节点一律自动执行，不等待审批
+                    decideToolCall: static (_, _) => Task.FromResult(new WorkToolDecision(true, ToolApprovalMode.Auto)));
                 workflowRunId = result.RunId;
                 if (result.Status == "Failed")
                 {

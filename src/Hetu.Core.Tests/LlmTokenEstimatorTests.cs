@@ -1,3 +1,4 @@
+using Hetu.Core.Interfaces;
 using Hetu.Core.Services;
 
 namespace Hetu.Core.Tests;
@@ -24,4 +25,14 @@ public class LlmTokenEstimatorTests
     [Fact]
     public void Estimate_多段文本累加()
         => Assert.Equal(3, LlmTokenEstimator.Estimate(["abc", "def", "ghi"]));
+
+    [Fact]
+    public void EstimateRequestTokens_包含消息系统提示与工具schema()
+    {
+        List<LlmChatMessage> messages = [new() { Role = "user", Content = "123456" }];
+
+        var tokens = LlmTokenEstimator.EstimateRequestTokens(messages, "abc", 9);
+
+        Assert.Equal(6, tokens);
+    }
 }

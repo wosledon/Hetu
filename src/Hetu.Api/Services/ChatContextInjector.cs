@@ -6,6 +6,7 @@ using Hetu.Core.Services;
 using Hetu.Core.Utilities;
 using Hetu.Shared.Chat;
 using Hetu.Shared.Notes;
+using Microsoft.Extensions.AI;
 using Serilog;
 
 namespace Hetu.Api.Services;
@@ -39,7 +40,7 @@ public class ChatContextInjector
     /// topicId / projectId 决定记忆检索的作用域：全局 ∪ 当前会话 ∪ 当前项目。</summary>
     public async Task<RagResult> InjectRagAsync(
         bool webSearch, bool knowledgeBase, bool memory, string content,
-        List<LlmChatMessage> messages, SseStreamWriter writer, Guid? modelId,
+        List<ChatMessage> messages, SseStreamWriter writer, Guid? modelId,
         Guid? topicId, Guid? projectId, CancellationToken ct)
     {
         string? searchJson = null, kbJson = null, memJson = null;
@@ -66,7 +67,7 @@ public class ChatContextInjector
             {
                 await writer.WriteJsonAsync(new { type = "search_results", results });
                 searchJson = JsonSerializer.Serialize(results, JsonDefaults.CamelCase);
-                messages.Insert(messages.Count - 1, new LlmChatMessage { Role = "user", Content = BuildSearchContext(results) });
+                messages.Insert(messages.Count - 1, new ChatMessage(ChatRole.User, BuildSearchContext(results)));
             }
         }
 
@@ -80,7 +81,7 @@ public class ChatContextInjector
                     var items = kbResult.Data.Items;
                     await writer.WriteJsonAsync(new { type = "knowledge_results", results = items.Select(r => new { r.Title, r.ContentSnippet, r.Id }) });
                     kbJson = JsonSerializer.Serialize(items.Select(r => new { r.Title, r.ContentSnippet, r.Id }), JsonDefaults.CamelCase);
-                    messages.Insert(messages.Count - 1, new LlmChatMessage { Role = "user", Content = BuildKnowledgeContext(items) });
+                    messages.Insert(messages.Count - 1, new ChatMessage(ChatRole.User, BuildKnowledgeContext(items)));
                 }
             }
             catch (Exception ex)
@@ -98,7 +99,7 @@ public class ChatContextInjector
                 {
                     await writer.WriteJsonAsync(new { type = "memory_results", results = memories.Select(m => new { m.Id, m.Content, m.Category, m.Score }) });
                     memJson = JsonSerializer.Serialize(memories.Select(m => new { m.Id, m.Content, m.Category, m.Score }), JsonDefaults.CamelCase);
-                    messages.Insert(messages.Count - 1, new LlmChatMessage { Role = "user", Content = BuildMemoryContext(memories) });
+                    messages.Insert(messages.Count - 1, new ChatMessage(ChatRole.User, BuildMemoryContext(memories)));
                 }
             }
             catch (Exception ex)
@@ -111,37 +112,41 @@ public class ChatContextInjector
     }
 
     /// <summary>把图片附件挂到最后一条用户消息上（视觉模型多模态输入）。</summary>
-    public static void AttachImages(List<ImageAttachment>? images, string providerType, List<LlmChatMessage> messages)
+    public static void AttachImages(List<ImageAttachment>? images, List<ChatMessage> messages)
     {
         if (images is not { Count: > 0 }) return;
 
-        var lastUserIdx = messages.FindLastIndex(m => m.Role == "user");
-        if (lastUserIdx < 0) return;
+        var lastUser = messages.FindLast(m => m.Role == ChatRole.User);
+        if (lastUser == null) return;
 
-        var parts = new List<LlmContentPart>();
-        var existing = messages[lastUserIdx].Content;
-        if (!string.IsNullOrWhiteSpace(existing))
-            parts.Add(new LlmContentPart { Type = "text", Text = existing });
         foreach (var img in images)
         {
-            if (string.Equals(providerType, "anthropic", StringComparison.OrdinalIgnoreCase))
+            var payload = img.Data;
+            var mediaType = string.IsNullOrWhiteSpace(img.MimeType) ? "image/png" : img.MimeType;
+            if (payload.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
             {
-                var b64 = img.Data.Contains(',') ? img.Data[(img.Data.IndexOf(',') + 1)..] : img.Data;
-                parts.Add(new LlmContentPart { Type = "image_url", ImageUrl = b64, MediaType = img.MimeType });
+                var comma = payload.IndexOf(',');
+                if (comma < 0) continue;
+                var header = payload[5..comma];
+                var semicolon = header.IndexOf(';');
+                if (semicolon > 0) mediaType = header[..semicolon];
+                payload = payload[(comma + 1)..];
             }
-            else
+            try
             {
-                var uri = img.Data.StartsWith("data:") ? img.Data : $"data:{img.MimeType};base64,{img.Data}";
-                parts.Add(new LlmContentPart { Type = "image_url", ImageUrl = uri });
+                lastUser.Contents.Add(new DataContent(Convert.FromBase64String(payload), mediaType));
+            }
+            catch (FormatException)
+            {
+                // 非法 base64 直接跳过，避免坏附件打断整轮请求
             }
         }
-        messages[lastUserIdx] = new LlmChatMessage { Role = "user", Content = existing, ContentParts = parts };
     }
 
     /// <summary>
     /// 深度思考：tag 模式的模型靠系统提示强制先思考；native 模式由推理强度控制，这里不额外干预。
     /// </summary>
-    public static void ApplyDeepThinking(bool deepThinking, string? reasoningMode, ChatOptions options)
+    public static void ApplyDeepThinking(bool deepThinking, string? reasoningMode, Hetu.Core.Interfaces.ChatOptions options)
     {
         if (!deepThinking) return;
         if (!string.Equals(reasoningMode, "tag", StringComparison.OrdinalIgnoreCase)) return;

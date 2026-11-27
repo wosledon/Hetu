@@ -110,7 +110,7 @@
         <tbody>
           <tr><td>Code sessions</td><td>All three layers: mode + project rules + tool risk; <code>PermissionMode</code> and <code>AgentMode</code> persist on the session</td></tr>
           <tr><td>Chat page</td><td>Mode + <strong>per-tool overrides</strong> (<code>ToolApprovalOverrides</code>); project rules are not read — chat has no project context</td></tr>
-          <tr><td>Workflow nodes</td><td>Node-level <code>toolApprovals</code> plus the run-level <code>toolApprovalMode</code>, the latter only filling tools without an explicit setting</td></tr>
+          <tr><td>Workflow nodes</td><td>The run-level <code>permissionMode</code> (five modes) is folded into per-call decisions by the shared policy; node-level <code>toolApprovals</code> only act as explicit overrides. Unattended runs (Kanban / sub-workflows) receive decisions directly and never wait for interaction</td></tr>
         </tbody>
       </table></div>
 

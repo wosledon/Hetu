@@ -217,7 +217,6 @@ public class SendWorkMessageRequest
     public string Content { get; set; } = string.Empty;
     public string? ModelId { get; set; }
     public bool EnableTools { get; set; } = true;
-    public string? ToolApprovalMode { get; set; }
     /// <summary>本轮权限模式（plan | readonly | ask | auto | bypass），传入时同时持久化到会话</summary>
     public string? PermissionMode { get; set; }
     /// <summary>本轮 Agent 模式（interactive | autopilot），传入时同时持久化到会话</summary>

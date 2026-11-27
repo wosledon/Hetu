@@ -110,9 +110,6 @@ public class RunWorkflowRequest
     /// <summary>JSON: 输入参数（匹配 Workflow.InputSchema）</summary>
     public string? Input { get; set; }
 
-    /// <summary>全局工具审批模式（对话界面的 自动/询问/静默），工作流内 Agent 节点未显式配置时生效</summary>
-    public string? ToolApprovalMode { get; set; }
-
     /// <summary>Code 会话 ID：传入后工作流在该会话的项目、工作树与权限上下文中执行</summary>
     public Guid? WorkSessionId { get; set; }
 

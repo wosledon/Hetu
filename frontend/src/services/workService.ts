@@ -116,7 +116,6 @@ export const workSessionService = {
       content: string;
       modelId?: string;
       enableTools?: boolean;
-      toolApprovalMode?: string;
       permissionMode?: WorkPermissionMode;
       /** Agent 模式：交互式 / autopilot（autopilot 下写操作不再逐步确认） */
       agentMode?: WorkAgentMode;

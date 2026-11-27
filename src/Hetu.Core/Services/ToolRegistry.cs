@@ -109,33 +109,32 @@ public class ToolRegistry
         return result;
     }
 
-    /// <summary>将指定工具转换为 LLM 工具定义（<paramref name="toolNames"/> 为 null 时返回全部）</summary>
-    public List<LlmToolDefinition> ToToolDefinitions(IReadOnlyList<string>? toolNames = null)
+    /// <summary>
+    /// 估算给定工具 schema 下发给模型时的字符数（名称 + 描述 + 本地化参数 schema）。
+    /// 只用于没有真实 usage 时的请求规模兜底，不再为了估算构造第二份工具定义对象。
+    /// </summary>
+    public int EstimateSchemaChars(IReadOnlyList<string>? toolNames)
     {
-        var executors = GetByNames(toolNames);
-        return executors.Select(e => new LlmToolDefinition
+        var chars = 0;
+        foreach (var executor in GetByNames(toolNames))
         {
-            Name = e.Name,
-            // 工具 schema 是唯一发送工具信息的地方（系统提示里不再重复一份清单），
-            // 因此把「何时该用」的使用指引并入 description，指引仍然可达
-            Description = ComposeDescription(e),
-            ParametersSchema = LocalizeParameters(e.Name, e.ParametersSchema)
-        }).ToList();
+            chars += executor.Name.Length + ComposeDescription(executor).Length;
+            chars += CompactJsonChars(LocalizeParameters(executor.Name, executor.ParametersSchema.GetRawText()));
+        }
+        return chars;
     }
 
-    /// <summary>模型侧工具定义用 JsonElement：走一次 JSON 往返，参数说明同样按 toolParam.* 替换</summary>
-    private JsonElement LocalizeParameters(string toolName, JsonElement schema)
+    private static int CompactJsonChars(string? json)
     {
-        if (schema.ValueKind != JsonValueKind.Object) return schema;
-        var localized = LocalizeParameters(toolName, schema.GetRawText());
-        if (localized == null) return schema;
+        if (string.IsNullOrWhiteSpace(json)) return 0;
         try
         {
-            return JsonDocument.Parse(localized).RootElement.Clone();
+            using var document = JsonDocument.Parse(json);
+            return JsonSerializer.Serialize(document.RootElement, UnescapedJson).Length;
         }
         catch (JsonException)
         {
-            return schema;
+            return json.Length;
         }
     }
 

@@ -110,7 +110,7 @@
         <tbody>
           <tr><td>编码会话</td><td>完整三层：模式 + 项目规则 + 工具风险；会话上持久化 <code>PermissionMode</code> 与 <code>AgentMode</code></td></tr>
           <tr><td>对话页</td><td>模式 + <strong>逐工具覆盖</strong>（<code>ToolApprovalOverrides</code>）；不读取项目规则——对话没有项目上下文</td></tr>
-          <tr><td>工作流节点</td><td>节点配置的 <code>toolApprovals</code> 与运行级 <code>toolApprovalMode</code> 叠加，后者只覆盖未显式配置的工具</td></tr>
+          <tr><td>工作流节点</td><td>运行级 <code>permissionMode</code>（五档）经统一策略折算为逐次决策；节点配置的 <code>toolApprovals</code> 仅作显式覆盖。无人值守场景（看板 / 子工作流）由调用方直接给决策，不等待交互</td></tr>
         </tbody>
       </table></div>
 

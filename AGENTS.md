@@ -144,7 +144,11 @@ EF Core 的 SQLite provider **不支持在 SQL 中排序或聚合 `DateTimeOffse
   `UsePerServiceCallHistoryPersistence` 控制 MAF 每服务调用的历史持久化。两者不要同时开启（会重复写入向量表）。
 - Agent 消息契约使用 MEAI `ChatMessage`；`LlmChatMessage` 只保留在数据库/文本任务边界，转换集中在 `ChatMessageConversion`。
 - 工具执行器仍是 `IToolExecutor` 业务抽象；交给 MAF 的边界统一为 `AIFunction`（`HetuAIFunction` / 原生 `McpClientTool`），
-  不要再建第二套工具循环或工具定义协议。
+  不要再建第二套工具循环或工具定义协议（token 估算直接用 `ToolRegistry.EstimateSchemaChars`，不要为估算再造工具定义对象）。
+- 工作流 Agent 节点的权限统一走运行级 `permissionMode`（五档）→ `AgentToolPolicy` → `DecideToolCall`；
+  节点配置的 `toolApprovals` 只作显式覆盖。不要再新增运行级审批字符串参数（旧的 `toolApprovalMode` 已移除）。
+- `LlmStreamParser` 只解析文本形式的 `<thinking>` / `<tool_call>` 标签，是没有原生 function calling 的模型兼容层；
+  原生工具调用走 `FunctionCallContent`，不要让它进入文本解析路径。
 - RAG / 记忆检索封装为 `AIContextProvider`（`RagContextProvider`），通过 `AgentLoopRequest.ContextProviders` 交给 MAF；
   提供者内部只执行一次检索，后续迭代复用结果，避免每轮重复搜索。
 - `@` 引用同样走 `AIContextProvider`（`MentionContextProvider`）；运行中引导走 `SteeringContextProvider`，

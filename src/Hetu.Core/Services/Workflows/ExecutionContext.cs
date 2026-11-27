@@ -37,9 +37,6 @@ public class ExecutionContext
     /// <summary>运行 ID</summary>
     public Guid RunId { get; set; }
 
-    /// <summary>全局工具审批模式（auto/ask/bypass），Agent 节点未显式配置工具时生效</summary>
-    public string? GlobalApprovalMode { get; set; }
-
     /// <summary>
     /// 提问处理器：非空时 Agent 节点的 ask_question 由该回调裁决（后台执行可中断转人工），
     /// 为空时走 SSE 会话等待用户回答。

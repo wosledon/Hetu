@@ -50,7 +50,6 @@ public class SubWorkflowNodeExecutor : INodeExecutor
             depth,
             sink,
             null,
-            ctx.GlobalApprovalMode,
             ctx.QuestionHandler,
             ctx.WorkScope,
             ctx.DecideToolCall);

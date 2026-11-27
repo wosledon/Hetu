@@ -2,6 +2,7 @@ using System.Text;
 using Hetu.Core.Interfaces;
 using Hetu.Shared.Chat;
 using Hetu.Shared.Notes;
+using Microsoft.Extensions.AI;
 
 namespace Hetu.Api.Services;
 
@@ -26,7 +27,7 @@ public class MentionContextBuilder
     }
 
     /// <summary>把 @ 引用内容插入消息列表；返回已解析的引用条数，0 表示无需注入。</summary>
-    public async Task<int> BuildAsync(List<ChatMentionRef>? mentions, List<LlmChatMessage> messages, CancellationToken ct)
+    public async Task<int> BuildAsync(List<ChatMentionRef>? mentions, List<ChatMessage> messages, CancellationToken ct)
     {
         if (mentions is not { Count: > 0 }) return 0;
 
@@ -86,7 +87,7 @@ public class MentionContextBuilder
         if (resolved == 0) return 0;
 
         messages.Insert(Math.Max(0, messages.Count - 1),
-            new LlmChatMessage { Role = "user", Content = sb.ToString().TrimEnd() });
+            new ChatMessage(ChatRole.User, sb.ToString().TrimEnd()));
         return resolved;
     }
 }

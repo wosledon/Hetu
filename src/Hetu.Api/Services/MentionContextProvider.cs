@@ -44,18 +44,15 @@ public sealed class MentionContextProvider : AIContextProvider
         if (_mentions is not { Count: > 0 })
             return new AIContext { Messages = [] };
 
-        var messages = new List<LlmChatMessage>
+        var messages = new List<ChatMessage>
         {
-            new() { Role = "user", Content = string.Empty },
+            new(ChatRole.User, string.Empty),
         };
         var resolved = await _builder.BuildAsync(_mentions.ToList(), messages, cancellationToken);
         if (resolved > 0)
             await _writer.WriteJsonAsync(new { type = "mentions", count = resolved });
 
-        _messages = messages
-            .Take(Math.Max(0, messages.Count - 1))
-            .Select(message => new ChatMessage(ChatRole.User, message.Content))
-            .ToList();
+        _messages = messages.Take(Math.Max(0, messages.Count - 1)).ToList();
         return new AIContext { Messages = _messages };
     }
 }

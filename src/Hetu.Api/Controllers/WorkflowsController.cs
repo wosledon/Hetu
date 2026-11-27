@@ -83,7 +83,7 @@ public class WorkflowsController : ControllerBase
     {
         var (workScope, decideToolCall, error, _) = await PrepareWorkContextAsync(request, cancellationToken);
         if (error != null) return ApiResponse<WorkflowRunResult>.Fail(error);
-        var result = await _engine.ExecuteAsync(id, request?.Input, cancellationToken, 0, null, null, request?.ToolApprovalMode,
+        var result = await _engine.ExecuteAsync(id, request?.Input, cancellationToken, 0, null, null,
             workScope: workScope, decideToolCall: decideToolCall);
         return ApiResponse<WorkflowRunResult>.Ok(result);
     }
@@ -114,7 +114,7 @@ public class WorkflowsController : ControllerBase
                     metadata: JsonSerializer.Serialize(new { workflowId = id }), cancellationToken: cancellationToken);
             }
 
-            var result = await _engine.ExecuteAsync(id, request?.Input, cancellationToken, 0, sink, null, request?.ToolApprovalMode,
+            var result = await _engine.ExecuteAsync(id, request?.Input, cancellationToken, 0, sink, null,
                 workScope: workScope, decideToolCall: decideToolCall);
             if (request?.WorkSessionId is Guid sessionId)
             {
@@ -157,7 +157,9 @@ public class WorkflowsController : ControllerBase
                 await _chatMessageService.CreateUserMessageAsync(topicId, request.Input, cancellationToken);
             }
 
-            var result = await _engine.ExecuteAsync(id, request?.Input, cancellationToken, 0, sink, topicId, request?.ToolApprovalMode);
+            var decideToolCall = CreatePermissionDecider(request?.PermissionMode);
+            var result = await _engine.ExecuteAsync(id, request?.Input, cancellationToken, 0, sink, topicId,
+                workScope: null, decideToolCall: decideToolCall);
 
             // 将工作流输出保存为对话的助手消息
             if (result.Status == "Succeeded" && !string.IsNullOrWhiteSpace(result.Output))
@@ -220,6 +222,15 @@ public class WorkflowsController : ControllerBase
 
         _approvalService.TryResolve(runId.ToString(), target.NodeId, request.Approve);
         return ApiResponse.Ok();
+    }
+
+    /// <summary>对话内工作流没有 Code 项目作用域，只按本轮权限模式折算工具审批（plan/readonly/ask/auto/bypass）。</summary>
+    private Func<LlmToolCall, ToolApprovalMode, Task<WorkToolDecision>>? CreatePermissionDecider(string? permissionMode)
+    {
+        if (!WorkToolPolicy.IsValidValue(permissionMode)) return null;
+        return AgentToolPolicy.CreateDecider(
+            _toolRegistry,
+            new AgentPolicyContext { Mode = WorkToolPolicy.Parse(permissionMode) });
     }
 
     private async Task<(WorkToolScope? Scope, Func<LlmToolCall, ToolApprovalMode, Task<WorkToolDecision>>? DecideToolCall, string? Error, string? Notice)> PrepareWorkContextAsync(

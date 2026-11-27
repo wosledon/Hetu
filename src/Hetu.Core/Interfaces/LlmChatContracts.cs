@@ -1,7 +1,5 @@
 
 
-using System.Text.Json;
-
 namespace Hetu.Core.Interfaces;
 
 public class LlmContentPart
@@ -10,16 +8,6 @@ public class LlmContentPart
     public string? Text { get; set; }
     public string? ImageUrl { get; set; }
     public string? MediaType { get; set; }
-}
-
-/// <summary>
-/// 工具定义，传给 LLM 让它知道可以调用哪些工具
-/// </summary>
-public class LlmToolDefinition
-{
-    public string Name { get; set; } = string.Empty;
-    public string Description { get; set; } = string.Empty;
-    public JsonElement ParametersSchema { get; set; }
 }
 
 /// <summary>
@@ -122,10 +110,6 @@ public class ChatOptions
     /// 推理 Token 预算（Claude budget_tokens 风格；设置时优先于强度等级）
     /// </summary>
     public int? ReasoningBudgetTokens { get; set; }
-    /// <summary>
-    /// 可用工具定义列表（传给 LLM）
-    /// </summary>
-    public List<LlmToolDefinition>? Tools { get; set; }
 }
 
 public class CompletionOptions

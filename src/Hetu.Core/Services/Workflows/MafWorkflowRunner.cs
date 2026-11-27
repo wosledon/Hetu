@@ -73,7 +73,6 @@ public sealed class MafWorkflowRunner
         int depth = 0,
         IWorkflowEventSink? sink = null,
         Guid? chatTopicId = null,
-        string? globalApprovalMode = null,
         Func<LlmToolCall, Task<string>>? questionHandler = null,
         WorkToolScope? workScope = null,
         Func<LlmToolCall, ToolApprovalMode, Task<WorkToolDecision>>? decideToolCall = null)
@@ -84,7 +83,7 @@ public sealed class MafWorkflowRunner
         if (!workflow.IsEnabled)
             return new WorkflowRunResult { Status = "Failed", Error = _localizer.T("workflow.disabled") };
 
-        return await ExecuteAsync(Map(workflow), input, ct, depth, sink, chatTopicId, globalApprovalMode, questionHandler, workScope, decideToolCall);
+        return await ExecuteAsync(Map(workflow), input, ct, depth, sink, chatTopicId, questionHandler, workScope, decideToolCall);
     }
 
     public async Task<WorkflowRunResult> ExecuteAsync(
@@ -94,7 +93,6 @@ public sealed class MafWorkflowRunner
         int depth = 0,
         IWorkflowEventSink? sink = null,
         Guid? chatTopicId = null,
-        string? globalApprovalMode = null,
         Func<LlmToolCall, Task<string>>? questionHandler = null,
         WorkToolScope? workScope = null,
         Func<LlmToolCall, ToolApprovalMode, Task<WorkToolDecision>>? decideToolCall = null)
@@ -125,7 +123,6 @@ public sealed class MafWorkflowRunner
             Input = input,
             Nodes = workflow.Nodes,
             Edges = workflow.Edges,
-            GlobalApprovalMode = globalApprovalMode,
             QuestionHandler = questionHandler,
             WorkScope = workScope,
             DecideToolCall = decideToolCall,

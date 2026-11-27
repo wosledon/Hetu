@@ -124,7 +124,7 @@ public class LoadToolsTool : IToolExecutor
             sb.AppendLine($"### {executor.Name}");
             sb.AppendLine(ToolText.Guideline(_localizer, executor.Name, executor.UsageGuideline)
                 ?? ToolText.Describe(_localizer, executor.Name, executor.Description));
-            sb.AppendLine(JsonSerializer.Serialize(new LlmToolDefinition
+            sb.AppendLine(JsonSerializer.Serialize(new
             {
                 Name = executor.Name,
                 Description = ToolText.Describe(_localizer, executor.Name, executor.Description),

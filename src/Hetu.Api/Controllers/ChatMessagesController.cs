@@ -234,7 +234,7 @@ public class ChatMessagesController : ControllerBase
         if (modelInfo == null) { await writer.WriteErrorAsync(_localizer.T("chat.modelUnavailable")); return; }
         var modelId = (Guid?)modelInfo.ModelId;
 
-        var (chatMessages, autoCompacted) = await BuildChatHistoryAsync(topicId, request, modelInfo.ProviderType, ct);
+        var (chatMessages, autoCompacted) = await BuildChatHistoryAsync(topicId, request, ct);
         if (autoCompacted)
         {
             await writer.WriteJsonAsync(new { type = "notice", kind = "compacted", text = _localizer.T("chat.contextCompacted") });
@@ -265,6 +265,8 @@ public class ChatMessagesController : ControllerBase
         var historyProvider = new PreloadedChatHistoryProvider(
             chatMessages.Take(lastUserIndex).ToChatMessages());
         var inputMessages = chatMessages.Skip(lastUserIndex).ToList();
+        var inputChatMessages = inputMessages.ToChatMessages();
+        ChatContextInjector.AttachImages(request.Images, inputChatMessages);
 
         var ragProvider = new RagContextProvider(
             _contextInjector, request.WebSearch, request.KnowledgeBase, request.Memory,
@@ -272,7 +274,7 @@ public class ChatMessagesController : ControllerBase
         var mentionProvider = new MentionContextProvider(_mentionContext, request.Mentions, writer);
 
         var profile = BuiltinProfiles.Knowledge;
-        var (useToolCalling, approvalOverrides) = ConfigureToolCalling(request, profile, options);
+        var (useToolCalling, approvalOverrides, toolNames, toolSchemaChars) = ConfigureToolCalling(request, profile);
         var enableHistoryMemory = string.Equals(
             (await _unitOfWork.AppSettings.GetByKeyAsync("EnableHistoryMemory", ct))?.Value,
             "true", StringComparison.OrdinalIgnoreCase);
@@ -298,12 +300,12 @@ public class ChatMessagesController : ControllerBase
             // Provider 已在上面解析（含 API Key 解密失败的友好报错），此处复用同一实例
             ModelId = modelId,
             SystemPrompt = options.SystemPrompt ?? string.Empty,
-            Messages = inputMessages.ToChatMessages(),
+            Messages = inputChatMessages,
             ChatHistoryProvider = historyProvider,
             SkillIds = skillIds.Count > 0 ? skillIds : null,
             EnableHistoryMemory = enableHistoryMemory,
             UsePerServiceCallHistoryPersistence = perServiceHistory,
-            ToolNames = useToolCalling ? options.Tools?.Select(t => t.Name).ToList() ?? new List<string>() : new List<string>(),
+            ToolNames = toolNames,
             McpServerIds = new List<Guid>(),
             MaxIterations = profile.MaxAgentIterations,
             MaxContinuations = 2,
@@ -335,7 +337,7 @@ public class ChatMessagesController : ControllerBase
                         ResolveMode = () => Task.FromResult(_permissionModes.Get(steeringKey) ?? permissionMode),
                     })
                 : null,
-            Hooks = new ChatEstimateHooks(chatMessages, options, v => estimatedInput = v, v => estimatedCompressed = v),
+            Hooks = new ChatEstimateHooks(chatMessages, options.SystemPrompt, toolSchemaChars, v => estimatedInput = v, v => estimatedCompressed = v),
         }, ct);
 
         sw.Stop();
@@ -422,18 +424,21 @@ public class ChatMessagesController : ControllerBase
     private sealed class ChatEstimateHooks : IAgentLoopHooks
     {
         private readonly List<LlmChatMessage> _messages;
-        private readonly ChatOptions _options;
+        private readonly string? _systemPrompt;
+        private readonly int _toolSchemaChars;
         private readonly Action<int> _setInput;
         private readonly Action<int> _setCompressed;
 
         public ChatEstimateHooks(
             List<LlmChatMessage> messages,
-            ChatOptions options,
+            string? systemPrompt,
+            int toolSchemaChars,
             Action<int> setInput,
             Action<int> setCompressed)
         {
             _messages = messages;
-            _options = options;
+            _systemPrompt = systemPrompt;
+            _toolSchemaChars = toolSchemaChars;
             _setInput = setInput;
             _setCompressed = setCompressed;
         }
@@ -445,7 +450,7 @@ public class ChatMessagesController : ControllerBase
             // （越用越大，并会提前触发自动压缩）。
             if (iteration == 0)
             {
-                var tokens = EstimateTokens(_messages, _options);
+                var tokens = LlmTokenEstimator.EstimateRequestTokens(_messages, _systemPrompt, _toolSchemaChars);
                 _setInput(tokens);
                 _setCompressed(tokens);
             }
@@ -469,7 +474,7 @@ public class ChatMessagesController : ControllerBase
     /// 最后按会话级上下文预算裁剪最早的若干条。
     /// </summary>
     private async Task<(List<LlmChatMessage> Messages, bool AutoCompacted)> BuildChatHistoryAsync(
-        Guid topicId, SendMessageRequest request, string providerType, CancellationToken ct)
+        Guid topicId, SendMessageRequest request, CancellationToken ct)
     {
         int? ctxSize = null;
         var ctxSetting = await _unitOfWork.AppSettings.GetByKeyAsync("ContextWindowSize", ct);
@@ -522,10 +527,6 @@ public class ChatMessagesController : ControllerBase
             }
         }
 
-        if (request.Images is { Count: > 0 })
-        {
-            ChatContextInjector.AttachImages(request.Images, providerType, messages);
-        }
         return (messages, autoCompacted);
     }
 
@@ -727,15 +728,13 @@ public class ChatMessagesController : ControllerBase
         }
     }
 
-    private (bool useToolCalling, Dictionary<string, ToolApprovalMode> overrides) ConfigureToolCalling(
-        SendMessageRequest request, RuntimeProfile profile, ChatOptions options)
+    private (bool useToolCalling, Dictionary<string, ToolApprovalMode> overrides, List<string> toolNames, int toolSchemaChars) ConfigureToolCalling(
+        SendMessageRequest request, RuntimeProfile profile)
     {
         var overrides = new Dictionary<string, ToolApprovalMode>();
-        if (!request.EnableTools) return (false, overrides);
+        if (!request.EnableTools) return (false, overrides, [], 0);
 
         var effectiveNames = _promptComposer.ResolveEffectiveTools(profile, request.EnabledTools);
-        var definitions = _toolRegistry.ToToolDefinitions(effectiveNames);
-        options.Tools = definitions;
 
         if (request.ToolApprovalOverrides != null)
         {
@@ -743,10 +742,6 @@ public class ChatMessagesController : ControllerBase
                 if (Enum.TryParse<ToolApprovalMode>(kv.Value, true, out var mode))
                     overrides[kv.Key] = mode;
         }
-        return (true, overrides);
+        return (true, overrides, effectiveNames, _toolRegistry.EstimateSchemaChars(effectiveNames));
     }
-
-    /// <summary>按字符数粗略估算一轮请求的 token 数（消息 + 系统提示 + 工具 schema）</summary>
-    private static int EstimateTokens(List<LlmChatMessage> messages, ChatOptions options)
-        => LlmTokenEstimator.EstimateRequestTokens(messages, options.SystemPrompt, options.Tools);
 }

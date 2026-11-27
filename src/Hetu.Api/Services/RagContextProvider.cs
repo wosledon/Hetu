@@ -64,9 +64,9 @@ public sealed class RagContextProvider : AIContextProvider
         if (!_webSearch && !_knowledgeBase && !_memory)
             return new AIContext { Messages = [] };
 
-        var messages = new List<LlmChatMessage>
+        var messages = new List<ChatMessage>
         {
-            new() { Role = "user", Content = _content },
+            new(ChatRole.User, _content),
         };
         Result = await _injector.InjectRagAsync(
             _webSearch,
@@ -81,10 +81,7 @@ public sealed class RagContextProvider : AIContextProvider
             cancellationToken);
 
         // 注入器把上下文插在占位用户消息之前，返回时去掉占位消息。
-        _messages = messages
-            .Take(Math.Max(0, messages.Count - 1))
-            .Select(message => new ChatMessage(ChatRole.User, message.Content))
-            .ToList();
+        _messages = messages.Take(Math.Max(0, messages.Count - 1)).ToList();
         return new AIContext { Messages = _messages };
     }
 }
