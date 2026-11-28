@@ -148,6 +148,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # 自动生成提交记录需要完整 tag 与历史
+          fetch-depth: 0
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -160,35 +163,36 @@ jobs:
           path: dist
           merge-multiple: true
 
-      # latest*.json：Tauri 自动更新清单（GitHub 主源 + 三个加速镜像各一份，fat/slim 各一套）
-      - name: Generate release notes
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Release 说明：优先使用 release-notes/<tag>.md（人工整理，UTF-8）；
+      # 没有时按上一个 tag 的提交历史自动生成——直接推 main 的提交也能显示。
+      - name: Prepare release notes
         run: |
-          set -e
-          if ! gh api --method POST "repos/${{ github.repository }}/releases/generate-notes" \
-              -f tag_name="${{ github.ref_name }}" -f target_commitish=main --jq .body > notes.md 2>/dev/null; then
-            echo "generate-notes 失败，退回默认说明"
-            echo "Hetu ${{ github.ref_name }}" > notes.md
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+          if [ -f "release-notes/${tag}.md" ]; then
+            cp "release-notes/${tag}.md" notes.md
+          else
+            prev=$(git tag --sort=-v:refname | grep -v "^${tag}$" | head -n1 || true)
+            {
+              echo "## Hetu ${tag}"
+              echo
+              echo "### Changes"
+              if [ -n "${prev}" ]; then
+                git log "${prev}..${tag}" --no-merges --pretty=format:'- %s (%h)'
+              else
+                git log -n 50 --no-merges --pretty=format:'- %s (%h)'
+              fi
+              echo
+              echo
+              if [ -n "${prev}" ]; then
+                echo "**Full Changelog**: https://github.com/${GITHUB_REPOSITORY}/compare/${prev}...${tag}"
+              fi
+            } > notes.md
           fi
-          if [ ! -s notes.md ]; then echo "Hetu ${{ github.ref_name }}" > notes.md; fi
-
-          # generate-notes 只列 PR（带 PR 关联的提交）。直接推 main 的提交不会出现，
-          # notes 里就只剩一行 Full Changelog；此时用 compare 接口补一段提交记录。
-          if ! grep -q "What's Changed" notes.md; then
-            prev=$(gh api "repos/${{ github.repository }}/releases?per_page=1" --jq '.[0].tag_name // empty' 2>/dev/null || true)
-            if [ -n "$prev" ]; then
-              echo "无 PR：用 compare $prev...${{ github.ref_name }} 补提交记录"
-              {
-                echo
-                echo "### Commits"
-                gh api "repos/${{ github.repository }}/compare/$prev...${{ github.ref_name }}" \
-                  --jq '.commits[] | "- " + (.commit.message | split("\n")[0]) + " (" + .sha[0:7] + ")"' | head -n 50 || true
-              } >> notes.md
-            fi
-          fi
-
-          head -c 400 notes.md
+          # 统一 UTF-8 无 BOM，避免更新清单里出现乱码
+          iconv -f UTF-8 -t UTF-8 notes.md > notes.utf8
+          mv notes.utf8 notes.md
+          head -n 25 notes.md
 
       - name: Generate updater manifests
         run: |

@@ -259,7 +259,8 @@ EF Core 的 SQLite provider **不支持在 SQL 中排序或聚合 `DateTimeOffse
 #    shell/hetu-desktop/src-tauri/tauri.conf.json 的 version
 #    src/Hetu.Api/Hetu.Api.csproj 的 <Version>（前端「关于」页通过 /api/system/version 显示）
 # 2) 提 PR → 合并到 main
-# 3) 打 tag 触发 Release Build（.github/workflows/release.yml）
+# 3) 写 release-notes/v<version>.md（Release 与更新弹窗共用；缺省时 CI 按提交自动生成）
+# 4) 打 tag 触发 Release Build（.github/workflows/release.yml）
 pwsh ./scripts/tag-release.ps1 -Version 0.3.4
 ```
 
