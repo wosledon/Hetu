@@ -24,6 +24,8 @@ public class AppSettingsSnapshotDto
     public string ThemeAccent { get; set; } = "blue";
     /// <summary>画布背景：solid / dawn / dusk / grid / dots / aurora</summary>
     public string Background { get; set; } = "solid";
+    /// <summary>工作区区域配色：default / mist / sand / sage / lilac / graphite</summary>
+    public string RegionPalette { get; set; } = "default";
     /// <summary>毛玻璃（亚克力）材质开关：true 开启、false 关闭</summary>
     public string GlassEffect { get; set; } = "true";
     /// <summary>界面字体：system（默认）/ sans（黑体）/ serif（衬线）</summary>

@@ -33,8 +33,8 @@ const Card = forwardRef<HTMLDivElement, CardProps>(function Card(
         plain
           ? 'border-transparent'
           : variant === 'tile'
-            ? 'border-gray-200/70 bg-white/60 dark:border-white/[0.07] dark:bg-white/[0.03]'
-            : 'border-gray-200/70 bg-white/70 glass glass-soft dark:border-white/[0.07] dark:bg-slate-900/35',
+            ? 'border-gray-200/70 bg-[var(--region-card-soft)] dark:border-white/[0.07]'
+            : 'border-gray-200/70 bg-[var(--region-card-solid)] glass glass-soft dark:border-white/[0.07]',
         padding && PADDING[padding],
         interactive &&
           'transition-[transform,border-color,box-shadow] duration-200 ease-[var(--ease-enter)] hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-sm dark:hover:border-white/15',

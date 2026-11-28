@@ -79,6 +79,17 @@ export default {
       amber: 'Amber',
       rose: 'Rose',
     },
+    regionTitle: 'Region colors',
+    regionSubtitle: 'Tint the layout regions — navigation, secondary column, list, content and cards — with separate light and dark palettes',
+    regionHint: 'Region colors only tint surfaces; text and accent colors stay theme-driven and blend with the app background and acrylic material',
+    region: {
+      default: 'Classic',
+      mist: 'Morning mist',
+      sand: 'Warm sand',
+      sage: 'Sage',
+      lilac: 'Lilac dusk',
+      graphite: 'Graphite',
+    },
     backgroundTitle: 'App background',
     backgroundSubtitle: 'Change the canvas color behind the whole app while cards stay readable',
     background: {

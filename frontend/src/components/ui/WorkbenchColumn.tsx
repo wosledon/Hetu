@@ -54,7 +54,8 @@ export default function WorkbenchColumn({
           ? 'w-full'
           : cn(
               role === 'secondary' ? WORKBENCH_SECONDARY_WIDTH : WORKBENCH_LIST_WIDTH,
-              'border-r border-gray-200/80 bg-white/35 dark:border-white/[0.07] dark:bg-slate-950/20',
+              'border-r border-gray-200/80 dark:border-white/[0.07]',
+              role === 'secondary' ? 'bg-[var(--region-secondary)]' : 'bg-[var(--region-list)]',
             ),
         className,
       )}

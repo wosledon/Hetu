@@ -21,7 +21,7 @@ export default function Sidebar() {
   const totalNotes = notesPaged?.totalCount ?? 0
 
   return (
-    <aside className="flex h-full min-h-0 w-64 shrink-0 flex-col bg-white/35 dark:bg-slate-950/20">
+    <aside className="flex h-full min-h-0 w-64 shrink-0 flex-col bg-[var(--region-secondary)]">
       <div className="flex min-h-0 flex-1 flex-col">
         <NotesTree
           embedded

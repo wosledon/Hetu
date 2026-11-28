@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import AppLayout from '../components/AppLayout'
-import { ACCENT_PRESETS, BACKGROUND_PRESETS, FONT_FAMILY_PRESETS, FONT_SIZE_PRESETS, UI_ZOOM_PRESETS, backgroundPreviewStyle, type AccentKey, type BackgroundKey, type FontFamilyKey } from '../utils/appearance'
+import { ACCENT_PRESETS, BACKGROUND_PRESETS, FONT_FAMILY_PRESETS, FONT_SIZE_PRESETS, REGION_PALETTES, UI_ZOOM_PRESETS, backgroundPreviewStyle, isRegionPaletteKey, type AccentKey, type BackgroundKey, type FontFamilyKey, type RegionPaletteKey } from '../utils/appearance'
 import { useIsDark } from '../hooks/useIsDark'
 import AboutSection from '../components/AboutSection'
 import AiSettings from '../components/AiSettings'
@@ -119,6 +119,8 @@ export default function SettingsPage() {
   const setTheme = useUIStore((state) => state.setTheme)
   const setAccent = useUIStore((state) => state.setAccent)
   const setBackground = useUIStore((state) => state.setBackground)
+  const regionPalette = useUIStore((state) => state.regionPalette)
+  const setRegionPalette = useUIStore((state) => state.setRegionPalette)
   const setGlass = useUIStore((state) => state.setGlass)
   const fontFamily = useUIStore((state) => state.fontFamily)
   const fontSize = useUIStore((state) => state.fontSize)
@@ -166,6 +168,7 @@ export default function SettingsPage() {
     if (accent && ACCENT_PRESETS.some((p) => p.key === accent)) setAccent(accent as AccentKey)
     const background = snapshot.background
     if (background && BACKGROUND_PRESETS.some((p) => p.key === background)) setBackground(background as BackgroundKey)
+    if (isRegionPaletteKey(snapshot.regionPalette)) setRegionPalette(snapshot.regionPalette)
     setGlass(snapshot.glassEffect !== 'false')
     const font = FONT_FAMILY_PRESETS.find((p) => p.key === snapshot.fontFamily)
     if (font) setFontFamily(font.key)
@@ -193,7 +196,7 @@ export default function SettingsPage() {
         if (Array.isArray(items)) apply(sanitizeNavPaths(items))
       } catch { /* keep current value if parse fails */ }
     }
-  }, [snapshot, setAppName, setAssistantName, setAssistantPersona, setTheme, setAccent, setBackground, setGlass, setFontFamily, setFontSize, setUiZoom, setSecondaryMenuStyle, setNavStyle, setPinnedNavItems, setFixedNavItems, setDynamicNavItems])
+  }, [snapshot, setAppName, setAssistantName, setAssistantPersona, setTheme, setAccent, setBackground, setRegionPalette, setGlass, setFontFamily, setFontSize, setUiZoom, setSecondaryMenuStyle, setNavStyle, setPinnedNavItems, setFixedNavItems, setDynamicNavItems])
 
   const handleAppNameChange = (value: string) => {
     setAppName(value)
@@ -234,6 +237,12 @@ export default function SettingsPage() {
   const handleBackgroundChange = (value: BackgroundKey) => {
     setBackground(value)
     setSetting.mutate({ key: 'Background', value })
+  }
+
+  // 区域配色：按布局区域着色（导航 / 次级栏 / 列表 / 内容 / 卡片），跟随明暗
+  const handleRegionPaletteChange = (value: RegionPaletteKey) => {
+    setRegionPalette(value)
+    setSetting.mutate({ key: 'RegionPalette', value })
   }
 
   // 毛玻璃（亚克力）材质：立即开关，同时落库
@@ -384,6 +393,8 @@ export default function SettingsPage() {
                 onThemeChange={handleThemeChange}
                 onAccentChange={handleAccentChange}
                 onBackgroundChange={handleBackgroundChange}
+                regionPalette={regionPalette}
+                onRegionPaletteChange={handleRegionPaletteChange}
                 onGlassChange={handleGlassChange}
                 onFontFamilyChange={handleFontFamilyChange}
                 onFontSizeChange={handleFontSizeChange}
@@ -621,6 +632,8 @@ function AppearanceSettingsSection({
   onThemeChange,
   onAccentChange,
   onBackgroundChange,
+  regionPalette,
+  onRegionPaletteChange,
   onGlassChange,
   onFontFamilyChange,
   onFontSizeChange,
@@ -634,6 +647,8 @@ function AppearanceSettingsSection({
   onThemeChange: (v: Theme) => void
   onAccentChange: (v: 'blue' | 'violet' | 'cyan' | 'emerald' | 'amber' | 'rose') => void
   onBackgroundChange: (v: 'solid' | 'dawn' | 'dusk' | 'grid' | 'dots' | 'aurora') => void
+  regionPalette: RegionPaletteKey
+  onRegionPaletteChange: (v: RegionPaletteKey) => void
   onGlassChange: (v: boolean) => void
   onFontFamilyChange: (v: FontFamilyKey) => void
   onFontSizeChange: (v: number) => void
@@ -728,6 +743,50 @@ function AppearanceSettingsSection({
             )
           })}
         </div>
+      </div>
+
+      {/* 区域配色 */}
+      <div className="border-t border-gray-100 pt-8 dark:border-white/[0.06]">
+        <div className="mb-4">
+          <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">{t('appearance.regionTitle')}</h3>
+          <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">{t('appearance.regionSubtitle')}</p>
+        </div>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          {REGION_PALETTES.map((preset) => {
+            const isActive = regionPalette === preset.key
+            const colors = isDark ? preset.dark : preset.light
+            return (
+              <SurfaceButton
+                key={preset.key}
+                onClick={() => onRegionPaletteChange(preset.key)}
+                className={`group flex flex-col gap-2 rounded-xl border p-1.5 transition-all duration-200 ${
+                  isActive
+                    ? 'border-blue-500 dark:border-blue-400/60'
+                    : 'border-gray-200/80 hover:border-gray-300 dark:border-white/[0.08] dark:hover:border-white/10'
+                }`}
+              >
+                <span
+                  className="flex h-16 w-full overflow-hidden rounded-lg ring-1 ring-black/[0.06] dark:ring-white/10"
+                  style={{ background: isDark ? '#0c0f1a' : '#f8f9fb' }}
+                >
+                  <span className="h-full w-[12%]" style={{ background: colors.nav }} />
+                  <span className="h-full w-[18%]" style={{ background: colors.secondary }} />
+                  <span className="h-full w-[20%]" style={{ background: colors.list }} />
+                  <span className="flex h-full flex-1 items-center justify-center p-1.5" style={{ background: colors.content }}>
+                    <span
+                      className="h-full w-full rounded-md border border-black/5 shadow-sm dark:border-white/10"
+                      style={{ background: colors.cardSolid }}
+                    />
+                  </span>
+                </span>
+                <span className={`text-xs font-medium ${isActive ? 'text-blue-700 dark:text-blue-200' : 'text-gray-600 dark:text-gray-300'}`}>
+                  {t(`appearance.region.${preset.key}`)}
+                </span>
+              </SurfaceButton>
+            )
+          })}
+        </div>
+        <p className="mt-3 text-[11px] text-gray-400 dark:text-gray-500">{t('appearance.regionHint')}</p>
       </div>
 
       {/* 软件背景 */}

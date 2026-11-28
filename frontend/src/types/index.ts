@@ -58,6 +58,8 @@ export interface IAppSettingsSnapshot {
   theme: 'light' | 'dark' | 'system';
   themeAccent?: string;
   background?: string;
+  /** 工作区区域配色：default / mist / sand / sage / lilac / graphite */
+  regionPalette?: string;
   glassEffect?: string;
   fontFamily?: string;
   fontSize?: string;

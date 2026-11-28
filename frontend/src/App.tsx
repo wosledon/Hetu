@@ -8,7 +8,7 @@ import { useUIStore } from './stores/uiStore'
 import { useUpdateStore } from './stores/updateStore'
 import { updateService } from './services/updateService'
 import i18n, { applyLanguage } from './i18n'
-import { ACCENT_PRESETS, BACKGROUND_PRESETS, FONT_FAMILY_PRESETS } from './utils/appearance'
+import { ACCENT_PRESETS, BACKGROUND_PRESETS, FONT_FAMILY_PRESETS, isRegionPaletteKey } from './utils/appearance'
 import { sanitizeNavPaths } from './utils/navItems'
 import { TooltipProvider } from './components/ui'
 import DesktopTitlebar from './components/DesktopTitlebar'
@@ -177,6 +177,7 @@ function App() {
         if (accent) store.setAccent(accent.key)
         const background = BACKGROUND_PRESETS.find((p) => p.key === snapshot.background)
         if (background) store.setBackground(background.key)
+        if (isRegionPaletteKey(snapshot.regionPalette)) store.setRegionPalette(snapshot.regionPalette)
         store.setGlass(snapshot.glassEffect !== 'false')
         // 字体 / 字号 / 界面缩放同样预热：否则刷新后回到默认，要看一眼设置页才生效
         const font = FONT_FAMILY_PRESETS.find((p) => p.key === snapshot.fontFamily)

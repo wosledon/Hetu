@@ -181,6 +181,193 @@ export function backgroundPreviewStyle(key: string, isDark: boolean): CSSPropert
   return preset.style(isDark)
 }
 
+/* ─── 工作区区域配色 ─── */
+
+export type RegionPaletteKey = 'default' | 'mist' | 'sand' | 'sage' | 'lilac' | 'graphite'
+
+/** 每个布局区域一张色，亮/暗各一套；只做表面色调，文字与强调色仍由主题控制 */
+export interface RegionColors {
+  /** 导航栏（顶栏 / 导轨） */
+  nav: string
+  /** 次级栏（项目 / 设置导航） */
+  secondary: string
+  /** 列表栏（会话 / 笔记 / 任务列表） */
+  list: string
+  /** 内容区底色 */
+  content: string
+  /** 卡片：亚克力开启时材质底色 */
+  cardGlass: string
+  /** 卡片：亚克力关闭时宿主底色 */
+  cardSolid: string
+  /** 条目卡片（tile）底色 */
+  cardSoft: string
+}
+
+interface RegionPalettePreset {
+  key: RegionPaletteKey
+  light: RegionColors
+  dark: RegionColors
+}
+
+export const REGION_PALETTES: RegionPalettePreset[] = [
+  {
+    key: 'default',
+    light: {
+      nav: 'rgba(238, 241, 245, 0.96)',
+      secondary: 'rgba(246, 248, 251, 0.88)',
+      list: 'rgba(252, 253, 254, 0.74)',
+      content: 'rgba(255, 255, 255, 0.55)',
+      cardGlass: 'rgba(255, 255, 255, 0.50)',
+      cardSolid: 'rgba(255, 255, 255, 0.92)',
+      cardSoft: 'rgba(253, 254, 255, 0.82)',
+    },
+    dark: {
+      nav: 'rgba(255, 255, 255, 0.050)',
+      secondary: 'rgba(255, 255, 255, 0.032)',
+      list: 'rgba(255, 255, 255, 0.020)',
+      content: 'rgba(255, 255, 255, 0.012)',
+      cardGlass: 'rgba(255, 255, 255, 0.08)',
+      cardSolid: 'rgba(15, 23, 42, 0.35)',
+      cardSoft: 'rgba(255, 255, 255, 0.03)',
+    },
+  },
+  {
+    key: 'mist',
+    light: {
+      nav: 'rgba(190, 210, 240, 0.88)',
+      secondary: 'rgba(220, 234, 252, 0.70)',
+      list: 'rgba(238, 245, 254, 0.60)',
+      content: 'rgba(250, 252, 255, 0.40)',
+      cardGlass: 'rgba(255, 255, 255, 0.42)',
+      cardSolid: 'rgba(255, 255, 255, 0.86)',
+      cardSoft: 'rgba(250, 253, 255, 0.72)',
+    },
+    dark: {
+      nav: 'rgba(13, 22, 42, 0.90)',
+      secondary: 'rgba(23, 35, 60, 0.70)',
+      list: 'rgba(18, 28, 48, 0.60)',
+      content: 'rgba(11, 16, 28, 0.40)',
+      cardGlass: 'rgba(36, 48, 76, 0.28)',
+      cardSolid: 'rgba(28, 40, 64, 0.62)',
+      cardSoft: 'rgba(36, 48, 76, 0.20)',
+    },
+  },
+  {
+    key: 'sand',
+    light: {
+      nav: 'rgba(238, 224, 200, 0.88)',
+      secondary: 'rgba(247, 239, 225, 0.72)',
+      list: 'rgba(251, 246, 237, 0.60)',
+      content: 'rgba(253, 251, 246, 0.40)',
+      cardGlass: 'rgba(255, 252, 246, 0.44)',
+      cardSolid: 'rgba(255, 252, 246, 0.86)',
+      cardSoft: 'rgba(253, 248, 240, 0.74)',
+    },
+    dark: {
+      nav: 'rgba(38, 31, 20, 0.90)',
+      secondary: 'rgba(50, 41, 28, 0.70)',
+      list: 'rgba(38, 31, 22, 0.60)',
+      content: 'rgba(20, 16, 10, 0.40)',
+      cardGlass: 'rgba(60, 49, 34, 0.28)',
+      cardSolid: 'rgba(52, 43, 30, 0.62)',
+      cardSoft: 'rgba(60, 49, 34, 0.20)',
+    },
+  },
+  {
+    key: 'sage',
+    light: {
+      nav: 'rgba(196, 222, 204, 0.88)',
+      secondary: 'rgba(224, 239, 229, 0.72)',
+      list: 'rgba(240, 248, 243, 0.60)',
+      content: 'rgba(250, 253, 251, 0.40)',
+      cardGlass: 'rgba(255, 255, 255, 0.42)',
+      cardSolid: 'rgba(250, 254, 252, 0.86)',
+      cardSoft: 'rgba(245, 251, 247, 0.74)',
+    },
+    dark: {
+      nav: 'rgba(13, 28, 20, 0.90)',
+      secondary: 'rgba(23, 41, 32, 0.70)',
+      list: 'rgba(18, 33, 26, 0.60)',
+      content: 'rgba(10, 19, 14, 0.40)',
+      cardGlass: 'rgba(36, 56, 45, 0.28)',
+      cardSolid: 'rgba(29, 46, 37, 0.62)',
+      cardSoft: 'rgba(36, 56, 45, 0.20)',
+    },
+  },
+  {
+    key: 'lilac',
+    light: {
+      nav: 'rgba(212, 201, 244, 0.88)',
+      secondary: 'rgba(235, 229, 252, 0.72)',
+      list: 'rgba(246, 242, 254, 0.60)',
+      content: 'rgba(252, 251, 255, 0.40)',
+      cardGlass: 'rgba(255, 255, 255, 0.42)',
+      cardSolid: 'rgba(255, 254, 255, 0.86)',
+      cardSoft: 'rgba(251, 249, 255, 0.74)',
+    },
+    dark: {
+      nav: 'rgba(25, 20, 48, 0.90)',
+      secondary: 'rgba(37, 31, 64, 0.70)',
+      list: 'rgba(28, 23, 48, 0.60)',
+      content: 'rgba(15, 12, 26, 0.40)',
+      cardGlass: 'rgba(56, 46, 88, 0.28)',
+      cardSolid: 'rgba(44, 37, 70, 0.62)',
+      cardSoft: 'rgba(56, 46, 88, 0.20)',
+    },
+  },
+  {
+    key: 'graphite',
+    light: {
+      nav: 'rgba(214, 221, 231, 0.90)',
+      secondary: 'rgba(236, 240, 245, 0.74)',
+      list: 'rgba(246, 248, 251, 0.62)',
+      content: 'rgba(252, 253, 255, 0.42)',
+      cardGlass: 'rgba(255, 255, 255, 0.46)',
+      cardSolid: 'rgba(255, 255, 255, 0.88)',
+      cardSoft: 'rgba(249, 250, 252, 0.76)',
+    },
+    dark: {
+      nav: 'rgba(22, 25, 32, 0.90)',
+      secondary: 'rgba(32, 37, 46, 0.74)',
+      list: 'rgba(25, 29, 37, 0.62)',
+      content: 'rgba(14, 16, 21, 0.42)',
+      cardGlass: 'rgba(255, 255, 255, 0.11)',
+      cardSolid: 'rgba(36, 40, 48, 0.64)',
+      cardSoft: 'rgba(255, 255, 255, 0.06)',
+    },
+  },
+]
+
+/** 校验持久化值，避免旧缓存 / 手改配置把未知 key 传进来 */
+export function isRegionPaletteKey(value: string | undefined): value is RegionPaletteKey {
+  return REGION_PALETTES.some((preset) => preset.key === value)
+}
+
+const REGION_VAR_MAP: Record<keyof RegionColors, string> = {
+  nav: '--region-nav',
+  secondary: '--region-secondary',
+  list: '--region-list',
+  content: '--region-content',
+  cardGlass: '--region-card-glass',
+  cardSolid: '--region-card-solid',
+  cardSoft: '--region-card-soft',
+}
+
+/**
+ * 把区域配色写到 :root。default 直接移除内联覆盖，回到 index.css 的原始值，
+ * 保证未选配色时与改造前完全一致。
+ */
+export function applyRegionPalette(key: string, isDark: boolean): void {
+  const root = document.documentElement
+  for (const name of Object.values(REGION_VAR_MAP)) root.style.removeProperty(name)
+  const preset = REGION_PALETTES.find((p) => p.key === key) ?? REGION_PALETTES[0]
+  if (preset.key === 'default') return
+  const colors = isDark ? preset.dark : preset.light
+  for (const [field, name] of Object.entries(REGION_VAR_MAP)) {
+    root.style.setProperty(name, colors[field as keyof RegionColors])
+  }
+}
+
 /* ─── 字体与缩放 ─── */
 
 export type FontFamilyKey = 'system' | 'sans' | 'serif'

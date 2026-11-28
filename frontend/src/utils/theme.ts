@@ -1,12 +1,13 @@
 import { useEffect } from 'react';
 import { useUIStore } from '../stores/uiStore';
-import { applyAccent, applyBackground, applyFontFamily, applyFontSize, applyUiZoom } from './appearance';
+import { applyAccent, applyBackground, applyFontFamily, applyFontSize, applyRegionPalette, applyUiZoom } from './appearance';
 import { isTauri, tauriInvoke } from './tauri';
 
 export function useTheme() {
   const theme = useUIStore((state) => state.theme);
   const accent = useUIStore((state) => state.accent);
   const background = useUIStore((state) => state.background);
+  const regionPalette = useUIStore((state) => state.regionPalette);
   const glass = useUIStore((state) => state.glass);
   const fontFamily = useUIStore((state) => state.fontFamily);
   const fontSize = useUIStore((state) => state.fontSize);
@@ -30,6 +31,8 @@ export function useTheme() {
       // 主题配色与画布背景跟随明暗一起落地
       applyAccent(accent);
       applyBackground(background, isDark);
+      // 区域配色同时依赖明暗（亮/暗各一套），在同一个应用点落地
+      applyRegionPalette(regionPalette, isDark);
       // 毛玻璃（亚克力）材质开关
       root.setAttribute('data-glass', glass ? 'on' : 'off');
     };
@@ -47,7 +50,7 @@ export function useTheme() {
 
     mediaQuery.addEventListener('change', applyTheme);
     return () => mediaQuery.removeEventListener('change', applyTheme);
-  }, [theme, accent, background, glass]);
+  }, [theme, accent, background, glass, regionPalette]);
 
   return theme;
 }

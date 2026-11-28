@@ -79,6 +79,17 @@ export default {
       amber: '琥珀',
       rose: '玫红',
     },
+    regionTitle: '区域配色',
+    regionSubtitle: '按布局区域给导航、次级栏、列表、内容与卡片着色，明暗主题各一套',
+    regionHint: '区域色只改变表面色调，文字与强调色仍由主题控制；会与画布背景、亚克力材质叠加',
+    region: {
+      default: '经典',
+      mist: '晨雾',
+      sand: '暖沙',
+      sage: '苔原',
+      lilac: '暮紫',
+      graphite: '石墨',
+    },
     backgroundTitle: '软件背景',
     backgroundSubtitle: '更换整个软件的画布底色，卡片与内容保持清晰可读',
     background: {

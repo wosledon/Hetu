@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { AccentKey, BackgroundKey, FontFamilyKey } from '../utils/appearance';
+import type { AccentKey, BackgroundKey, FontFamilyKey, RegionPaletteKey } from '../utils/appearance';
 import { DEFAULT_DYNAMIC_NAV_ITEMS, DEFAULT_FIXED_NAV_ITEMS } from '../utils/navItems';
 
 type Theme = 'light' | 'dark' | 'system';
@@ -24,6 +24,8 @@ interface UIState {
   accent: AccentKey;
   /** 画布背景 */
   background: BackgroundKey;
+  /** 工作区区域配色（导航 / 次级栏 / 列表 / 内容 / 卡片） */
+  regionPalette: RegionPaletteKey;
   /** 毛玻璃（亚克力）材质开关 */
   glass: boolean;
   /** 界面字体 */
@@ -64,6 +66,7 @@ interface UIState {
   setTheme: (theme: Theme) => void;
   setAccent: (accent: AccentKey) => void;
   setBackground: (background: BackgroundKey) => void;
+  setRegionPalette: (palette: RegionPaletteKey) => void;
   setGlass: (glass: boolean) => void;
   setFontFamily: (fontFamily: FontFamilyKey) => void;
   setFontSize: (fontSize: number) => void;
@@ -95,6 +98,7 @@ export const useUIStore = create<UIState>()(
       theme: 'light',
       accent: 'blue',
       background: 'solid',
+      regionPalette: 'default',
       glass: true,
       fontFamily: 'system',
       fontSize: 16,
@@ -121,6 +125,7 @@ export const useUIStore = create<UIState>()(
       setTheme: (theme) => set({ theme }),
       setAccent: (accent) => set({ accent }),
       setBackground: (background) => set({ background }),
+      setRegionPalette: (regionPalette) => set({ regionPalette }),
       setGlass: (glass) => set({ glass }),
       setFontFamily: (fontFamily) => set({ fontFamily }),
       setFontSize: (fontSize) => set({ fontSize }),
@@ -144,7 +149,7 @@ export const useUIStore = create<UIState>()(
     }),
     {
       name: 'hetu-ui',
-      version: 9,
+      version: 10,
       migrate: (persistedState: unknown, version: number) => {
         const state = persistedState as { pinnedNavItems?: string[] } | null
         if (state && Array.isArray(state.pinnedNavItems)) {
@@ -164,6 +169,7 @@ export const useUIStore = create<UIState>()(
         // v7：新增字体/字号/界面缩放偏好，旧状态缺字段，走默认值
         // v8：新增垂直列表导航折叠偏好，旧状态缺字段，走默认值
         // v9：新增提示气泡样式与方向偏好，旧状态缺字段，走默认值
+        // v10：新增工作区区域配色偏好，旧状态缺字段，走默认值
         return state as Partial<UIState>
       },
       partialize: (state) => ({
@@ -173,6 +179,7 @@ export const useUIStore = create<UIState>()(
         theme: state.theme,
         accent: state.accent,
         background: state.background,
+        regionPalette: state.regionPalette,
         sidebarCollapsed: state.sidebarCollapsed,        secondaryMenuStyle: state.secondaryMenuStyle,
         projectGroupBy: state.projectGroupBy,
         projectSortBy: state.projectSortBy,

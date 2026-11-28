@@ -319,7 +319,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
     : 'my-1.5 h-px w-7 bg-gray-300 dark:bg-white/10'
 
   const verticalRail = (
-    <nav className={`flex shrink-0 flex-col ${isListExpanded ? 'w-52' : 'w-16'}`}>
+    <nav className={`flex shrink-0 flex-col bg-[var(--region-nav)] ${isListExpanded ? 'w-52' : 'w-16'}`}>
       {/* 导轨与内容区同处一块亚克力面（材质挂在 AppLayout 根上），中间只留一条分隔线，
           拼接处不圆角，整软件只有外框四个角是圆的。滚动条必须隐藏：占位会吃掉 64px
           内容区 ~7px，胶囊轨道被挤到左边（右侧露底色），且内容跨过溢出阈值时滚动条
@@ -454,7 +454,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
        伪材质消失，靠根自身的 bg-white 退回纯白面板（与 Card 的降级行为一致）。 */
     <div className={`${desktop ? 'desktop-window-frame rounded-none' : 'rounded-2xl'} relative flex h-full min-h-0 min-w-0 overflow-hidden bg-white glass glass-soft text-gray-900 dark:bg-gray-900 dark:text-gray-100 ${isVertical ? 'flex-row' : 'flex-col'}`}>
       {isVertical ? verticalRail : (
-      <nav className="grid h-14 shrink-0 grid-cols-[1fr_auto_1fr] items-center border-b border-gray-200/80 px-6 dark:border-white/[0.06]">
+      <nav className="grid h-14 shrink-0 grid-cols-[1fr_auto_1fr] items-center border-b border-gray-200/80 bg-[var(--region-nav)] px-6 dark:border-white/[0.06]">
         <div className="flex items-center justify-start">
           <SurfaceButton onClick={() => navigateTransition('/')} className="flex items-center gap-2.5 transition-opacity hover:opacity-80">
             <span className="flex h-9 w-9 items-center justify-center rounded-full">
@@ -545,7 +545,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
               <div className="w-px shrink-0 bg-gray-200/80 dark:bg-white/[0.06]" />
             </>
           )}
-          <div className="flex min-w-0 flex-1">
+          <div className="flex min-w-0 flex-1 bg-[var(--region-content)]">
             {children}
             {children && <div className="w-px shrink-0 bg-gray-200/80 dark:bg-white/[0.06]" />}
             {mainContent}

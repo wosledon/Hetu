@@ -28,6 +28,7 @@ public class AppSettingService : IAppSettingService
             Theme = await GetValueAsync("Theme", "system", cancellationToken),
             ThemeAccent = await GetValueAsync("ThemeAccent", "blue", cancellationToken),
             Background = await GetValueAsync("Background", "solid", cancellationToken),
+            RegionPalette = await GetValueAsync("RegionPalette", "default", cancellationToken),
             GlassEffect = await GetValueAsync("GlassEffect", "true", cancellationToken),
             FontFamily = await GetValueAsync("FontFamily", "system", cancellationToken),
             FontSize = await GetValueAsync("FontSize", "16", cancellationToken),
