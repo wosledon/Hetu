@@ -29,7 +29,7 @@ export default function AgentApprovalCard({ request, onApprove, onDeny }: AgentA
   }
 
   return (
-    <div className="overflow-hidden rounded-xl border border-gray-200/90 bg-white shadow-[0_4px_16px_-10px_rgba(15,23,42,0.2)] dark:border-white/10 dark:bg-gray-900/80">
+    <div className="overflow-hidden rounded-xl border border-gray-200/90 bg-[var(--region-card-solid)] glass glass-soft shadow-[0_4px_16px_-10px_rgba(15,23,42,0.2)] dark:border-white/10">
       <div className="h-0.5 bg-gradient-to-r from-amber-400 via-amber-300/70 to-transparent" />
       <div className="flex items-center gap-3 px-3.5 pb-3 pt-3.5">
         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-600 ring-1 ring-inset ring-amber-200/70 dark:bg-amber-500/10 dark:text-amber-400 dark:ring-amber-400/20">
@@ -39,10 +39,10 @@ export default function AgentApprovalCard({ request, onApprove, onDeny }: AgentA
           {t('approval.needConfirm', { name: renderToolName(request.name) })}
         </p>
       </div>
-      <pre className="mx-3.5 mb-3.5 max-h-32 overflow-auto whitespace-pre-wrap rounded-lg border border-gray-200/70 bg-gray-50/80 px-3 py-2.5 font-mono text-[11px] leading-relaxed text-gray-600 dark:border-white/[0.07] dark:bg-black/20 dark:text-gray-300">
+      <pre className="mx-3.5 mb-3.5 max-h-32 overflow-auto whitespace-pre-wrap rounded-lg border border-gray-200/70 bg-[var(--region-card-soft)] px-3 py-2.5 font-mono text-[11px] leading-relaxed text-gray-600 dark:border-white/[0.07] dark:text-gray-300">
         {args}
       </pre>
-      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-gray-200/70 bg-gray-50/60 px-3.5 py-2.5 dark:border-white/[0.07] dark:bg-white/[0.025]">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-gray-200/70 bg-[var(--region-card-soft)] px-3.5 py-2.5 dark:border-white/[0.07]">
         <span className="inline-flex items-center gap-1.5 text-[11px] text-gray-500 dark:text-gray-400">
           <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
           {t('approval.pending')}

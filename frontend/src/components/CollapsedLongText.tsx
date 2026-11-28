@@ -43,7 +43,7 @@ export function PastedLongTextBlock({ text, label, className = '' }: { text: str
         onExpand={() => setExpanded((v) => !v)}
       />
       {expanded && (
-        <pre className="mt-1.5 max-h-72 overflow-auto whitespace-pre-wrap break-all rounded-lg bg-black/5 p-2 text-[11px] leading-relaxed dark:bg-white/5">
+        <pre className="mt-1.5 max-h-72 overflow-auto whitespace-pre-wrap break-all rounded-lg bg-[var(--region-card-soft)] p-2 text-[11px] leading-relaxed">
           {text}
         </pre>
       )}

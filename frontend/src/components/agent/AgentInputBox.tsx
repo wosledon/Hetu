@@ -235,7 +235,7 @@ export default function AgentInputBox({
         {aboveInput}
         {/* 外框（额头）+ 内嵌输入卡：两层各有独立边框 */}
         <div className={forehead
-          ? 'rounded-2xl border border-gray-200/90 bg-gray-50/80 px-0 pb-0 pt-2 shadow-[0_16px_44px_-20px_rgba(15,23,42,0.35)] dark:border-white/10 dark:bg-white/[0.03]'
+          ? 'rounded-2xl border border-gray-200/90 bg-[var(--region-card-soft)] px-0 pb-0 pt-2 shadow-[0_16px_44px_-20px_rgba(15,23,42,0.35)] dark:border-white/10'
           : ''}>
           {forehead && (
             <div className="flex items-center justify-end gap-1 px-2.5 pb-2 pt-0.5">
@@ -244,7 +244,7 @@ export default function AgentInputBox({
           )}
           {/* 流式中：焦点态那套淡蓝描边 + 光晕会和绕行的流光互相打架（边框还被它染成蓝），
               流光本身就足以表明"正在生成"，此时不再叠加焦点样式 */}
-          <div className={`relative border bg-white/95 transition-all dark:bg-gray-900/95 ${forehead ? 'rounded-2xl shadow-none' : 'rounded-2xl shadow-[0_16px_44px_-20px_rgba(15,23,42,0.35)]'} ${
+          <div className={`relative border glass glass-soft bg-[var(--region-card-solid)] transition-all ${forehead ? 'rounded-2xl shadow-none' : 'rounded-2xl shadow-[0_16px_44px_-20px_rgba(15,23,42,0.35)]'} ${
           streaming
             ? 'border-transparent dark:border-transparent'
             : 'border-gray-200/90 focus-within:border-blue-400 focus-within:shadow-[0_16px_44px_-18px_rgba(59,130,246,0.3)] focus-within:ring-4 focus-within:ring-blue-500/[0.07] dark:border-white/10 dark:focus-within:border-blue-400/60'
@@ -287,7 +287,7 @@ export default function AgentInputBox({
 
           {block && (
             <div className="px-4 pt-3">
-              <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-2 py-1.5 text-[11px] dark:border-gray-700 dark:bg-gray-900/50">
+              <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-[var(--region-card-soft)] px-2 py-1.5 text-[11px] dark:border-gray-700">
                 <FileText size={12} className="shrink-0 text-gray-400" />
                 <span className="shrink-0 font-medium text-gray-600 dark:text-gray-300">{t('input.collapsedBlock')}</span>
                 <span className="truncate text-gray-400">{t('input.blockMeta', { lines: lineCount, chars: block.length })}</span>
@@ -304,7 +304,7 @@ export default function AgentInputBox({
                 </IconButton>
               </div>
               {showBlockPreview && (
-                <pre className="mt-1.5 max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-lg border border-gray-200 bg-white p-2 text-[11px] leading-relaxed text-gray-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
+                <pre className="mt-1.5 max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-lg border border-gray-200 bg-[var(--region-card-solid)] p-2 text-[11px] leading-relaxed text-gray-600 dark:border-gray-700 dark:text-gray-300">
                   {block}
                 </pre>
               )}
@@ -323,7 +323,7 @@ export default function AgentInputBox({
             className="w-full resize-none px-4 pb-3 pt-4 text-[14px] leading-6 text-gray-800 placeholder:text-gray-400 dark:text-gray-100 dark:placeholder:text-gray-500"
           />
 
-          <div className={`flex flex-wrap items-center gap-1 px-2 ${forehead ? 'pb-2 pt-1' : 'rounded-b-[15px] border-t border-gray-100/90 bg-gray-50/60 py-2 dark:border-white/[0.06] dark:bg-white/[0.025]'}`}>
+          <div className={`flex flex-wrap items-center gap-1 px-2 ${forehead ? 'pb-2 pt-1' : 'rounded-b-[15px] border-t border-gray-100/90 bg-[var(--region-card-soft)] py-2 dark:border-white/[0.06]'}`}>
             {toolbar}
             <div className="ml-auto flex flex-wrap items-center justify-end gap-1">
               {toolbarTrailing}

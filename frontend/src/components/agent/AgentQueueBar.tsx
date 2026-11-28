@@ -40,7 +40,7 @@ export default function AgentQueueBar({ items, steeringId, onSteer, onRemove }: 
         {items.map((item) => (
           <div
             key={item.id}
-            className="flex items-center gap-2 rounded-xl border border-sky-100/70 bg-white/65 px-2.5 py-2 text-[12px] text-gray-700 dark:border-sky-400/10 dark:bg-gray-900/40 dark:text-gray-200"
+            className="flex items-center gap-2 rounded-xl border border-sky-100/70 bg-[var(--region-card-soft)] px-2.5 py-2 text-[12px] text-gray-700 dark:border-sky-400/10 dark:text-gray-200"
           >
             <span className="min-w-0 flex-1 truncate" title={item.content}>{item.content}</span>
             <SurfaceButton

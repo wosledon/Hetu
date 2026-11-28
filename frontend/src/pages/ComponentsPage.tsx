@@ -179,9 +179,9 @@ function Section({ id, title, desc, children }: {
         <h2 className="text-base font-semibold tracking-tight text-gray-900 dark:text-gray-100">{title}</h2>
         {desc && <p className="mt-1 text-xs leading-relaxed text-gray-500 dark:text-gray-400">{desc}</p>}
       </div>
-      <div className="rounded-2xl border border-gray-100 bg-white/55 p-4 sm:p-5 dark:border-white/[0.07] dark:bg-white/[0.02]">
+      <Card padded={false} className="p-4 sm:p-5">
         {children}
-      </div>
+      </Card>
     </section>
   )
 }
@@ -207,7 +207,7 @@ function WireDot({ className }: { className?: string }) {
 function Wireframe({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div className="min-w-0">
-      <div className="overflow-hidden rounded-xl border border-gray-200/80 bg-gray-50/60 dark:border-white/[0.08] dark:bg-white/[0.02]">
+      <div className="overflow-hidden rounded-xl border border-gray-200/80 bg-[var(--region-card-soft)] dark:border-white/[0.08]">
         {children}
       </div>
       <p className="mt-2 text-center text-[10px] text-gray-400 dark:text-gray-500">{title}</p>
@@ -1145,7 +1145,7 @@ export default function ComponentsPage() {
                 <div className="mt-6">
                   <p className="mb-2 text-[11px] font-medium uppercase tracking-wider text-gray-400 dark:text-gray-500">{t('components:layouts.anatomy')}</p>
                   <div className="flex h-72 overflow-hidden rounded-xl border border-gray-200/70 dark:border-white/[0.08]">
-                    <div className="flex w-12 shrink-0 flex-col items-center gap-1.5 border-r border-gray-200/70 bg-white/35 p-1.5 dark:border-white/[0.07] dark:bg-slate-950/20">
+                    <div className="flex w-12 shrink-0 flex-col items-center gap-1.5 border-r border-gray-200/70 bg-[var(--region-nav)] p-1.5 dark:border-white/[0.07]">
                       <WireDot className="bg-blue-400" /><WireDot /><WireDot /><WireDot />
                       <div className="mt-auto"><WireDot /></div>
                     </div>

@@ -349,8 +349,9 @@ button {
   /* 导航条 / 导轨用更实的材质：浅色画布接近白色，太透会整条看不见 */
   --glass-nav-bg: rgba(255, 255, 255, 0.9);
   --glass-track-bg: rgba(255, 255, 255, 0.32);
-  /* 输入框比面板更透：让画布颜色透上来才有亚克力质感 */
-  --glass-field-bg: rgba(255, 255, 255, 0.58);
+  /* 输入框比面板更透：让画布颜色透上来才有亚克力质感。
+     取当前区域卡片材质并按比例降低不透明度，输入框才能跟着区域配色走。 */
+  --glass-field-bg: color-mix(in oklab, var(--region-card-glass) 85%, transparent);
   --glass-noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.15'/%3E%3C/svg%3E");
   --glass-sheen: inset 0 1px 0 rgba(255, 255, 255, 0.6);
   /* 浅色画布接近白色，没有投影边界面就糊掉：亚克力面板必须"浮"起来 */
@@ -369,10 +370,14 @@ button {
   --glass-bg: rgba(16, 20, 35, 0.72);
   --glass-nav-bg: rgba(13, 17, 30, 0.88);
   --glass-track-bg: rgba(255, 255, 255, 0.08);
-  --glass-field-bg: rgba(255, 255, 255, 0.1);
+  --glass-field-bg: color-mix(in oklab, var(--region-card-glass) 85%, transparent);
   --glass-noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.12'/%3E%3C/svg%3E");
   --glass-sheen: inset 0 1px 0 rgba(255, 255, 255, 0.08);
   --glass-shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 10px 28px -14px rgba(0, 0, 0, 0.6);
+}
+
+/* 区域配色默认值只挂在根上：局部 .dark 容器（如 Markdown 渲染根）不能把区域变量重置回经典 */
+:root.dark {
   --region-nav: rgba(13, 17, 25, 0.94);
   --region-secondary: rgba(18, 23, 33, 0.86);
   --region-list: rgba(22, 28, 39, 0.74);
@@ -412,13 +417,18 @@ button {
   }
 
   /* 激进轻量卡片：直接借用轨道的高透明底色，去掉边框感（试效果中）。
-     区域卡片色由 Card 自己用 --glass-bg 覆盖，外壳与其他软材质保持轨道色。 */
+     区域配色开启时改用区域卡片材质色，卡片与软面板统一跟随调色板。 */
   .glass-soft {
-    --glass-bg: var(--glass-track-bg);
+    --glass-bg: var(--region-card-glass, var(--glass-track-bg));
   }
 
   .dark .glass-soft {
-    --glass-bg: var(--glass-track-bg);
+    --glass-bg: var(--region-card-glass, var(--glass-track-bg));
+  }
+
+  /* 字段材质：输入框 / 下拉触发器共享，比卡片更透并跟随区域配色 */
+  .glass-field {
+    --glass-bg: var(--glass-field-bg);
   }
 
   /* 浮层材质：菜单 / 模态 / 下拉浮在任意内容之上。.glass 那 74% / 72% 的透明白是给
@@ -731,7 +741,7 @@ button {
    前景色必须显式覆盖：Typography 默认 pre 前景是给暗底用的浅灰，只改底色会导致白底白字。 */
 .wmde-markdown pre {
   color: #24292f;
-  background: #ffffff !important;
+  background: var(--region-card-solid) !important;
   border-radius: 10px !important;
   border: 1px solid rgba(0,0,0,0.08) !important;
   overflow-x: auto !important;
@@ -740,12 +750,12 @@ button {
 
 .wmde-markdown.dark pre {
   color: #c9d1d9;
-  background: #161b27 !important;
+  background: var(--region-card-solid) !important;
   border-color: rgba(255,255,255,0.10) !important;
 }
 
 .wmde-markdown code {
-  background: rgb(248 249 252) !important;
+  background: color-mix(in oklab, var(--region-card-glass) 65%, transparent) !important;
   border-radius: 5px !important;
   padding: 0.15em 0.4em !important;
   font-size: 0.88em !important;
@@ -763,7 +773,7 @@ button {
 }
 
 .wmde-markdown.dark code {
-  background: rgb(33 38 45) !important;
+  background: color-mix(in oklab, var(--region-card-glass) 65%, transparent) !important;
 }
 
 /* ===== Richer Markdown rendering ===== */

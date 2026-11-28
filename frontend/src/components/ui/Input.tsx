@@ -19,12 +19,12 @@ export interface InputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 
 }
 
 /** Tailwind v4 的默认边框色是 currentColor：基础层必须给浅色描边，否则未覆盖的变体（如胶囊）会描出近黑色边框 */
-const BASE = 'w-full border border-gray-200/80 bg-gray-50 text-sm outline-none transition-all placeholder:text-gray-400'
+const BASE = 'w-full border border-gray-200/80 bg-[var(--region-card-soft)] text-sm outline-none transition-all placeholder:text-gray-400'
 
 const SIZES = {
-  sm: 'rounded-lg border-gray-200/80 bg-gray-50/80 px-2.5 py-1.5 text-[13px]',
+  sm: 'rounded-lg border-gray-200/80 px-2.5 py-1.5 text-[13px]',
   md: 'rounded-lg border-gray-200 px-3 py-2 text-sm',
-  lg: 'rounded-xl border-gray-200 bg-gray-50/50 px-4 py-2.5 text-sm',
+  lg: 'rounded-xl border-gray-200 px-4 py-2.5 text-sm',
 } as const
 
 const PILL_SIZES = {
@@ -34,9 +34,9 @@ const PILL_SIZES = {
 } as const
 
 /** 纯色底（弹窗内）暗色：聚焦不再变白，保持与失焦一致的深色 */
-const DARK_PLAIN = 'dark:border-gray-600 dark:bg-gray-700 dark:focus:bg-gray-700'
+const DARK_PLAIN = 'dark:border-gray-600'
 /** 亚克力底暗色 */
-const DARK_GLASS = 'dark:border-white/[0.08] dark:bg-white/[0.03] dark:focus:bg-transparent'
+const DARK_GLASS = 'dark:border-white/[0.08]'
 
 const ICON_PAD = { sm: 'pl-8', md: 'pl-9', lg: 'pl-10' } as const
 const ICON_RIGHT_PAD = { sm: 'pr-8', md: 'pr-9', lg: 'pr-10' } as const
@@ -66,7 +66,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
         BASE,
         pill ? PILL_SIZES[size] : SIZES[size],
         useGlass && 'glass',
-        `focus:ring-2 ${useGlass ? 'focus:bg-white/70' : 'focus:bg-white'} ${FOCUS_LIGHT[tone]} ${FOCUS_DARK[tone]}`,
+        `focus:ring-2 focus:bg-[var(--region-card-solid)] ${FOCUS_LIGHT[tone]} ${FOCUS_DARK[tone]}`,
         useGlass ? DARK_GLASS : DARK_PLAIN,
         icon && ICON_PAD[size],
         iconRight && ICON_RIGHT_PAD[size],

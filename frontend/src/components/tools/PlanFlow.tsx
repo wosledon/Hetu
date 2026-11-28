@@ -68,14 +68,14 @@ export default function PlanFlow({ plan, onFeedback, onDecide, submitting = fals
                 ? 'border-emerald-200/60 bg-emerald-50/35 dark:border-emerald-400/10 dark:bg-emerald-500/[0.035]'
                 : step.status === 'in-progress'
                   ? 'border-teal-300/80 bg-teal-50/55 shadow-sm dark:border-teal-400/25 dark:bg-teal-500/[0.07]'
-                  : 'border-gray-200/75 bg-white/60 dark:border-white/[0.07] dark:bg-gray-900/35'
+                  : 'border-gray-200/75 bg-[var(--region-card-soft)] dark:border-white/[0.07]'
             }`} key={step.id}>
               <span className={`mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border text-[10px] font-semibold tabular-nums ${
                 step.status === 'completed'
                   ? 'border-emerald-500 bg-emerald-500 text-white'
                   : step.status === 'in-progress'
                     ? 'border-teal-500 bg-teal-100 text-teal-700 dark:bg-teal-500/15 dark:text-teal-300'
-                    : 'border-teal-200 bg-white text-teal-600 dark:border-teal-800 dark:bg-gray-900 dark:text-teal-400'
+                    : 'border-teal-200 bg-[var(--region-card-solid)] text-teal-600 dark:border-teal-800 dark:text-teal-400'
               }`}>
                 {step.status === 'completed'
                   ? <Check size={11} strokeWidth={2.5} />
@@ -106,8 +106,8 @@ export default function PlanFlow({ plan, onFeedback, onDecide, submitting = fals
 
       {/* Actions */}
       {pending && (
-        <div className="sticky bottom-0 z-10 border-t border-gray-200/70 bg-gray-50/95 px-3 py-3 dark:border-white/[0.06] dark:bg-gray-900/95">
-          <div className="mb-2.5 flex items-center gap-2 rounded-xl border border-gray-200/80 bg-white/75 px-3 py-2.5 transition-colors focus-within:border-teal-400 focus-within:ring-2 focus-within:ring-teal-500/10 dark:border-white/[0.08] dark:bg-gray-900/50">
+        <div className="sticky bottom-0 z-10 border-t border-gray-200/70 bg-[var(--region-card-solid)] px-3 py-3 dark:border-white/[0.06]">
+          <div className="mb-2.5 flex items-center gap-2 rounded-xl border border-gray-200/80 bg-[var(--region-card-soft)] px-3 py-2.5 transition-colors focus-within:border-teal-400 focus-within:ring-2 focus-within:ring-teal-500/10 dark:border-white/[0.08]">
             <MessageSquare size={12} className="shrink-0 text-gray-400" />
             <Input
               variant="bare"

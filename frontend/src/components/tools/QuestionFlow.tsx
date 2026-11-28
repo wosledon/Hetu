@@ -115,7 +115,7 @@ export default function QuestionFlow({
                       className={`group flex items-start gap-3 rounded-xl border px-3.5 py-3 text-left text-xs transition-all duration-200 ${
                         selected
                           ? 'border-indigo-400/80 bg-indigo-50/80 shadow-sm ring-2 ring-indigo-500/10 dark:border-indigo-400/40 dark:bg-indigo-500/10'
-                          : 'border-gray-200/80 bg-white/75 hover:border-indigo-300 hover:bg-indigo-50/40 dark:border-white/[0.08] dark:bg-gray-900/45 dark:hover:border-indigo-500/40 dark:hover:bg-indigo-500/[0.06]'
+                          : 'border-gray-200/80 bg-[var(--region-card-soft)] hover:border-indigo-300 hover:bg-indigo-50/40 dark:border-white/[0.08] dark:hover:border-indigo-500/40 dark:hover:bg-indigo-500/[0.06]'
                       }`}
                     >
                       <span className={`mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
@@ -158,7 +158,7 @@ export default function QuestionFlow({
                     className={`inline-flex items-center gap-1.5 rounded-xl border px-3.5 py-2 text-xs font-medium transition-all duration-200 ${
                       selected
                         ? 'border-indigo-500 bg-indigo-500 text-white shadow-sm'
-                        : 'border-gray-200 bg-white text-gray-700 hover:border-indigo-300 hover:bg-indigo-50 dark:border-gray-700 dark:bg-gray-800/60 dark:text-gray-300 dark:hover:border-indigo-700 dark:hover:bg-indigo-900/30'
+                        : 'border-gray-200 bg-[var(--region-card-soft)] text-gray-700 hover:border-indigo-300 hover:bg-indigo-50 dark:border-gray-700 dark:text-gray-300 dark:hover:border-indigo-700 dark:hover:bg-indigo-900/30'
                     }`}
                   >
                     {selected && <Check size={12} />}
@@ -195,7 +195,7 @@ export default function QuestionFlow({
       </div>
 
       {/* Footer */}
-      <div className="sticky bottom-0 z-10 flex items-center justify-between border-t border-gray-200/70 bg-gray-50/95 px-3 py-2.5 dark:border-white/[0.06] dark:bg-gray-900/95">
+      <div className="sticky bottom-0 z-10 flex items-center justify-between border-t border-gray-200/70 bg-[var(--region-card-solid)] px-3 py-2.5 dark:border-white/[0.06]">
         <SurfaceButton
           onClick={goPrev}
           disabled={isFirst}
@@ -217,7 +217,7 @@ export default function QuestionFlow({
             className={`flex items-center gap-1 rounded-lg px-3.5 py-1.5 text-xs font-medium transition-all ${
               hasAnswer
                 ? 'bg-indigo-500 text-white shadow-sm hover:bg-indigo-600'
-                : 'cursor-not-allowed bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500'
+                : 'cursor-not-allowed bg-[var(--region-card-soft)] text-gray-400 dark:text-gray-500'
             }`}
           >
             {t('question.next')} <ChevronRight size={14} />
@@ -229,7 +229,7 @@ export default function QuestionFlow({
             className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-medium transition-all ${
               allAnswered && !submitting
                 ? 'bg-indigo-500 text-white shadow-sm hover:bg-indigo-600'
-                : 'cursor-not-allowed bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500'
+                : 'cursor-not-allowed bg-[var(--region-card-soft)] text-gray-400 dark:text-gray-500'
             }`}
           >
             {submitting ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />} {t('question.submitAll')}

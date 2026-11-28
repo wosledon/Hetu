@@ -54,7 +54,7 @@ function CodeBlockWithActions({ children, onCodeAction, diagramSvg }: { children
       <pre className="overflow-x-auto">
         <code className={`language-${language}${highlighted.matched ? ' hljs' : ''}`} dangerouslySetInnerHTML={{ __html: highlighted.html }} />
       </pre>
-      <div className="absolute right-1.5 top-1.5 flex items-center gap-0.5 rounded-md bg-white/90 p-0.5 opacity-0 shadow-sm backdrop-blur transition-opacity group-hover/code:opacity-100 dark:bg-gray-900/90">
+      <div className="absolute right-1.5 top-1.5 flex items-center gap-0.5 rounded-md bg-[var(--region-card-solid)] p-0.5 opacity-0 shadow-sm backdrop-blur transition-opacity group-hover/code:opacity-100">
         <span className="code-lang">{language}</span>
         <Button variant="ghost" tone="gray" className="rounded p-1 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800" onClick={copy}
           title={t('ui:markdown.copyCode')}
