@@ -52,11 +52,6 @@ function ProcessGroup({
 
   const running = active && streaming === true
   const failed = items.some((item) => item.kind === 'tool' && item.isError)
-  let latestThought = ''
-  for (const item of items) {
-    if (item.kind === 'thought' && item.text) latestThought = item.text
-  }
-  const thoughtSummary = latestThought.slice(0, 512).replace(/\s+/g, ' ').trim().slice(0, 120)
 
   // 内容增长签名：思考 / 参数 / 结果的长度之和，避免每次流式增量都重算滚动
   const growth = useMemo(() => items.reduce((sum, item) => {
@@ -134,17 +129,17 @@ function ProcessGroup({
           if (!open) stickRef.current = true
           setOverride(!open)
         }}
-        className="-mx-1 flex min-h-7 w-[calc(100%+0.5rem)] items-center gap-2 rounded-lg px-1 py-0.5 text-left transition-colors hover:bg-gray-50/80 dark:hover:bg-white/[0.025]"
+        className="-mx-1 flex min-h-7 w-[calc(100%+0.5rem)] items-center gap-1.5 rounded-lg px-1 py-0.5 text-left transition-colors hover:bg-gray-50/80 dark:hover:bg-white/[0.025]"
       >
-        {/* 展开箭头做成带边框的小按钮：贴齐正文左缘 */}
-        <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md border bg-white shadow-[0_1px_1px_rgba(15,23,42,0.04)] transition-colors dark:bg-white/[0.03] ${
+        {/* 展开箭头按钮 20px，图标与文字保持 24px 行盒 */}
+        <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border bg-white shadow-[0_1px_1px_rgba(15,23,42,0.04)] transition-colors dark:bg-white/[0.03] ${
           open
             ? 'border-gray-300/90 text-gray-500 dark:border-white/15 dark:text-gray-300'
             : 'border-gray-200/80 text-gray-400 dark:border-white/[0.08] dark:text-gray-500'
         }`}>
-          {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+          {open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
         </span>
-        <span className={`flex h-4 w-4 shrink-0 items-center justify-center ${
+        <span className={`flex h-6 w-6 shrink-0 items-center justify-center ${
           failed
             ? 'text-red-500 dark:text-red-400'
             : running
@@ -152,19 +147,17 @@ function ProcessGroup({
               : 'text-gray-400 dark:text-gray-500'
         }`}>
           {failed
-            ? <X size={13} />
+            ? <X size={14} />
             : running
-              ? <Loader2 size={13} className="animate-spin" />
-              : items.some((item) => item.kind === 'thought') ? <ListChecks size={13} /> : <Wrench size={12} />}
+              ? <Loader2 size={14} className="animate-spin" />
+              : items.some((item) => item.kind === 'thought') ? <ListChecks size={14} /> : <Wrench size={13} />}
         </span>
-        <span className={`shrink-0 text-[11px] font-medium ${
+        <span className={`shrink-0 text-[12px] font-medium leading-6 ${
           running ? 'text-blue-600 dark:text-blue-300' : 'text-gray-600 dark:text-gray-300'
         }`}>
           {t(running ? 'tool.processRunning' : 'tool.processSummary', { count: items.length })}
         </span>
-        {thoughtSummary
-          ? <span className="min-w-0 flex-1 truncate text-[11px] text-gray-400 dark:text-gray-500" title={thoughtSummary}>{thoughtSummary}</span>
-          : <span className="flex-1" />}
+        <span className="flex-1" />
       </SurfaceButton>
       {open && (
         <div

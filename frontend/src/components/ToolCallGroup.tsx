@@ -24,11 +24,6 @@ export default function ToolCallGroup({ items, streaming = false, renderItem }: 
   const leadThought = items[0]?.kind === 'thought'
   const running = streaming || items.some((i) => i.running)
   const failed = items.some((i) => i.isError)
-  let latestThought = ''
-  for (const item of items) {
-    if (item.kind === 'thought') latestThought = item.text ?? ''
-  }
-  const thoughtSummary = latestThought.slice(0, 512).replace(/\s+/g, ' ').trim().slice(0, 160)
   const GroupIcon = failed ? X : leadThought ? ListChecks : (TOOL_ICONS[items[0]?.name ?? ''] ?? Wrench)
   const summary = running
     ? t('tool.processRunning', { count: items.length })
@@ -41,24 +36,22 @@ export default function ToolCallGroup({ items, streaming = false, renderItem }: 
         aria-expanded={open}
         className="flex min-h-6 w-full items-center gap-1.5 rounded px-1 py-0.5 text-left transition-colors hover:bg-gray-50/80 dark:hover:bg-white/[0.025]"
       >
-        <span className="flex h-4 w-4 shrink-0 items-center justify-center text-gray-400">
+        <span className="flex h-5 w-5 shrink-0 items-center justify-center text-gray-400">
           {open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
         </span>
-        <span className={`flex h-4 w-4 shrink-0 items-center justify-center ${
+        <span className={`flex h-6 w-6 shrink-0 items-center justify-center ${
           failed
             ? 'text-red-500 dark:text-red-400'
             : leadThought
               ? 'text-sky-500 dark:text-sky-400'
               : 'text-gray-400 dark:text-gray-500'
         }`}>
-          <GroupIcon size={13} />
+          <GroupIcon size={14} />
         </span>
-        <span className="shrink-0 text-[11px] font-medium text-gray-500 dark:text-gray-400">
+        <span className="shrink-0 text-[12px] font-medium leading-6 text-gray-500 dark:text-gray-400">
           {summary}
         </span>
-        {thoughtSummary
-          ? <span className="min-w-0 flex-1 truncate text-[11px] text-gray-400 dark:text-gray-500" title={thoughtSummary}>{thoughtSummary}</span>
-          : <span className="flex-1" />}
+        <span className="flex-1" />
         {running && (
           <span className="ml-auto flex h-5 w-5 shrink-0 items-center justify-center text-blue-500 dark:text-blue-400" title={t('tool.running')}>
             <Loader2 size={12} className="animate-spin" />

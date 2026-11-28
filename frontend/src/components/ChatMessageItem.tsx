@@ -159,7 +159,7 @@ export default memo(function ChatMessageItem({
         {/* Copilot 式瀑布流：用户消息右浮动；AI 回复按 思考 → 工具调用 → 引用 → 正文 纵向堆叠 */}
         {/* overflow-wrap:anywhere 让 base64/URL/CSV 这类无空格长串能断行（同时影响 min-content，w-fit 气泡才会收缩），否则会横向撑破气泡 */}
         {/* 用户气泡用淡蓝表面；AI 回复不加气泡，过程卡片与正文直接排列 */}
-        <Card plain={isUser} padded={false} className={`text-gray-800 [overflow-wrap:anywhere] dark:text-gray-100 ${isUser ? 'glass-bubble w-fit max-w-[85%] rounded-2xl rounded-tr-md border-blue-200/70 bg-blue-50/95 px-4 py-3 text-[14px] leading-6 shadow-sm dark:border-blue-400/15 dark:bg-blue-500/15' : 'w-full bg-transparent before:hidden'}`}>
+        <Card plain padded={false} className={`text-gray-800 [overflow-wrap:anywhere] dark:text-gray-100 ${isUser ? 'glass-bubble w-fit max-w-[85%] rounded-2xl rounded-tr-md border-blue-200/70 bg-blue-50/95 px-4 py-3 text-[14px] leading-6 shadow-sm dark:border-blue-400/15 dark:bg-blue-500/15' : 'w-full bg-transparent before:hidden'}`}>
           {isEditing ? (
             <div className="space-y-2">
               <Textarea tone="blue" glass
