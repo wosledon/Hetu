@@ -3,6 +3,11 @@ export default {
     title: 'Settings',
     subtitle: 'Manage app preferences, navigation, default models, providers, and data storage',
   },
+  groups: {
+    general: 'General',
+    ai: 'Models & AI',
+    data: 'Data & workspace',
+  },
   language: {
     title: 'Interface language',
     desc: 'Interface copy, backend messages, and AI replies all follow this setting',

@@ -3,6 +3,11 @@ export default {
     title: '设置',
     subtitle: '管理应用偏好、导航、默认模型、供应商与数据存储',
   },
+  groups: {
+    general: '通用',
+    ai: '智能',
+    data: '数据与工作区',
+  },
   language: {
     title: '界面语言',
     desc: '界面文案、后端提示与 AI 回复都会跟随这个设置',

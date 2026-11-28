@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Settings, Trash2, Monitor, Sun, Moon, ChevronRight, ChevronDown, ChevronUp, GripVertical, RotateCcw, Menu, Columns2, PanelLeft, Coins, PanelTop, GalleryVerticalEnd, AlignLeft, Info, Brain, FolderGit2, Palette, Bot, Cpu, Database, Sparkles, ArrowUp, ArrowDown, ArrowLeft, ArrowRight } from 'lucide-react'
+import { Settings, Trash2, Monitor, Sun, Moon, ChevronDown, ChevronUp, GripVertical, RotateCcw, Menu, Columns2, PanelLeft, Coins, PanelTop, GalleryVerticalEnd, AlignLeft, Info, Brain, FolderGit2, Palette, Bot, Cpu, Database, Sparkles, ArrowUp, ArrowDown, ArrowLeft, ArrowRight } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import AppLayout from '../components/AppLayout'
-import SlidingPill from '../components/SlidingPill'
 import { ACCENT_PRESETS, BACKGROUND_PRESETS, FONT_FAMILY_PRESETS, FONT_SIZE_PRESETS, UI_ZOOM_PRESETS, backgroundPreviewStyle, type AccentKey, type BackgroundKey, type FontFamilyKey } from '../utils/appearance'
 import { useIsDark } from '../hooks/useIsDark'
 import AboutSection from '../components/AboutSection'
@@ -23,24 +22,31 @@ import { applyLanguage } from '../i18n'
 import { DEFAULT_DYNAMIC_NAV_ITEMS, DEFAULT_FIXED_NAV_ITEMS, reorderNavPaths, resolveNavItems, sanitizeNavPaths, type NavItem } from '../utils/navItems'
 import { recoverableQueryOptions } from '../utils/queryClient'
 import type { IAppSettingsSnapshot } from '../types'
-import { Button, Card, Input, PageContainer, Switch, Textarea, SurfaceButton } from '../components/ui'
+import { Badge, Button, Input, PageContainer, Switch, Textarea, SurfaceButton, WorkbenchColumn } from '../components/ui'
 
 type Theme = 'light' | 'dark' | 'system'
 type SettingsSection = 'app' | 'appearance' | 'navigation' | 'models' | 'ai' | 'database' | 'trash' | 'workspace' | 'cost' | 'memory' | 'about'
 
 const settingsSections = [
-  { key: 'app', labelKey: 'sections.app', descKey: 'sections.appDesc', icon: Settings },
-  { key: 'appearance', labelKey: 'sections.appearance', descKey: 'sections.appearanceDesc', icon: Palette, beta: true },
-  { key: 'navigation', labelKey: 'sections.navigation', descKey: 'sections.navigationDesc', icon: Menu },
-  { key: 'models', labelKey: 'sections.models', descKey: 'sections.modelsDesc', icon: Cpu },
-  { key: 'ai', labelKey: 'sections.ai', descKey: 'sections.aiDesc', icon: Bot },
-  { key: 'cost', labelKey: 'sections.cost', descKey: 'sections.costDesc', icon: Coins },
-  { key: 'memory', labelKey: 'sections.memory', descKey: 'sections.memoryDesc', icon: Brain },
-  { key: 'database', labelKey: 'sections.database', descKey: 'sections.databaseDesc', icon: Database },
-  { key: 'trash', labelKey: 'sections.trash', descKey: 'sections.trashDesc', icon: Trash2 },
-  { key: 'workspace', labelKey: 'sections.workspace', descKey: 'sections.workspaceDesc', icon: FolderGit2 },
-  { key: 'about', labelKey: 'sections.about', descKey: 'sections.aboutDesc', icon: Info },
-] satisfies { key: SettingsSection; labelKey: string; descKey: string; icon: typeof Settings; beta?: boolean }[]
+  { key: 'app', group: 'general', labelKey: 'sections.app', descKey: 'sections.appDesc', icon: Settings },
+  { key: 'appearance', group: 'general', labelKey: 'sections.appearance', descKey: 'sections.appearanceDesc', icon: Palette, beta: true },
+  { key: 'navigation', group: 'general', labelKey: 'sections.navigation', descKey: 'sections.navigationDesc', icon: Menu },
+  { key: 'models', group: 'ai', labelKey: 'sections.models', descKey: 'sections.modelsDesc', icon: Cpu },
+  { key: 'ai', group: 'ai', labelKey: 'sections.ai', descKey: 'sections.aiDesc', icon: Bot },
+  { key: 'cost', group: 'ai', labelKey: 'sections.cost', descKey: 'sections.costDesc', icon: Coins },
+  { key: 'memory', group: 'ai', labelKey: 'sections.memory', descKey: 'sections.memoryDesc', icon: Brain },
+  { key: 'database', group: 'data', labelKey: 'sections.database', descKey: 'sections.databaseDesc', icon: Database },
+  { key: 'trash', group: 'data', labelKey: 'sections.trash', descKey: 'sections.trashDesc', icon: Trash2 },
+  { key: 'workspace', group: 'data', labelKey: 'sections.workspace', descKey: 'sections.workspaceDesc', icon: FolderGit2 },
+  { key: 'about', group: 'about', labelKey: 'sections.about', descKey: 'sections.aboutDesc', icon: Info },
+] satisfies { key: SettingsSection; group: 'general' | 'ai' | 'data' | 'about'; labelKey: string; descKey: string; icon: typeof Settings; beta?: boolean }[]
+
+/** 设置导航分组：常用在前；「关于」固定在列脚 */
+const SETTINGS_GROUPS = [
+  { key: 'general', labelKey: 'groups.general' },
+  { key: 'ai', labelKey: 'groups.ai' },
+  { key: 'data', labelKey: 'groups.data' },
+] satisfies { key: 'general' | 'ai' | 'data'; labelKey: string }[]
 
 const themeOptions = [
   { key: 'system' as Theme, labelKey: 'appearance.themeSystem', descKey: 'appearance.themeSystemDesc', icon: Monitor },
@@ -292,168 +298,145 @@ export default function SettingsPage() {
     handlePinnedNavItemsChange([])
   }
 
+  const renderNavItem = (item: (typeof settingsSections)[number]) => {
+    const Icon = item.icon
+    const isActive = activeSection === item.key
+    return (
+      <SurfaceButton
+        key={item.key}
+        type="button"
+        onClick={() => setActiveSection(item.key)}
+        aria-current={isActive ? 'page' : undefined}
+        className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left transition-colors ${
+          isActive
+            ? 'bg-blue-50 text-blue-600 shadow-[inset_2px_0_0_#3b82f6] dark:bg-blue-500/10 dark:text-blue-300'
+            : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/[0.06]'
+        }`}
+      >
+        <Icon size={14} className={`shrink-0 ${isActive ? '' : 'text-gray-400 dark:text-gray-500'}`} />
+        <span className="flex min-w-0 flex-1 flex-col">
+          <span className="flex min-w-0 items-center gap-1.5 text-[13px] font-medium">
+            <span className="truncate">{t(item.labelKey)}</span>
+            {item.beta && <Badge tone="amber" size="sm" uppercase>{t('sections.beta')}</Badge>}
+          </span>
+          <span className="truncate text-[11px] leading-tight text-gray-400 dark:text-gray-500">
+            {t(item.descKey)}
+          </span>
+        </span>
+      </SurfaceButton>
+    )
+  }
+
   return (
     <AppLayout
       showSidebar={false}
       mainContent={
-        <PageContainer className="settings-workspace">
-          <div className="mb-6 flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-blue-200 bg-blue-50 text-blue-600 shadow-sm dark:border-blue-400/20 dark:bg-blue-500/10 dark:text-blue-300">
-              <Settings size={20} />
-            </div>
-            <div>
-              <h1 className="text-2xl font-semibold tracking-tight text-gray-900 dark:text-gray-50">{t('page.title')}</h1>
-              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t('page.subtitle')}</p>
-            </div>
-          </div>
+        <PageContainer variant="fill" className="settings-workspace">
+          <WorkbenchColumn
+            role="secondary"
+            title={t('page.title')}
+            icon={<Settings size={13} className="text-gray-400 dark:text-gray-500" />}
+            toolbar={<p className="text-balance text-[10px] leading-relaxed text-gray-400 dark:text-gray-500">{t('page.subtitle')}</p>}
+            footer={(
+              <div className="shrink-0 border-t border-gray-200/80 p-2 dark:border-white/[0.07]">
+                {settingsSections.filter((item) => item.group === 'about').map(renderNavItem)}
+              </div>
+            )}
+          >
+            <nav className="space-y-3 pb-1">
+              {SETTINGS_GROUPS.map((group) => (
+                <div key={group.key}>
+                  <div className="px-1.5 pb-1 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                    {t(group.labelKey)}
+                  </div>
+                  <div className="space-y-0.5">
+                    {settingsSections.filter((item) => item.group === group.key).map(renderNavItem)}
+                  </div>
+                </div>
+              ))}
+            </nav>
+          </WorkbenchColumn>
 
-          <div className="mb-4 lg:hidden">
-            <Select
-              value={activeSection}
-              onChange={(value) => {
-                const section = settingsSections.find((item) => item.key === value)
-                if (section) setActiveSection(section.key)
-              }}
-              options={settingsSections.map((item) => ({ value: item.key, label: t(item.labelKey) }))}
-              triggerClassName="flex w-full items-center justify-between gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-800 outline-none transition-all focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20 dark:border-white/10 dark:bg-gray-900 dark:text-gray-100 dark:focus:border-blue-500/50 dark:focus:bg-gray-900"
-            />
-          </div>
+          {/* 分区内容独立滚动；不再套外层卡片，分区自己的分组卡就是表面层级 */}
+          <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">
+            <div key={activeSection} className="animate-section mx-auto w-full max-w-4xl px-6 py-6 sm:px-8 sm:py-8">
+              {activeSection === 'app' && <AppSettingsSection
+                appName={appName}
+                assistantName={assistantName}
+                assistantPersona={assistantPersona}
+                snapshot={snapshot}
+                onAppNameChange={handleAppNameChange}
+                onAppNameSave={handleAppNameSave}
+                onAssistantNameChange={handleAssistantNameChange}
+                onAssistantNameSave={handleAssistantNameSave}
+                onAssistantPersonaChange={handleAssistantPersonaChange}
+                onAssistantPersonaSave={handleAssistantPersonaSave}
+                onLanguageChange={handleLanguageChange}
+                onSettingChange={(key, value) => setSetting.mutate({ key, value })}
+              />}
 
-          <div className="flex flex-col gap-5 lg:flex-row lg:gap-6">
-            <aside className="hidden w-64 shrink-0 lg:block">
-              <Card padded={false} className="sticky top-8">
-              <SlidingPill
-                value={activeSection}
-                orientation="vertical"
-                className="flex-col p-1.5"
-                pillClassName="bg-blue-50/80 dark:bg-blue-950/30"
-              >
-                {settingsSections.map((item) => {
-                  const Icon = item.icon
-                  const isActive = activeSection === item.key
-                  return (
-                    <SurfaceButton
-                      key={item.key}
-                      type="button"
-                      data-pill-key={item.key}
-                      onClick={() => setActiveSection(item.key)}
-                      className={`group relative flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-left transition-colors duration-200 ${
-                        isActive
-                          ? ''
-                          : 'hover:bg-blue-50/60 dark:hover:bg-white/[0.04]'
-                      }`}
-                    >
-                      <div className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors ${
-                        isActive
-                          ? 'bg-blue-500 text-white shadow-sm shadow-blue-500/25'
-                          : 'bg-gray-100 text-gray-500 group-hover:bg-gray-200 group-hover:text-gray-700 dark:bg-white/[0.06] dark:text-gray-400 dark:group-hover:bg-white/10 dark:group-hover:text-gray-300'
-                      }`}>
-                        <Icon size={15} />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className={`flex items-center gap-1.5 text-sm font-medium ${
-                          isActive ? 'text-blue-700 dark:text-blue-200' : 'text-gray-700 dark:text-gray-300'
-                        }`}>
-                          {t(item.labelKey)}
-                          {item.beta && (
-                            <span className="rounded-full bg-amber-100 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
-                              {t('sections.beta')}
-                            </span>
-                          )}
-                        </div>
-                        <div className="truncate text-[11px] text-gray-400 dark:text-gray-500">
-                          {t(item.descKey)}
-                        </div>
-                      </div>
-                      {isActive && <ChevronRight size={14} className="text-blue-400 dark:text-blue-300" />}
-                    </SurfaceButton>
-                  )
-                })}
-              </SlidingPill>
-              </Card>
-            </aside>
+              {activeSection === 'appearance' && <AppearanceSettingsSection
+                theme={theme}
+                snapshot={snapshot}
+                fontFamily={fontFamily}
+                fontSize={fontSize}
+                uiZoom={uiZoom}
+                onThemeChange={handleThemeChange}
+                onAccentChange={handleAccentChange}
+                onBackgroundChange={handleBackgroundChange}
+                onGlassChange={handleGlassChange}
+                onFontFamilyChange={handleFontFamilyChange}
+                onFontSizeChange={handleFontSizeChange}
+                onUiZoomChange={handleUiZoomChange}
+              />}
 
-            {/* Content Area */}
-            <div className="min-w-0 flex-1">
-              <Card key={activeSection} className="animate-section p-5 sm:p-7">
-                {activeSection === 'app' && <AppSettingsSection
-                  appName={appName}
-                  assistantName={assistantName}
-                  assistantPersona={assistantPersona}
-                  snapshot={snapshot}
-                  onAppNameChange={handleAppNameChange}
-                  onAppNameSave={handleAppNameSave}
-                  onAssistantNameChange={handleAssistantNameChange}
-                  onAssistantNameSave={handleAssistantNameSave}
-                  onAssistantPersonaChange={handleAssistantPersonaChange}
-                  onAssistantPersonaSave={handleAssistantPersonaSave}
-                  onLanguageChange={handleLanguageChange}
-                  onSettingChange={(key, value) => setSetting.mutate({ key, value })}
-                />}
+              {activeSection === 'navigation' && <NavigationSettingsSection
+                fixedNavItems={fixedNavItems}
+                dynamicNavItems={dynamicNavItems}
+                pinnedNavItems={pinnedNavItems}
+                setFixedNavItems={handleFixedNavItemsChange}
+                setDynamicNavItems={handleDynamicNavItemsChange}
+                setPinnedNavItems={handlePinnedNavItemsChange}
+                navStyle={navStyle}
+                secondaryMenuStyle={secondaryMenuStyle}
+                onNavStyleChange={handleNavStyleChange}
+                onMenuStyleChange={handleMenuStyleChange}
+                onResetNav={handleResetNavZones}
+              />}
 
-                {activeSection === 'appearance' && <AppearanceSettingsSection
-                  theme={theme}
-                  snapshot={snapshot}
-                  fontFamily={fontFamily}
-                  fontSize={fontSize}
-                  uiZoom={uiZoom}
-                  onThemeChange={handleThemeChange}
-                  onAccentChange={handleAccentChange}
-                  onBackgroundChange={handleBackgroundChange}
-                  onGlassChange={handleGlassChange}
-                  onFontFamilyChange={handleFontFamilyChange}
-                  onFontSizeChange={handleFontSizeChange}
-                  onUiZoomChange={handleUiZoomChange}
-                />}
+              {activeSection === 'models' && <DefaultModelsSection
+                snapshot={snapshot}
+                models={allModels}
+                onSettingChange={(key, value) => setSetting.mutate({ key, value })}
+                onNavigate={navigate}
+              />}
 
-                {activeSection === 'navigation' && <NavigationSettingsSection
-                  fixedNavItems={fixedNavItems}
-                  dynamicNavItems={dynamicNavItems}
-                  pinnedNavItems={pinnedNavItems}
-                  setFixedNavItems={handleFixedNavItemsChange}
-                  setDynamicNavItems={handleDynamicNavItemsChange}
-                  setPinnedNavItems={handlePinnedNavItemsChange}
-                  navStyle={navStyle}
-                  secondaryMenuStyle={secondaryMenuStyle}
-                  onNavStyleChange={handleNavStyleChange}
-                  onMenuStyleChange={handleMenuStyleChange}
-                  onResetNav={handleResetNavZones}
-                />}
+              {activeSection === 'database' && (
+                <section className="space-y-8">
+                  <DatabaseSettings />
+                  <div className="border-t border-gray-100 pt-8 dark:border-white/[0.06]">
+                    <ExportBackupPanel />
+                  </div>
+                </section>
+              )}
 
-                {activeSection === 'models' && <DefaultModelsSection
-                  snapshot={snapshot}
-                  models={allModels}
-                  onSettingChange={(key, value) => setSetting.mutate({ key, value })}
-                  onNavigate={navigate}
-                />}
+              {activeSection === 'ai' && <AiSettings />}
 
-                {activeSection === 'database' && (
-                  <section className="space-y-8">
-                    <DatabaseSettings />
-                    <div className="border-t border-gray-100 pt-8 dark:border-white/[0.06]">
-                      <ExportBackupPanel />
-                    </div>
-                  </section>
-                )}
+              {activeSection === 'cost' && <CompressionSettings />}
+              {activeSection === 'memory' && <DreamSettings />}
 
-                {activeSection === 'ai' && <AiSettings />}
+              {activeSection === 'trash' && <TrashSection onNavigate={navigate} />}
 
-                {activeSection === 'cost' && <CompressionSettings />}
-                {activeSection === 'memory' && <DreamSettings />}
+              {activeSection === 'workspace' && (
+                <section className="space-y-8">
+                  <WorktreeLocationSettings />
+                  <div className="border-t border-gray-100 pt-8 dark:border-white/[0.06]">
+                    <WorktreeCleanupSettings />
+                  </div>
+                </section>
+              )}
 
-                {activeSection === 'trash' && <TrashSection onNavigate={navigate} />}
-
-                {activeSection === 'workspace' && (
-                  <section className="space-y-8">
-                    <WorktreeLocationSettings />
-                    <div className="border-t border-gray-100 pt-8 dark:border-white/[0.06]">
-                      <WorktreeCleanupSettings />
-                    </div>
-                  </section>
-                )}
-
-                {activeSection === 'about' && <AboutSection appName={appName} />}
-              </Card>
+              {activeSection === 'about' && <AboutSection appName={appName} />}
             </div>
           </div>
         </PageContainer>
