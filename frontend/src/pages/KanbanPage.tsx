@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  SquareKanban, Plus, X, Pencil, Trash2, RefreshCw, Zap, CheckCircle2, AlertTriangle, Archive, ChevronLeft, ChevronRight, User, CalendarDays, Loader2, MessageSquare, } from 'lucide-react'
+  SquareKanban, Plus, X, Pencil, Trash2, RefreshCw, Zap, CheckCircle2, AlertTriangle, Archive, ChevronLeft, ChevronRight, ChevronDown, Check, User, CalendarDays, Loader2, MessageSquare, CircleDot, Flag, Tags, Bot, FolderKanban, Server, Workflow, } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
 import Select from '../components/Select'
 import DatePicker from '../components/DatePicker'
@@ -16,7 +17,7 @@ import { workProjectService } from '../services/workService'
 import { formatDate } from '../utils/locale'
 import type {
   IKanbanBoard, IKanbanTask, IKanbanTaskForm, IKanbanTaskSubmit, IKanbanTaskMove, KanbanTaskStatus, KanbanTaskPriority, } from '../types'
-import { Button, Card, IconButton, Input, Modal, PageContainer, PillTabs, Textarea, SurfaceButton } from '../components/ui'
+import { Button, Card, IconButton, Input, Modal, PageContainer, PillTabs, SearchInput, Textarea, SurfaceButton } from '../components/ui'
 
 /* ─── 列与流转配置（与后端 KanbanTaskTransitions 保持一致） ─── */
 
@@ -64,9 +65,17 @@ const PRIORITY_META: Record<KanbanTaskPriority, { labelKey: string; cls: string 
   Urgent: { labelKey: 'priority.urgent', cls: 'bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400' },
 }
 
-/** 表单下拉触发器：与弹窗内的输入框视觉保持一致 */
+/** 优先级下拉里的小旗子颜色 */
+const PRIORITY_FLAG: Record<KanbanTaskPriority, string> = {
+  Low: 'text-gray-400',
+  Medium: 'text-sky-500',
+  High: 'text-amber-500',
+  Urgent: 'text-red-500',
+}
+
+/** 属性栏的下拉触发器：与输入框同宽的紧凑样式 */
 const formSelectTriggerCls =
-  'flex w-full items-center justify-between gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-indigo-300 dark:border-gray-600 dark:bg-gray-700'
+  'flex w-full items-center justify-between gap-2 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-[12px] outline-none transition-colors focus:border-indigo-300 dark:border-white/[0.08] dark:bg-white/[0.04] dark:focus:border-indigo-500/60'
 
 const emptyForm: IKanbanTaskForm = {
   title: '', description: '', status: 'Backlog', priority: 'Medium',
@@ -183,6 +192,7 @@ export default function KanbanPage() {
 
   // 选中的项目若已与 Code 项目互通，自动加载其 .github 智能体，作为「项目」分组候选
   const linkedWorkProjectId = projects.find(p => p.id === form.projectId)?.workProjectId ?? ''
+  const formColumn = COLUMNS.find((c) => c.status === form.status) ?? COLUMNS[0]
   const { data: copilotAssets } = useQuery({
     queryKey: ['workCopilotAssets', linkedWorkProjectId],
     queryFn: () => workProjectService.getCopilotAssets(linkedWorkProjectId),
@@ -190,6 +200,85 @@ export default function KanbanPage() {
     staleTime: 5 * 60 * 1000,
   })
   const projectAgents = copilotAssets?.agents ?? []
+
+  // 自动处理选择器：按类别切换 + 搜索；候选可能很多，不再塞进一条长下拉
+  const [automationOpen, setAutomationOpen] = useState(false)
+  const [automationTab, setAutomationTab] = useState<'project' | 'agent' | 'workflow'>('agent')
+  const [automationQuery, setAutomationQuery] = useState('')
+  const automationBtnRef = useRef<HTMLButtonElement>(null)
+  const automationPanelRef = useRef<HTMLDivElement>(null)
+  const [automationPanelStyle, setAutomationPanelStyle] = useState<React.CSSProperties>({})
+
+  const automationGroups = [
+    { key: 'project' as const, label: t('board.groupProject'), icon: FolderKanban, tint: 'text-amber-500', items: projectAgents.map((a) => ({ value: `project-agent:${a.name}`, label: a.name })) },
+    { key: 'agent' as const, label: t('board.groupAgents'), icon: Bot, tint: 'text-indigo-500', items: professionalAgents.map((a) => ({ value: `agent:${a.id}`, label: a.name })) },
+    { key: 'workflow' as const, label: t('board.groupWorkflows'), icon: Workflow, tint: 'text-emerald-500', items: workflows.map((w) => ({ value: `workflow:${w.id}`, label: w.name })) },
+  ]
+  const automationGroupsWithItems = automationGroups.filter((group) => group.items.length > 0)
+  const activeAutomationGroup = automationGroupsWithItems.find((group) => group.key === automationTab) ?? automationGroupsWithItems[0] ?? null
+  const automationItems = (activeAutomationGroup?.items ?? []).filter((item) =>
+    item.label.toLowerCase().includes(automationQuery.trim().toLowerCase()))
+  const selectedAutomation = automationGroups
+    .flatMap((group) => group.items.map((item) => ({ ...item, group })))
+    .find((item) => item.value === form.automation) ?? null
+  const SelectedAutomationIcon = selectedAutomation?.group.icon ?? Bot
+
+  // 面板跟随触发按钮定位；属性栏在弹窗底部，空间不足时向上展开
+  useEffect(() => {
+    if (!automationOpen) return
+    const update = () => {
+      const rect = automationBtnRef.current?.getBoundingClientRect()
+      if (!rect) return
+      const width = Math.min(220, window.innerWidth - 16)
+      const left = Math.min(Math.max(8, rect.right - width), window.innerWidth - width - 8)
+      const openUp = window.innerHeight - rect.bottom < 260 && rect.top > 260
+      setAutomationPanelStyle({
+        position: 'fixed',
+        left,
+        width,
+        ...(openUp ? { bottom: window.innerHeight - rect.top + 6 } : { top: rect.bottom + 6 }),
+      })
+    }
+    update()
+    window.addEventListener('resize', update)
+    window.addEventListener('scroll', update, true)
+    return () => {
+      window.removeEventListener('resize', update)
+      window.removeEventListener('scroll', update, true)
+    }
+  }, [automationOpen])
+
+  useEffect(() => {
+    if (!automationOpen) return
+    const handleMouseDown = (e: MouseEvent) => {
+      const target = e.target as Node
+      if (automationBtnRef.current?.contains(target) || automationPanelRef.current?.contains(target)) return
+      setAutomationOpen(false)
+    }
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setAutomationOpen(false)
+    }
+    document.addEventListener('mousedown', handleMouseDown)
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', handleMouseDown)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [automationOpen])
+
+  const openAutomationPicker = () => {
+    const currentGroup = automationGroups.find((group) => group.items.some((item) => item.value === form.automation))
+    setAutomationTab(currentGroup?.key ?? automationGroupsWithItems[0]?.key ?? 'agent')
+    setAutomationQuery('')
+    setAutomationOpen(true)
+  }
+
+  const chooseAutomation = (value: string) => {
+    // 项目智能体选项带正文：选中时一并写入表单，其余选项清空
+    const projectAgent = projectAgents.find((a) => `project-agent:${a.name}` === value)
+    setForm({ ...form, automation: value, agentPrompt: projectAgent?.content ?? '', agentPromptName: projectAgent?.name ?? '' })
+    setAutomationOpen(false)
+  }
 
   useEffect(() => {
     if (!error) return
@@ -479,169 +568,291 @@ export default function KanbanPage() {
             </div>
           </div>
 
-          {/* Create/Edit modal */}
+          {/* Create/Edit modal：左侧写作区 + 右侧属性栏 */}
           {showForm && (
-            <Modal open onClose={() => setShowForm(false)} dismissible={false} size="lg" className="overflow-hidden">
-              <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-700">
-                  <div className="flex items-center gap-2.5">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-100 dark:bg-indigo-900/30">
-                      <SquareKanban size={16} className="text-indigo-600 dark:text-indigo-400" />
-                    </div>
-                    <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">
-                      {editingId ? t('board.editTitle') : t('board.newTask')}
-                    </h3>
+            <Modal open onClose={() => setShowForm(false)} dismissible={false} size="2xl" label={editingId ? t('board.editTitle') : t('board.newTask')} className="flex max-h-[86vh] flex-col overflow-hidden">
+              <div
+                className="flex min-h-0 flex-1 flex-col"
+                onKeyDown={(e) => {
+                  // 任意位置 Ctrl/Cmd + Enter 直接创建，避免长描述后还要找按钮
+                  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && form.title.trim() && !createMutation.isPending && !updateMutation.isPending) {
+                    e.preventDefault()
+                    handleSave()
+                  }
+                }}
+              >
+                {/* Header */}
+                <div className="flex shrink-0 items-center gap-3 border-b border-gray-100 px-6 py-4 dark:border-white/[0.06]">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-indigo-200/70 bg-indigo-50 text-indigo-600 dark:border-indigo-400/20 dark:bg-indigo-500/10 dark:text-indigo-300">
+                    <SquareKanban size={17} />
                   </div>
-                  <SurfaceButton onClick={closeForm} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-[15px] font-semibold text-gray-900 dark:text-gray-100">
+                        {editingId ? t('board.editTitle') : t('board.newTask')}
+                      </h3>
+                      <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-500 dark:bg-white/[0.06] dark:text-gray-300">
+                        <span className={`h-1.5 w-1.5 rounded-full ${formColumn.dot}`} />
+                        {t(formColumn.labelKey)}
+                      </span>
+                    </div>
+                    <p className="mt-0.5 text-[11px] text-gray-400 dark:text-gray-500">{t('board.formSubtitle')}</p>
+                  </div>
+                  <IconButton variant="ghost" tone="gray" className="ml-auto shrink-0" label={t('common:close')} onClick={closeForm}>
                     <X size={18} />
-                  </SurfaceButton>
+                  </IconButton>
                 </div>
-                <div className="space-y-4 px-5 py-4">
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">{t('board.titleField')}</label>
-                    <Input tone="indigo"
+
+                {/* Body */}
+                <div className="flex min-h-0 flex-1 flex-col overflow-y-auto md:flex-row md:overflow-hidden">
+                  {/* 写作区 */}
+                  <div className="flex min-h-0 min-w-0 flex-1 flex-col px-6 py-5">
+                    <Input
+                      variant="bare"
+                      tone="indigo"
+                      autoFocus
                       value={form.title}
                       onChange={(e) => setForm({ ...form, title: e.target.value })}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.nativeEvent.isComposing && form.title.trim() && !createMutation.isPending && !updateMutation.isPending) {
+                          e.preventDefault()
+                          handleSave()
+                        }
+                      }}
                       placeholder={t('board.titlePlaceholder')}
-                      className="w-full"
+                      className="h-auto w-full px-0 text-[20px] font-semibold leading-8 tracking-tight placeholder:font-normal placeholder:text-gray-300 dark:placeholder:text-gray-600"
                     />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">{t('board.description')}</label>
-                    <Textarea tone="indigo"
+                    <div className="mt-2 h-px w-full bg-gray-100 dark:bg-white/[0.06]" />
+                    <Textarea
+                      variant="bare"
+                      tone="indigo"
                       value={form.description}
                       onChange={(e) => setForm({ ...form, description: e.target.value })}
-                      rows={6}
+                      rows={8}
                       placeholder={t('board.descriptionPlaceholder')}
-                      className="w-full min-h-[120px] resize-y leading-relaxed"
+                      className="mt-3 min-h-[160px] w-full flex-1 resize-none px-0 text-[13px] leading-relaxed"
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">{t('board.status')}</label>
-                      <Select
-                        value={form.status}
-                        onChange={(value) => setForm({ ...form, status: value as KanbanTaskStatus })}
-                        options={COLUMNS.map((c) => ({ value: c.status, label: t(c.labelKey) }))}
-                        triggerClassName={formSelectTriggerCls}
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">{t('board.priority')}</label>
-                      <Select
-                        value={form.priority}
-                        onChange={(value) => setForm({ ...form, priority: value as KanbanTaskPriority })}
-                        options={(Object.keys(PRIORITY_META) as KanbanTaskPriority[]).map((p) => ({
-                          value: p,
-                          label: t(PRIORITY_META[p].labelKey),
-                        }))}
-                        triggerClassName={formSelectTriggerCls}
-                      />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">{t('board.assignee')}</label>
-                      <Input tone="indigo"
-                        value={form.assignee}
-                        onChange={(e) => setForm({ ...form, assignee: e.target.value })}
-                        placeholder={t('common:optional')}
-                        className="w-full"
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">{t('board.dueDate')}</label>
-                      <DatePicker
-                        value={form.dueDate}
-                        onChange={(dueDate) => setForm({ ...form, dueDate })}
-                        placeholder={t('board.dueDateUnset')}
-                        triggerClassName={formSelectTriggerCls}
-                      />
-                    </div>
-                  </div>
-                  {/* 自动处理：指定项目 + 智能体/工作流后，进入待办即自动执行 */}
-                  <div className="rounded-lg border border-gray-100 bg-gray-50/60 p-3 dark:border-gray-700 dark:bg-gray-700/20">
-                    <p className="mb-2 text-[11px] text-gray-500 dark:text-gray-400">
-                      {t('board.automationHint')}
-                    </p>
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                      <div>
-                        <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">{t('board.project')}</label>
+
+                  {/* 属性栏 */}
+                  <div className="w-full shrink-0 border-t border-gray-100 bg-gray-50/60 px-5 py-5 md:w-72 md:overflow-y-auto md:border-l md:border-t-0 dark:border-white/[0.06] dark:bg-white/[0.02]">
+                    <p className="mb-3 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">{t('board.properties')}</p>
+                    <div className="space-y-2.5">
+                      <FormField icon={<CircleDot size={12} />} label={t('board.status')}>
                         <Select
-                          value={form.projectId}
-                          onChange={(projectId) => setForm({ ...form, projectId })}
-                          placeholder={t('board.unspecified')}
-                          options={projects.map((p) => ({ value: p.id, label: p.name }))}
+                          value={form.status}
+                          onChange={(value) => setForm({ ...form, status: value as KanbanTaskStatus })}
+                          options={COLUMNS.map((c) => ({
+                            value: c.status,
+                            label: t(c.labelKey),
+                            icon: <span className={`h-2 w-2 rounded-full ${c.dot}`} />,
+                          }))}
+                          triggerClassName={formSelectTriggerCls}
+                          dense
+                        />
+                      </FormField>
+                      <FormField icon={<Flag size={12} />} label={t('board.priority')}>
+                        <Select
+                          value={form.priority}
+                          onChange={(value) => setForm({ ...form, priority: value as KanbanTaskPriority })}
+                          options={(Object.keys(PRIORITY_META) as KanbanTaskPriority[]).map((p) => ({
+                            value: p,
+                            label: t(PRIORITY_META[p].labelKey),
+                            icon: <Flag size={12} className={PRIORITY_FLAG[p]} />,
+                          }))}
+                          triggerClassName={formSelectTriggerCls}
+                          dense
+                        />
+                      </FormField>
+                      <FormField icon={<User size={12} />} label={t('board.assignee')}>
+                        <Input tone="indigo"
+                          value={form.assignee}
+                          onChange={(e) => setForm({ ...form, assignee: e.target.value })}
+                          placeholder={t('common:optional')}
+                          className="h-8 w-full text-[12px]"
+                        />
+                      </FormField>
+                      <FormField icon={<CalendarDays size={12} />} label={t('board.dueDate')}>
+                        <DatePicker
+                          value={form.dueDate}
+                          onChange={(dueDate) => setForm({ ...form, dueDate })}
+                          placeholder={t('board.dueDateUnset')}
                           triggerClassName={formSelectTriggerCls}
                         />
+                      </FormField>
+                      <FormField icon={<Tags size={12} />} label={t('board.tags')}>
+                        <Input tone="indigo"
+                          value={form.tags}
+                          onChange={(e) => setForm({ ...form, tags: e.target.value })}
+                          placeholder={t('board.tagsPlaceholder')}
+                          className="h-8 w-full text-[12px]"
+                        />
+                      </FormField>
+                      {form.status === 'Blocked' && (
+                        <FormField icon={<AlertTriangle size={12} />} label={t('board.blockedReason')}>
+                          <Input tone="red"
+                            value={form.blockedReason}
+                            onChange={(e) => setForm({ ...form, blockedReason: e.target.value })}
+                            placeholder={t('board.blockedReasonPlaceholder')}
+                            className="h-8 w-full text-[12px]"
+                          />
+                        </FormField>
+                      )}
+                    </div>
+
+                    {/* 自动处理：指定项目 + 智能体/工作流后，进入待办即自动执行 */}
+                    <div className="mt-5 border-t border-gray-200/70 pt-4 dark:border-white/[0.06]">
+                      <div className="flex items-center gap-1.5 text-[11px] font-semibold text-gray-600 dark:text-gray-300">
+                        <Zap size={12} className="text-indigo-500" />
+                        {t('board.automation')}
                       </div>
-                      <div>
-                        <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">{t('board.automationLabel')}</label>
-                        <Select
-                          value={form.automation}
-                          onChange={(automation) => {
-                            // 项目智能体选项带正文：选中时一并写入表单，其余选项清空
-                            const projectAgent = projectAgents.find(a => `project-agent:${a.name}` === automation)
-                            setForm({
-                              ...form,
-                              automation,
-                              agentPrompt: projectAgent?.content ?? '',
-                              agentPromptName: projectAgent?.name ?? '',
-                            })
-                          }}
-                          placeholder={t('board.unspecified')}
-                          searchable
-                          options={[
-                            ...(projectAgents.length > 0
-                              ? [{ value: '__project', label: t('board.groupProject'), disabled: true }]
-                              : []),
-                            ...projectAgents.map((a) => ({ value: `project-agent:${a.name}`, label: a.name })),
-                            ...(professionalAgents.length > 0
-                              ? [{ value: '__agents', label: t('board.groupAgents'), disabled: true }]
-                              : []),
-                            ...professionalAgents.map((a) => ({ value: `agent:${a.id}`, label: a.name })),
-                            ...(workflows.length > 0
-                              ? [{ value: '__workflows', label: t('board.groupWorkflows'), disabled: true }]
-                              : []),
-                            ...workflows.map((w) => ({ value: `workflow:${w.id}`, label: w.name })),
-                          ]}
-                          triggerClassName={formSelectTriggerCls}
-                        />
+                      <p className="mt-1 text-[10px] leading-relaxed text-gray-400 dark:text-gray-500">{t('board.automationHint')}</p>
+                      <div className="mt-2.5 space-y-2.5">
+                        <FormField icon={<FolderKanban size={12} />} label={t('board.project')}>
+                          <Select
+                            value={form.projectId}
+                            onChange={(projectId) => setForm({ ...form, projectId })}
+                            placeholder={t('board.unspecified')}
+                            options={[
+                              { value: '', label: t('board.unspecified') },
+                              ...projects.map((p) => ({
+                                value: p.id,
+                                label: p.name,
+                                icon: p.projectType === 'Ssh'
+                                  ? <Server size={12} className="text-violet-400" />
+                                  : <FolderKanban size={12} className="text-gray-400" />,
+                                description: p.directoryPath,
+                              })),
+                            ]}
+                            triggerClassName={formSelectTriggerCls}
+                            dense
+                          />
+                        </FormField>
+                        <FormField icon={<Bot size={12} />} label={t('board.automationLabel')}>
+                          <SurfaceButton
+                            ref={automationBtnRef}
+                            type="button"
+                            onClick={() => { if (automationOpen) setAutomationOpen(false); else openAutomationPicker() }}
+                            className={`${formSelectTriggerCls} justify-between`}
+                          >
+                            <span className="flex min-w-0 items-center gap-1.5">
+                              <SelectedAutomationIcon size={12} className={`shrink-0 ${selectedAutomation ? selectedAutomation.group.tint : 'text-gray-400'}`} />
+                              <span className="truncate">{selectedAutomation?.label ?? t('board.unspecified')}</span>
+                            </span>
+                            <ChevronDown size={13} className={`shrink-0 text-gray-400 transition-transform ${automationOpen ? 'rotate-180' : ''}`} />
+                          </SurfaceButton>
+                          {automationOpen && createPortal(
+                            <div
+                              ref={automationPanelRef}
+                              style={automationPanelStyle}
+                              className="animate-popover z-[9999] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-xl shadow-black/5 glass glass-float dark:border-white/[0.08] dark:bg-[#1a1d2e] dark:shadow-black/30"
+                            >
+                              <div className="border-b border-gray-100 px-2 py-1.5 dark:border-white/[0.06]">
+                                <SearchInput
+                                  size="sm"
+                                  autoFocus
+                                  value={automationQuery}
+                                  onChange={(e) => setAutomationQuery(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter' && automationItems[0]) {
+                                      e.preventDefault()
+                                      chooseAutomation(automationItems[0].value)
+                                    }
+                                  }}
+                                  placeholder={t('board.automationSearch')}
+                                  className="w-full"
+                                />
+                              </div>
+                              {automationGroupsWithItems.length > 0 && (
+                                <div className="flex flex-wrap items-center gap-1 border-b border-gray-100 px-2 py-1 dark:border-white/[0.06]">
+                                  {automationGroupsWithItems.map((group) => {
+                                    const GroupIcon = group.icon
+                                    const active = group.key === activeAutomationGroup?.key
+                                    return (
+                                      <SurfaceButton
+                                        key={group.key}
+                                        type="button"
+                                        onClick={() => { setAutomationTab(group.key); setAutomationQuery('') }}
+                                        className={`flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors ${
+                                          active
+                                            ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-300'
+                                            : 'text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-white/[0.06]'
+                                        }`}
+                                      >
+                                        <GroupIcon size={11} className={group.tint} />
+                                        {group.label}
+                                        <span className="text-[10px] tabular-nums text-gray-400 dark:text-gray-500">{group.items.length}</span>
+                                      </SurfaceButton>
+                                    )
+                                  })}
+                                </div>
+                              )}
+                              <div className="max-h-48 overflow-y-auto p-1">
+                                <SurfaceButton
+                                  type="button"
+                                  onClick={() => chooseAutomation('')}
+                                  className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1 text-left text-[12px] transition-colors ${
+                                    form.automation === ''
+                                      ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-300'
+                                      : 'text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/[0.04]'
+                                  }`}
+                                >
+                                  <X size={12} className="shrink-0 text-gray-400" />
+                                  <span className="min-w-0 flex-1 truncate">{t('board.automationNone')}</span>
+                                  {form.automation === '' && <Check size={13} className="shrink-0 text-indigo-500 dark:text-indigo-400" />}
+                                </SurfaceButton>
+                                {activeAutomationGroup && automationItems.map((item) => {
+                                  const ItemIcon = activeAutomationGroup.icon
+                                  const isSelected = form.automation === item.value
+                                  return (
+                                    <SurfaceButton
+                                      key={item.value}
+                                      type="button"
+                                      onClick={() => chooseAutomation(item.value)}
+                                      className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1 text-left text-[12px] transition-colors ${
+                                        isSelected
+                                          ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-300'
+                                          : 'text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/[0.04]'
+                                      }`}
+                                    >
+                                      <ItemIcon size={12} className={`shrink-0 ${activeAutomationGroup.tint}`} />
+                                      <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                                      {isSelected && <Check size={13} className="shrink-0 text-indigo-500 dark:text-indigo-400" />}
+                                    </SurfaceButton>
+                                  )
+                                })}
+                                {automationItems.length === 0 && (
+                                  <p className="px-3 py-6 text-center text-[11px] leading-relaxed text-gray-400 dark:text-gray-500">
+                                    {automationQuery.trim() ? t('ui:noMatch') : t('board.automationEmpty')}
+                                  </p>
+                                )}
+                              </div>
+                            </div>,
+                            document.body
+                          )}
+                        </FormField>
                         {projectAgents.length > 0 && (
-                          <p className="mt-1 text-[11px] text-gray-400 dark:text-gray-500">
+                          <p className="text-[10px] leading-relaxed text-gray-400 dark:text-gray-500">
                             {t('board.agentsLoaded', { count: projectAgents.length })}
                           </p>
                         )}
                       </div>
                     </div>
                   </div>
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">{t('board.tags')}</label>
-                    <Input tone="indigo"
-                      value={form.tags}
-                      onChange={(e) => setForm({ ...form, tags: e.target.value })}
-                      placeholder={t('board.tagsPlaceholder')}
-                      className="w-full"
-                    />
+                </div>
+
+                {/* Footer */}
+                <div className="flex shrink-0 items-center gap-2 border-t border-gray-100 px-6 py-3.5 dark:border-white/[0.06]">
+                  <span className="text-[11px] text-gray-400 dark:text-gray-500">{t('board.shortcutCreate')}</span>
+                  <div className="ml-auto flex items-center gap-2">
+                    <Button variant="ghost" tone="gray" onClick={closeForm}>{t('common:cancel')}</Button>
+                    <Button variant="primary" tone="indigo" className="px-4" onClick={handleSave}
+                      disabled={!form.title.trim() || createMutation.isPending || updateMutation.isPending}>
+                      {editingId ? t('common:save') : t('common:create')}
+                    </Button>
                   </div>
-                  {form.status === 'Blocked' && (
-                    <div>
-                      <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">{t('board.blockedReason')}</label>
-                      <Input tone="red"
-                        value={form.blockedReason}
-                        onChange={(e) => setForm({ ...form, blockedReason: e.target.value })}
-                        placeholder={t('board.blockedReasonPlaceholder')}
-                        className="w-full"
-                      />
-                    </div>
-                  )}
                 </div>
-                <div className="flex items-center justify-end gap-2 border-t border-gray-100 px-5 py-3 dark:border-gray-700">
-                  <Button variant="ghost" tone="gray" className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700" onClick={closeForm}>{t('common:cancel')}</Button>
-                  <Button variant="primary" tone="indigo" className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50" onClick={handleSave}
-                    disabled={!form.title.trim() || createMutation.isPending || updateMutation.isPending}>
-                    {editingId ? t('common:save') : t('common:create')}
-                  </Button>
-                </div>
+              </div>
             </Modal>
           )}
 
@@ -683,6 +894,19 @@ export default function KanbanPage() {
 }
 
 /* ─── 任务卡片 ─── */
+
+/** 属性栏的一行：左侧小标签（图标 + 文案），右侧控件 */
+function FormField({ icon, label, children }: { icon: ReactNode; label: string; children: ReactNode }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="flex w-[72px] shrink-0 items-center gap-1.5 text-[11px] text-gray-400 dark:text-gray-500">
+        <span className="shrink-0">{icon}</span>
+        <span className="truncate">{label}</span>
+      </span>
+      <div className="min-w-0 flex-1">{children}</div>
+    </div>
+  )
+}
 
 interface TaskCardProps {
   task: IKanbanTask

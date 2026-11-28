@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
+import { Fragment, useState, useRef, useEffect, useCallback, useMemo, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { ChevronDown, Check } from 'lucide-react'
@@ -8,6 +8,12 @@ export interface SelectOption {
   value: string
   label: string
   disabled?: boolean
+  /** 选项左侧装饰（状态圆点 / 类型图标），选中后同样显示在触发器里 */
+  icon?: ReactNode
+  /** 选项第二行说明，同时参与搜索 */
+  description?: string
+  /** 分组标题：相邻的同组选项自动渲染分组头 */
+  group?: string
 }
 
 export interface SelectProps {
@@ -24,6 +30,8 @@ export interface SelectProps {
   searchPlaceholder?: string
   /** 自定义触发器样式（紧凑场景传入以覆盖默认大尺寸样式） */
   triggerClassName?: string
+  /** 展开面板用紧凑行高与小字号（属性栏等窄场景） */
+  dense?: boolean
 }
 
 const TRIGGER_CLASS =
@@ -40,6 +48,7 @@ export default function Select({
   searchPlaceholder,
   triggerClassName,
   ariaLabel,
+  dense = false,
 }: SelectProps) {
   const { t } = useTranslation()
   const searchHint = searchPlaceholder ?? t('ui:searchPlaceholder')
@@ -59,7 +68,7 @@ export default function Select({
   const filteredOptions = useMemo(() => {
     if (!searchable || !search.trim()) return options
     const q = search.trim().toLowerCase()
-    return options.filter((o) => o.label.toLowerCase().includes(q))
+    return options.filter((o) => `${o.label} ${o.description ?? ''}`.toLowerCase().includes(q))
   }, [options, searchable, search])
 
   const close = useCallback(() => {
@@ -161,11 +170,13 @@ export default function Select({
       const minH = 160
       const dropUp = bottomSpace < minH && topSpace > bottomSpace
 
+      // 紧凑模式：面板按内容收缩并右对齐触发器（属性栏里的窄下拉），不再拉满触发器宽度
+      const panelMax = Math.min(dense ? 220 : 320, window.innerWidth - 16)
       setDropdownStyle({
         position: 'fixed',
-        left: rect.left,
-        // 面板最小 180px，避免触发器太窄导致选项被裁切
-        width: Math.max(rect.width, 180),
+        ...(dense
+          ? { right: Math.max(8, window.innerWidth - rect.right), width: 'max-content', minWidth: 140, maxWidth: panelMax }
+          : { left: Math.min(rect.left, window.innerWidth - panelMax - 8), width: Math.max(rect.width, 180) }),
         ...(dropUp
           ? { bottom: window.innerHeight - rect.top + 4 }
           : { top: rect.bottom + 4 }),
@@ -183,7 +194,7 @@ export default function Select({
       window.removeEventListener('resize', update)
       window.removeEventListener('scroll', update, true)
     }
-  }, [open, search])
+  }, [open, search, dense])
 
   const displayText = selectedOption?.label ?? placeholder ?? ''
 
@@ -208,11 +219,12 @@ export default function Select({
         className={triggerClassName ?? TRIGGER_CLASS}
       >
         <span
-          className={`truncate text-left ${
+          className={`flex min-w-0 items-center gap-2 ${
             selectedOption ? 'text-gray-800 dark:text-gray-200' : 'text-gray-400 dark:text-gray-500'
           }`}
         >
-          {displayText}
+          {selectedOption?.icon && <span className="flex shrink-0 items-center">{selectedOption.icon}</span>}
+          <span className="truncate text-left">{displayText}</span>
         </span>
         <ChevronDown
           size={14}
@@ -230,7 +242,7 @@ export default function Select({
             className="animate-popover z-[9999] overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg shadow-black/5 glass glass-float dark:border-white/[0.08] dark:bg-[#1a1d2e] dark:shadow-black/30"
           >
             {searchable && (
-              <div className="flex items-center gap-2 border-b border-gray-100 px-3 py-2 dark:border-white/[0.06]">
+              <div className={`flex items-center gap-2 border-b border-gray-100 dark:border-white/[0.06] ${dense ? 'px-2 py-1.5' : 'px-3 py-2'}`}>
                 <SearchInput
                   ref={searchRef}
                   size="sm"
@@ -241,49 +253,64 @@ export default function Select({
                 />
               </div>
             )}
-            <div className="max-h-60 overflow-y-auto">
+            <div className={`overflow-y-auto ${dense ? 'max-h-52' : 'max-h-60'}`}>
               {filteredOptions.length === 0 ? (
                 <div className="px-4 py-6 text-center text-sm text-gray-400 dark:text-gray-500">
                   {t('ui:noMatch')}
                 </div>
               ) : (
-                filteredOptions.map((option) => {
+                filteredOptions.map((option, index) => {
                 const isSelected = option.value === value
                 const isActive =
                   activeIndex >= 0
                     ? filteredOptions[activeIndex]?.value === option.value
                     : isSelected
+                const showGroup = option.group !== undefined && filteredOptions[index - 1]?.group !== option.group
 
                 return (
-                  <SurfaceButton
-                    key={option.value}
-                    ref={(el) => {
-                      if (el) itemRefs.current.set(option.value, el)
-                      else itemRefs.current.delete(option.value)
-                    }}
-                    type="button"
-                    disabled={option.disabled}
-                    onClick={() => {
-                      if (option.disabled) return
-                      onChange(option.value)
-                      close()
-                    }}
-                    onMouseEnter={() => {
-                      setActiveIndex(filteredOptions.indexOf(option))
-                    }}
-                    className={`flex w-full items-center gap-2 px-4 py-2 text-sm text-left transition-colors ${
-                      option.disabled
-                        ? 'cursor-not-allowed text-gray-300 dark:text-gray-600'
-                        : isActive
-                          ? 'bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300'
-                          : 'text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/[0.04]'
-                    }`}
-                  >
-                    <span className="flex-1 truncate">{option.label}</span>
-                    {isSelected && (
-                      <Check size={15} className="shrink-0 text-blue-500 dark:text-blue-400" />
+                  <Fragment key={option.value}>
+                    {showGroup && (
+                      <div className={`px-2.5 font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 ${dense ? 'pb-0.5 pt-1.5 text-[10px]' : 'pb-1 pt-2 text-[10px]'}`}>
+                        {option.group}
+                      </div>
                     )}
-                  </SurfaceButton>
+                    <SurfaceButton
+                      ref={(el) => {
+                        if (el) itemRefs.current.set(option.value, el)
+                        else itemRefs.current.delete(option.value)
+                      }}
+                      type="button"
+                      disabled={option.disabled}
+                      onClick={() => {
+                        if (option.disabled) return
+                        onChange(option.value)
+                        close()
+                      }}
+                      onMouseEnter={() => {
+                        setActiveIndex(filteredOptions.indexOf(option))
+                      }}
+                      className={`flex w-full items-start gap-2.5 px-3 text-left transition-colors ${dense ? 'py-1 text-[12px]' : 'py-2 text-sm'} ${
+                        option.disabled
+                          ? 'cursor-not-allowed text-gray-300 dark:text-gray-600'
+                          : isActive
+                            ? 'bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300'
+                            : 'text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/[0.04]'
+                      }`}
+                    >
+                      {option.icon && <span className="mt-0.5 flex shrink-0 items-center">{option.icon}</span>}
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate">{option.label}</span>
+                        {option.description && (
+                          <span className={`mt-0.5 block truncate leading-tight text-gray-400 dark:text-gray-500 ${dense ? 'text-[10px]' : 'text-[11px]'}`}>
+                            {option.description}
+                          </span>
+                        )}
+                      </span>
+                      {isSelected && (
+                        <Check size={dense ? 13 : 15} className="mt-0.5 shrink-0 text-blue-500 dark:text-blue-400" />
+                      )}
+                    </SurfaceButton>
+                  </Fragment>
                 )
                 })
               )}
