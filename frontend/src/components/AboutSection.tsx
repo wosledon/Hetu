@@ -49,7 +49,7 @@ export default function AboutSection({ appName }: { appName: string }) {
     <section className="space-y-8">
       {/* 产品标识 */}
       <div className="flex flex-wrap items-center gap-6">
-        <div className="flex h-28 w-28 shrink-0 items-center justify-center rounded-3xl border border-gray-100 bg-gray-50/80 shadow-sm dark:border-white/[0.08] dark:bg-white/[0.03] dark:shadow-none">
+        <div className="flex h-28 w-28 shrink-0 items-center justify-center rounded-3xl border border-gray-100 bg-[var(--region-card-soft)] shadow-sm dark:border-white/[0.08] dark:shadow-none">
           <img
             src="/brand-animated.svg"
             alt=""
@@ -62,7 +62,7 @@ export default function AboutSection({ appName }: { appName: string }) {
         <div className="min-w-0">
           <h2 className="flex items-center gap-2.5 text-xl font-bold text-gray-900 dark:text-gray-100">
             {appName}
-            <span className="rounded-full bg-gray-100 glass px-2 py-0.5 text-[11px] font-medium text-gray-500 dark:bg-white/[0.06] dark:text-gray-400">
+            <span className="rounded-full bg-[var(--region-card-soft)] glass px-2 py-0.5 text-[11px] font-medium text-gray-500 dark:text-gray-400">
               {version ? `v${version}` : '…'}
             </span>
           </h2>
@@ -89,7 +89,7 @@ export default function AboutSection({ appName }: { appName: string }) {
           {ABOUT_FEATURES.map((f) => {
             const Icon = f.icon
             return (
-              <div key={f.labelKey} className="flex items-start gap-3 rounded-xl border border-gray-100 bg-gray-50/60 p-3 dark:border-white/[0.06] dark:bg-white/[0.02]">
+              <div key={f.labelKey} className="flex items-start gap-3 rounded-xl border border-gray-100 bg-[var(--region-card-soft)] p-3 dark:border-white/[0.06] ">
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-blue-500 shadow-sm dark:bg-white/[0.06] dark:text-blue-400">
                   <Icon size={15} />
                 </div>

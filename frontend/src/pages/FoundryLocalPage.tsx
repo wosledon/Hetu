@@ -42,7 +42,7 @@ const TASK_LABELS: Record<string, [string, string]> = {
 
 /** 筛选下拉的紧凑触发器：一行放五六个，不能占用通用 Select 默认的大尺寸 */
 const SELECT_TRIGGER =
-  'flex w-full items-center justify-between gap-1.5 rounded-lg border border-gray-200 bg-gray-50/70 px-2.5 py-1.5 text-[12px] outline-none transition-all hover:border-gray-300 focus:border-cyan-400 dark:border-white/[0.08] dark:bg-white/[0.03] dark:hover:border-white/[0.16] dark:focus:border-cyan-500'
+  'flex w-full items-center justify-between gap-1.5 rounded-lg border border-gray-200 bg-[var(--region-card-soft)] px-2.5 py-1.5 text-[12px] outline-none transition-all hover:border-gray-300 focus:border-cyan-400 dark:border-white/[0.08] dark:hover:border-white/[0.16] dark:focus:border-cyan-500'
 
 export default function FoundryLocalPage() {
   const { t } = useTranslation('foundry')
@@ -491,7 +491,7 @@ export default function FoundryLocalPage() {
 
                           {downloading && progress && (
                             <div className="w-40">
-                              <div className="h-1.5 overflow-hidden rounded-full bg-gray-100 dark:bg-white/[0.06]">
+                              <div className="h-1.5 overflow-hidden rounded-full bg-[var(--region-card-soft)] ">
                                 <div
                                   className="h-full rounded-full bg-cyan-500 transition-all"
                                   style={{ width: `${Math.min(100, Math.round(progress.progress ?? 0))}%` }}
@@ -618,7 +618,7 @@ function InstallGuide({
 
       <div className="mx-auto w-full max-w-xl space-y-2">
         <div className="text-[12px] font-medium text-gray-600 dark:text-gray-300">{t('install.step1')}</div>
-        <div className="flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-50/80 px-3 py-2.5 dark:border-white/[0.08] dark:bg-white/[0.03]">
+        <div className="flex items-center gap-2 rounded-xl border border-gray-200 bg-[var(--region-card-soft)] px-3 py-2.5 dark:border-white/[0.08] ">
           <code className="min-w-0 flex-1 break-all font-mono text-[12px] text-gray-700 dark:text-gray-200">
             {INSTALL_COMMAND}
           </code>
@@ -649,7 +649,7 @@ function InstallGuide({
         </div>
       </div>
 
-      <div className="mx-auto w-full max-w-xl rounded-xl border border-gray-100 bg-gray-50/60 px-4 py-3 dark:border-white/[0.06] dark:bg-white/[0.02]">
+      <div className="mx-auto w-full max-w-xl rounded-xl border border-gray-100 bg-[var(--region-card-soft)] px-4 py-3 dark:border-white/[0.06] ">
         <div className="mb-1.5 text-[12px] font-medium text-gray-600 dark:text-gray-300">{t('install.notes')}</div>
         <ul className="space-y-1 text-[11px] leading-relaxed text-gray-400">
           <li>· {t('install.note1')}</li>

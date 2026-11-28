@@ -414,7 +414,7 @@ export default function WikiPage() {
     <AppLayout showSidebar={false} mainContent={
       <PageContainer variant="fill" className="flex-col">
         {/* 页头 */}
-        <div className="shrink-0 border-b border-gray-200/80 bg-white/35 dark:border-white/[0.07] dark:bg-slate-950/20">
+        <div className="shrink-0 border-b border-gray-200/80 bg-[var(--region-content)] dark:border-white/[0.07] ">
           <div className="flex flex-wrap items-center gap-x-4 gap-y-3 px-4 py-3 sm:px-6 sm:py-4">
             <div className="flex min-w-0 flex-1 items-center gap-3">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-emerald-200/70 bg-emerald-50 text-emerald-600 shadow-sm dark:border-emerald-400/15 dark:bg-emerald-500/10 dark:text-emerald-300">
@@ -448,7 +448,7 @@ export default function WikiPage() {
 
               {/* 生成模型选择 */}
               <div className="relative">
-                <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl border border-gray-200/80 bg-white/80 px-3.5 py-1.5 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300" ref={modelBtnRef} onClick={() => setModelPickerOpen((v) => !v)}
+                <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl border border-gray-200/80 bg-[var(--region-card-solid)] px-3.5 py-1.5 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300" ref={modelBtnRef} onClick={() => setModelPickerOpen((v) => !v)}
                   title={t('wiki.modelPickerTitle')}>
                   <Cpu size={14} />
                   <span className="max-w-[140px] truncate">{chosenModelName ?? t('wiki.defaultModel')}</span>

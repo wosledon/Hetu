@@ -235,7 +235,7 @@ export default function KnowledgeBasePage() {
       url: { label: t('kb.typeUrl'), className: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' },
       wiki: { label: t('kb.typeWiki'), className: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' },
     }
-    const c = config[type as keyof typeof config] || { label: type, className: 'bg-gray-100 text-gray-600' }
+    const c = config[type as keyof typeof config] || { label: type, className: 'bg-[var(--region-card-soft)] text-gray-600' }
     return (
       <span className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium ${c.className}`}>
         {getTypeIcon(type)}
@@ -421,11 +421,11 @@ export default function KnowledgeBasePage() {
                         onClick={() => { setActiveTab('manage'); setManageFilter(row.key); setManagePage(1) }}
                         className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left transition-colors hover:bg-gray-50 dark:hover:bg-white/[0.03]"
                       >
-                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-500 dark:bg-white/[0.06] dark:text-gray-400">
+                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--region-card-soft)] text-gray-500 dark:text-gray-400">
                           <Icon size={13} />
                         </span>
                         <span className="w-12 shrink-0 text-[13px] font-medium text-gray-700 dark:text-gray-200">{t(row.label)}</span>
-                        <span className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-700/70">
+                        <span className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-[var(--region-card-soft)] ">
                           <span className={`block h-full rounded-full transition-all duration-500 ${row.bar}`} style={{ width: `${percent}%` }} />
                         </span>
                         <span className="w-20 shrink-0 text-right text-[11px] tabular-nums text-gray-500 dark:text-gray-400">
@@ -490,11 +490,11 @@ export default function KnowledgeBasePage() {
                     className="hidden"
                     onChange={handleFileUpload}
                   />
-                  <Button variant="secondary" pill className="flex items-center gap-1.5 rounded-xl border border-gray-200/80 bg-white/80 px-4 py-2 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => fileInputRef.current?.click()}>
+                  <Button variant="secondary" pill className="flex items-center gap-1.5 rounded-xl border border-gray-200/80 bg-[var(--region-card-solid)] px-4 py-2 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => fileInputRef.current?.click()}>
                     <Upload size={13} />
                     {t('kb.uploadFile')}
                   </Button>
-                  <Button variant="secondary" pill className="flex items-center gap-1.5 rounded-xl border border-gray-200/80 bg-white/80 px-4 py-2 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => setShowAddUrl(true)}>
+                  <Button variant="secondary" pill className="flex items-center gap-1.5 rounded-xl border border-gray-200/80 bg-[var(--region-card-solid)] px-4 py-2 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => setShowAddUrl(true)}>
                     <Plus size={13} />
                     {t('kb.addUrl')}
                   </Button>
@@ -605,14 +605,14 @@ export default function KnowledgeBasePage() {
                         )}
 
                         {item.embeddingModel && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 glass px-2 py-0.5 text-[11px] text-gray-600 dark:bg-white/[0.06] dark:text-gray-400">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-[var(--region-card-soft)] glass px-2 py-0.5 text-[11px] text-gray-600 dark:text-gray-400">
                             <Brain size={10} />
                             {item.embeddingModel}
                           </span>
                         )}
 
                         {item.embeddingDimensions > 0 && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 glass px-2 py-0.5 text-[11px] text-gray-600 dark:bg-white/[0.06] dark:text-gray-400">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-[var(--region-card-soft)] glass px-2 py-0.5 text-[11px] text-gray-600 dark:text-gray-400">
                             <Hash size={10} />
                             {item.embeddingDimensions}d
                           </span>
@@ -860,11 +860,7 @@ function ChunkDetailModal({
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                          chunk.chunkMethod === 'llm'
-                            ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
-                            : 'bg-gray-100 text-gray-600 dark:bg-white/[0.06] dark:text-gray-400'
-                        }`}>
+                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${ chunk.chunkMethod === 'llm' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' : 'bg-[var(--region-card-soft)] text-gray-600 dark:text-gray-400' }`}>
                           {chunk.chunkMethod === 'llm' ? 'LLM' : t('kb.chunkMethodStructured')}
                         </span>
                         {chunk.hasEmbedding ? (
@@ -872,7 +868,7 @@ function ChunkDetailModal({
                             <CheckCircle2 size={8} />
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-0.5 rounded-full bg-gray-100 glass px-1.5 py-0.5 text-[10px] text-gray-500 dark:bg-white/[0.06] dark:text-gray-400">
+                          <span className="inline-flex items-center gap-0.5 rounded-full bg-[var(--region-card-soft)] glass px-1.5 py-0.5 text-[10px] text-gray-500 dark:text-gray-400">
                             <AlertCircle size={8} />
                           </span>
                         )}
@@ -948,7 +944,7 @@ function MetricPill({
   }
 
   return (
-    <div className={`flex items-center gap-2.5 rounded-xl px-3.5 py-3 ${plain ? '' : 'bg-gray-50/80 dark:bg-white/[0.03]'}`}>
+    <div className={`flex items-center gap-2.5 rounded-xl px-3.5 py-3 ${plain ? '' : 'bg-[var(--region-card-soft)] '}`}>
       <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${colorMap[color]}`}>
         {icon}
       </span>

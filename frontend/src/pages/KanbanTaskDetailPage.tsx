@@ -20,17 +20,17 @@ import type {
 import { Button, Card, PageContainer, Textarea, SurfaceButton } from '../components/ui'
 
 const STATUS_META: Record<KanbanTaskStatus, { labelKey: string; cls: string }> = {
-  Backlog: { labelKey: 'status.backlog', cls: 'bg-gray-100 text-gray-600 dark:bg-white/[0.06] dark:text-gray-300' },
+  Backlog: { labelKey: 'status.backlog', cls: 'bg-[var(--region-card-soft)] text-gray-600 dark:text-gray-300' },
   Todo: { labelKey: 'status.todo', cls: 'bg-sky-50 text-sky-600 dark:bg-sky-500/10 dark:text-sky-300' },
   InProgress: { labelKey: 'status.inProgress', cls: 'bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-300' },
   InReview: { labelKey: 'status.inReview', cls: 'bg-violet-50 text-violet-600 dark:bg-violet-500/10 dark:text-violet-300' },
   Blocked: { labelKey: 'status.blocked', cls: 'bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-300' },
   Done: { labelKey: 'status.done', cls: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-300' },
-  Archived: { labelKey: 'status.archived', cls: 'bg-gray-100 text-gray-500 dark:bg-white/[0.06] dark:text-gray-400' },
+  Archived: { labelKey: 'status.archived', cls: 'bg-[var(--region-card-soft)] text-gray-500 dark:text-gray-400' },
 }
 
 const PRIORITY_META: Record<KanbanTaskPriority, { labelKey: string; cls: string }> = {
-  Low: { labelKey: 'priority.low', cls: 'bg-gray-100 text-gray-500 dark:bg-white/[0.06] dark:text-gray-400' },
+  Low: { labelKey: 'priority.low', cls: 'bg-[var(--region-card-soft)] text-gray-500 dark:text-gray-400' },
   Medium: { labelKey: 'priority.medium', cls: 'bg-sky-50 text-sky-600 dark:bg-sky-500/10 dark:text-sky-400' },
   High: { labelKey: 'priority.high', cls: 'bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400' },
   Urgent: { labelKey: 'priority.urgent', cls: 'bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400' },
@@ -40,7 +40,7 @@ const AUTHOR_META: Record<IKanbanTaskComment['authorType'], { labelKey: string; 
   User: { labelKey: 'detail.me', cls: 'bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-300', icon: User },
   Agent: { labelKey: 'detail.agentName', cls: 'bg-violet-50 text-violet-600 dark:bg-violet-500/10 dark:text-violet-300', icon: Bot },
   Workflow: { labelKey: 'detail.workflowName', cls: 'bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-300', icon: WorkflowIcon },
-  System: { labelKey: 'detail.system', cls: 'bg-gray-100 text-gray-500 dark:bg-white/[0.06] dark:text-gray-400', icon: CircleDot },
+  System: { labelKey: 'detail.system', cls: 'bg-[var(--region-card-soft)] text-gray-500 dark:text-gray-400', icon: CircleDot },
 }
 
 const RUN_STATUS_META: Record<IKanbanTaskRun['status'], { labelKey: string; cls: string }> = {
@@ -334,9 +334,9 @@ export default function KanbanTaskDetailPage() {
                             <div key={item.key} className="flex items-stretch gap-3">
                               <TimelineNode
                                 icon={<Icon size={13} className={c.authorType === 'User' ? 'text-blue-500' : c.authorType === 'System' ? 'text-gray-400' : 'text-violet-500'} />}
-                                tone={c.authorType === 'System' ? 'bg-gray-100 dark:bg-gray-800' : 'bg-white dark:bg-gray-900'}
+                                tone={c.authorType === 'System' ? 'bg-[var(--region-card-soft)] ' : 'bg-white dark:bg-gray-900'}
                               />
-                              <div className="min-w-0 flex-1 rounded-xl border border-gray-100 bg-gray-50/60 p-3.5 dark:border-gray-800 dark:bg-white/[0.02]">
+                              <div className="min-w-0 flex-1 rounded-xl border border-gray-100 bg-[var(--region-card-soft)] p-3.5 dark:border-gray-800 ">
                                 <div className="mb-1.5 flex flex-wrap items-center gap-2">
                                   <span className="text-[13px] font-medium text-gray-800 dark:text-gray-200">{c.authorName}</span>
                                   <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${meta.cls}`}>{t(meta.labelKey)}</span>
@@ -531,7 +531,7 @@ export default function KanbanTaskDetailPage() {
                         <dt className="flex w-16 shrink-0 items-center gap-1 text-gray-400"><Tag size={11} />{t('detail.propertyTags')}</dt>
                         <dd className="flex flex-wrap gap-1">
                           {task.tags.split(',').filter(Boolean).map((t) => (
-                            <span key={t} className="rounded bg-gray-100 px-1.5 py-0.5 text-[11px] text-gray-500 dark:bg-white/[0.06] dark:text-gray-400">{t.trim()}</span>
+                            <span key={t} className="rounded bg-[var(--region-card-soft)] px-1.5 py-0.5 text-[11px] text-gray-500 dark:text-gray-400">{t.trim()}</span>
                           ))}
                         </dd>
                       </div>

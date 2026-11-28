@@ -97,19 +97,13 @@ function ChatToolCallRow({ name, args, result, isError, running, text, label, on
         : 'text-gray-400 dark:text-gray-500'
 
   return (
-    <div className={compact ? 'min-w-0' : `overflow-hidden rounded-xl border shadow-[0_1px_2px_rgba(15,23,42,0.03)] ${
-      isError
-        ? 'border-red-200/80 bg-red-50/40 dark:border-red-400/15 dark:bg-red-500/[0.04]'
-        : isText
-          ? 'border-violet-200/70 bg-violet-50/35 dark:border-violet-400/10 dark:bg-violet-500/[0.045]'
-          : 'border-gray-200/80 bg-white/65 dark:border-white/[0.07] dark:bg-slate-900/35'
-    }`}>
+    <div className={compact ? 'min-w-0' : `overflow-hidden rounded-xl border shadow-[0_1px_2px_rgba(15,23,42,0.03)] ${ isError ? 'border-red-200/80 bg-red-50/40 dark:border-red-400/15 dark:bg-red-500/[0.04]' : isText ? 'border-violet-200/70 bg-violet-50/35 dark:border-violet-400/10 dark:bg-violet-500/[0.045]' : 'border-gray-200/80 bg-[var(--region-card-soft)] dark:border-white/[0.07] ' }`}>
       {/* 整行可点展开；内联图标用小尺寸按钮（不用 IconButton：它最小 28px，会把行撑到 44px） */}
       <div
         onClick={canExpand ? () => setOpen(!open) : undefined}
         className={compact
-          ? `group flex min-h-6 items-center gap-1.5 rounded px-1 py-0.5 text-left transition-colors ${canExpand ? 'cursor-pointer hover:bg-gray-50/80 dark:hover:bg-white/[0.025]' : ''}`
-          : `group flex min-h-11 items-center gap-2 px-2.5 py-2 text-left transition-colors ${canExpand ? 'cursor-pointer hover:bg-white/55 dark:hover:bg-white/[0.025]' : ''}`}
+          ? `group flex min-h-6 items-center gap-1.5 rounded px-1 py-0.5 text-left transition-colors ${canExpand ? 'cursor-pointer hover:bg-[var(--region-card-soft)] dark:hover:bg-white/[0.025]' : ''}`
+          : `group flex min-h-11 items-center gap-2 px-2.5 py-2 text-left transition-colors ${canExpand ? 'cursor-pointer hover:bg-[var(--region-card-soft)] dark:hover:bg-white/[0.025]' : ''}`}
       >
         {canExpand ? (
           <SurfaceButton
@@ -168,7 +162,7 @@ function ChatToolCallRow({ name, args, result, isError, running, text, label, on
       {open && canExpand && (
         <div className={compact
           ? 'ml-5 border-l border-gray-200/80 py-1 pl-3 dark:border-white/[0.08]'
-          : 'border-t border-gray-200/70 bg-white/70 px-3.5 py-3 dark:border-white/[0.06] dark:bg-gray-950/30'}>
+          : 'border-t border-gray-200/70 bg-[var(--region-card-solid)] px-3.5 py-3 dark:border-white/[0.06] '}>
           {isText ? (
             <pre className={`max-h-72 overflow-auto whitespace-pre-wrap break-words font-sans text-xs text-gray-600 dark:text-gray-300 ${compact ? 'leading-5' : 'leading-6'}`}>
               {text}
@@ -176,16 +170,12 @@ function ChatToolCallRow({ name, args, result, isError, running, text, label, on
           ) : (
             <>
               {showArgs && (
-                <pre className="overflow-x-auto whitespace-pre-wrap break-all rounded-lg bg-gray-50/80 p-2.5 font-mono text-[11px] leading-5 text-gray-600 dark:bg-black/15 dark:text-gray-300">
+                <pre className="overflow-x-auto whitespace-pre-wrap break-all rounded-lg bg-[var(--region-card-soft)] p-2.5 font-mono text-[11px] leading-5 text-gray-600 dark:text-gray-300">
                   {(() => { try { return JSON.stringify(JSON.parse(args), null, 2) } catch { return args } })()}
                 </pre>
               )}
               {showResult && (
-                <pre className={`${showArgs ? 'mt-2' : ''} max-h-56 overflow-auto whitespace-pre-wrap rounded-lg p-2.5 font-mono text-[11px] leading-5 ${
-                  isError
-                    ? 'bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-300'
-                    : 'bg-gray-50/80 text-gray-600 dark:bg-black/15 dark:text-gray-300'
-                }`}>
+                <pre className={`${showArgs ? 'mt-2' : ''} max-h-56 overflow-auto whitespace-pre-wrap rounded-lg p-2.5 font-mono text-[11px] leading-5 ${ isError ? 'bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-300' : 'bg-[var(--region-card-soft)] text-gray-600 dark:text-gray-300' }`}>
                   {renderToolResult(name, result ?? '', isError)}
                 </pre>
               )}

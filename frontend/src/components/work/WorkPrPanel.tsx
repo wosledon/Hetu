@@ -282,7 +282,7 @@ export default function WorkPrPanel({ projectId, sessionId, sessionTitle, onHand
             </p>
             <p className="text-[11px] text-amber-700/90 dark:text-amber-300/80">{t('pr.installHint', { host: status.host === 'gitlab' ? 'GitLab' : 'GitHub' })}</p>
             {status.installHint && (
-              <div className="flex items-center gap-2 rounded-lg bg-white/70 px-2 py-1.5 dark:bg-white/[0.04]">
+              <div className="flex items-center gap-2 rounded-lg bg-[var(--region-card-solid)] px-2 py-1.5 ">
                 <code className="min-w-0 flex-1 truncate font-mono text-[11px] text-gray-700 dark:text-gray-200">{status.installHint}</code>
                 <IconButton variant="ghost" tone="gray" className="shrink-0 rounded p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06]" label={t('pr.copy')} onClick={copyInstall}
                   title={t('pr.copy')}
@@ -452,7 +452,7 @@ export default function WorkPrPanel({ projectId, sessionId, sessionTitle, onHand
                   {handoff.isPending ? <Loader2 size={11} className="mr-1 inline animate-spin" /> : <Sparkles size={11} className="mr-1 inline" />}
                   {handoff.isPending ? t('pr.handoffLoading') : (onHandoffToAgent ? t('pr.handoff') : t('pr.handoffAndCopy'))}
                 </Button>
-                <IconButton variant="ghost" tone="gray" className="shrink-0 rounded p-1 text-blue-600 transition-colors hover:bg-white/70 disabled:opacity-50 dark:text-blue-300 dark:hover:bg-white/[0.06]"
+                <IconButton variant="ghost" tone="gray" className="shrink-0 rounded p-1 text-blue-600 transition-colors hover:bg-[var(--region-card-solid)] disabled:opacity-50 dark:text-blue-300 dark:hover:bg-white/[0.06]"
                   label={t('pr.copyPrompt')} onClick={() => handoff.mutate('copy')}
                   disabled={handoff.isPending}
                   title={t('pr.copyPrompt')}

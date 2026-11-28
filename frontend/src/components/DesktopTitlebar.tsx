@@ -24,7 +24,7 @@ export default function DesktopTitlebar() {
   }
 
   return (
-    <header className="desktop-titlebar flex h-9 shrink-0 select-none items-center border-b border-gray-200/70 bg-white/80 dark:border-white/[0.07] dark:bg-gray-900/80">
+    <header className="desktop-titlebar flex h-9 shrink-0 select-none items-center border-b border-gray-200/70 bg-[var(--region-card-solid)] dark:border-white/[0.07] ">
       <div className="flex h-full shrink-0 items-center px-2">
         {navStyle === 'verticalList' && (
           <SurfaceButton

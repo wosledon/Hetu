@@ -57,7 +57,7 @@ function DirBrowser({
   const data = listing.data
 
   return (
-    <div className="mt-2 rounded-xl border border-gray-200 bg-gray-50/70 p-2 dark:border-gray-700 dark:bg-gray-800/40">
+    <div className="mt-2 rounded-xl border border-gray-200 bg-[var(--region-card-soft)] p-2 dark:border-gray-700 ">
       <div className="mb-1.5 flex items-center gap-1.5">
         <FolderOpen size={13} className="shrink-0 text-gray-400" />
         <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-gray-600 dark:text-gray-300" title={data?.current || ''}>
@@ -914,7 +914,7 @@ const WorkSidebar = forwardRef<WorkSidebarHandle, WorkSidebarProps>(function Wor
       >
         <RunningIndicator size={13} />
         <span className="min-w-0 flex-1 truncate">{t('sidebar.runningOnly')}</span>
-        <span className="shrink-0 rounded-full bg-white/80 px-1.5 py-0.5 text-[10px] tabular-nums dark:bg-white/10">
+        <span className="shrink-0 rounded-full bg-[var(--region-card-solid)] px-1.5 py-0.5 text-[10px] tabular-nums dark:bg-white/10">
           {runningSessionIds.size}
         </span>
       </SurfaceButton>

@@ -34,7 +34,7 @@ export default function ToolCallGroup({ items, streaming = false, renderItem }: 
       <SurfaceButton
         onClick={() => setOpen(!open)}
         aria-expanded={open}
-        className="flex min-h-6 w-full items-center gap-1.5 rounded px-1 py-0.5 text-left transition-colors hover:bg-gray-50/80 dark:hover:bg-white/[0.025]"
+        className="flex min-h-6 w-full items-center gap-1.5 rounded px-1 py-0.5 text-left transition-colors hover:bg-[var(--region-card-soft)] dark:hover:bg-white/[0.025]"
       >
         <span className="flex h-5 w-5 shrink-0 items-center justify-center text-gray-400">
           {open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}

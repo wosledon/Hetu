@@ -129,7 +129,7 @@ function ProxyCard({
           <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('proxy.modelKey')}</label>
           <span className="text-[11px] text-gray-400 dark:text-gray-500">{t('proxy.modelKeyHint')}</span>
         </div>
-        <div className="flex items-center gap-2 rounded-xl border border-gray-200/70 bg-white/65 dark:border-white/[0.07] dark:bg-slate-900/35 px-3.5 py-2.5 transition-all focus-within:border-blue-400 dark:border-gray-800 dark:bg-white/[0.03]">
+        <div className="flex items-center gap-2 rounded-xl border border-gray-200/70 bg-[var(--region-card-soft)] dark:border-white/[0.07] px-3.5 py-2.5 transition-all focus-within:border-blue-400 dark:border-gray-800 ">
           <Braces size={14} className="shrink-0 text-gray-400" />
           <Input
             variant="bare"
@@ -301,7 +301,7 @@ export default function ProxyPage() {
               </div>
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 {endpoints.map((e) => (
-                  <div key={e.label} className="flex items-center gap-2 rounded-xl bg-gray-50/80 px-3.5 py-2.5 dark:bg-white/[0.03]">
+                  <div key={e.label} className="flex items-center gap-2 rounded-xl bg-[var(--region-card-soft)] px-3.5 py-2.5 ">
                     <div className="min-w-0 flex-1">
                       <div className="mb-0.5 text-[11px] text-gray-400 dark:text-gray-500">{e.label}</div>
                       <code className="block truncate font-mono text-xs text-gray-700 dark:text-gray-300">{e.value}</code>

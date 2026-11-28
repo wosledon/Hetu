@@ -18,7 +18,7 @@ const PROFILE_META: Record<string, { labelKey: string; cls: string }> = {
 }
 
 const RISK_META: Record<string, { labelKey: string; cls: string; Icon: typeof Eye }> = {
-  read: { labelKey: 'toolsPage.risk.read', cls: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300', Icon: Eye },
+  read: { labelKey: 'toolsPage.risk.read', cls: 'bg-[var(--region-card-soft)] text-gray-600 dark:text-gray-300', Icon: Eye },
   write: { labelKey: 'toolsPage.risk.write', cls: 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300', Icon: ShieldCheck },
   execute: { labelKey: 'toolsPage.risk.execute', cls: 'bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300', Icon: ShieldAlert },
 }
@@ -63,14 +63,14 @@ function ToolCard({ tool }: { tool: IToolCatalogItem }) {
           <p className="mt-2 line-clamp-3 min-h-[3.75rem] text-xs leading-5 text-gray-600 dark:text-gray-300">{tool.description}</p>
 
           <div className="mt-3 flex flex-wrap items-center gap-1.5">
-            <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] text-gray-500 dark:bg-white/[0.06] dark:text-gray-400">{renderToolGroup(tool.group)}</span>
+            <span className="rounded-full bg-[var(--region-card-soft)] px-2 py-0.5 text-[10px] text-gray-500 dark:text-gray-400">{renderToolGroup(tool.group)}</span>
             {tool.profiles.map((p) => {
               const meta = PROFILE_META[p]
-              const cls = meta?.cls ?? 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'
+              const cls = meta?.cls ?? 'bg-[var(--region-card-soft)] text-gray-500 dark:text-gray-400'
               return <span key={p} className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${cls}`}>{meta ? t(meta.labelKey) : p}</span>
             })}
             {tool.profiles.length === 0 && (
-              <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] text-gray-400 dark:bg-white/[0.05]">{t('toolsPage.noProfiles')}</span>
+              <span className="rounded-full bg-[var(--region-card-soft)] px-2 py-0.5 text-[10px] text-gray-400 ">{t('toolsPage.noProfiles')}</span>
             )}
           </div>
 
@@ -84,12 +84,12 @@ function ToolCard({ tool }: { tool: IToolCatalogItem }) {
               {open && (
                 <div className="mt-2 flex flex-col gap-2">
                   {tool.usageGuideline && (
-                    <div className="rounded-xl border border-gray-200/70 bg-gray-50/70 px-3 py-2.5 text-[11px] leading-5 text-gray-600 dark:border-white/[0.06] dark:bg-gray-950/40 dark:text-gray-300">
+                    <div className="rounded-xl border border-gray-200/70 bg-[var(--region-card-soft)] px-3 py-2.5 text-[11px] leading-5 text-gray-600 dark:border-white/[0.06] dark:text-gray-300">
                       {tool.usageGuideline}
                     </div>
                   )}
                   {schema && (
-                    <pre className="max-h-64 overflow-auto rounded-xl border border-gray-200/70 bg-gray-50/70 px-3 py-2.5 font-mono text-[10px] leading-5 text-gray-600 dark:border-white/[0.06] dark:bg-gray-950/40 dark:text-gray-300">
+                    <pre className="max-h-64 overflow-auto rounded-xl border border-gray-200/70 bg-[var(--region-card-soft)] px-3 py-2.5 font-mono text-[10px] leading-5 text-gray-600 dark:border-white/[0.06] dark:text-gray-300">
                       {schema}
                     </pre>
                   )}
@@ -178,7 +178,7 @@ export default function ToolsPage() {
 
       {tab === 'catalog' ? (
       <>
-      <div className="mb-5 flex flex-col gap-3 rounded-2xl border border-gray-200/70 bg-white/70 glass glass-soft p-3 dark:border-white/[0.07] dark:bg-slate-900/35">
+      <div className="mb-5 flex flex-col gap-3 rounded-2xl border border-gray-200/70 bg-[var(--region-card-solid)] glass glass-soft p-3 dark:border-white/[0.07] ">
         <SearchInput tone="blue" size="sm"
           value={keyword}
           onChange={(e) => setKeyword(e.target.value)}

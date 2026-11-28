@@ -696,9 +696,9 @@ export default function ComponentsPage() {
                 </div>
 
                 <div className="mt-5 grid gap-3 sm:grid-cols-3">
-                  <div className="rounded-lg border border-gray-200 bg-white/70 px-3 py-2.5 text-[11px] text-gray-500 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-gray-400">{t('components:foundations.radiusSm')}</div>
-                  <div className="rounded-2xl border border-gray-200 bg-white/70 px-3 py-2.5 text-[11px] text-gray-500 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-gray-400">{t('components:foundations.radiusMd')}</div>
-                  <div className="rounded-full border border-gray-200 bg-white/70 px-3 py-2.5 text-[11px] text-gray-500 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-gray-400">{t('components:foundations.radiusPill')}</div>
+                  <div className="rounded-lg border border-gray-200 bg-[var(--region-card-solid)] px-3 py-2.5 text-[11px] text-gray-500 dark:border-white/[0.08] dark:text-gray-400">{t('components:foundations.radiusSm')}</div>
+                  <div className="rounded-2xl border border-gray-200 bg-[var(--region-card-solid)] px-3 py-2.5 text-[11px] text-gray-500 dark:border-white/[0.08] dark:text-gray-400">{t('components:foundations.radiusMd')}</div>
+                  <div className="rounded-full border border-gray-200 bg-[var(--region-card-solid)] px-3 py-2.5 text-[11px] text-gray-500 dark:border-white/[0.08] dark:text-gray-400">{t('components:foundations.radiusPill')}</div>
                 </div>
 
                 <div className="mt-5 grid gap-3 sm:grid-cols-2">
@@ -944,7 +944,7 @@ export default function ComponentsPage() {
                     {treeExpanded && (
                       <>
                         <TreeRow depth={1} selected icon={<FileText size={13} className="text-blue-500" />} label="Design system" />
-                        <TreeRow depth={1} icon={<FileText size={13} className="text-gray-400" />} label="Spec.md" subtitle="12 KB · updated 2h ago" badge={<span className="rounded bg-gray-100 px-1 text-[10px] text-gray-500 dark:bg-white/[0.08] dark:text-gray-400">3</span>} />
+                        <TreeRow depth={1} icon={<FileText size={13} className="text-gray-400" />} label="Spec.md" subtitle="12 KB · updated 2h ago" badge={<span className="rounded bg-[var(--region-card-soft)] px-1 text-[10px] text-gray-500 dark:text-gray-400">3</span>} />
                       </>
                     )}
                     <TreeRow depth={1} tone="emerald" selected icon={<FileText size={13} className="text-emerald-500" />} label={t('components:tree.tone')} />

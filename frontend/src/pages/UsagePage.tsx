@@ -321,7 +321,7 @@ const bySource = stats?.bySource ?? []
               </div>
 
               {/* 活跃热力：第二行整行 */}
-              <Card className="border-gray-200/70 bg-white/70">
+              <Card className="border-gray-200/70 bg-[var(--region-card-solid)]">
                 <div className="mb-4 flex items-center justify-between">
                   <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-gray-200">
                     <Calendar size={15} className="text-emerald-500" />
@@ -344,7 +344,7 @@ const bySource = stats?.bySource ?? []
               </Card>
 
               {/* 全局时间选择 + 指标切换（作用于热力图下方的趋势 / 模型分布 / 调用来源） */}
-              <div className="flex flex-wrap items-center justify-end gap-2 rounded-2xl border border-gray-200/70 bg-white/70 glass glass-soft p-1.5 dark:border-white/[0.07] dark:bg-slate-900/35">
+              <div className="flex flex-wrap items-center justify-end gap-2 rounded-2xl border border-gray-200/70 bg-[var(--region-card-solid)] glass glass-soft p-1.5 dark:border-white/[0.07] ">
                 <PillTabs
                   value={dateRange}
                   onSelect={(key) => setDateRange(key as typeof dateRange)}
@@ -382,7 +382,7 @@ const bySource = stats?.bySource ?? []
                     </Card>
 
                     {/* 模型分布 */}
-                    <Card className="border-gray-200/70 bg-white/70">
+                    <Card className="border-gray-200/70 bg-[var(--region-card-solid)]">
                       <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-gray-200">
                         <Cpu size={15} className="text-violet-500" />
                         {t('usage.modelDistribution')}
@@ -468,7 +468,7 @@ function UsageLogs() {
     'flex items-center gap-1 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.06]'
 
   return (
-    <Card className="border-gray-200/70 bg-white/70">
+    <Card className="border-gray-200/70 bg-[var(--region-card-solid)]">
       <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-gray-200">
         <CalendarClock size={15} className="text-blue-500" />
         {t('usage.logs')}
@@ -498,7 +498,7 @@ function UsageLogs() {
       {isLoading ? (
         <div className="space-y-2">
           {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="h-9 animate-pulse rounded-lg bg-gray-100 dark:bg-white/[0.06]" />
+            <div key={i} className="h-9 animate-pulse rounded-lg bg-[var(--region-card-soft)] " />
           ))}
         </div>
       ) : logs.length === 0 ? (
@@ -540,14 +540,14 @@ function UsageLogs() {
                     return (
                       <tr
                         key={log.messageId}
-                        className="border-b border-gray-100 odd:bg-white even:bg-gray-50/60 hover:bg-blue-50/60 last:border-0 dark:border-gray-800 dark:odd:bg-transparent dark:even:bg-white/[0.02] dark:hover:bg-white/[0.04]"
+                        className="border-b border-gray-100 odd:bg-white even:bg-[var(--region-card-soft)] hover:bg-blue-50/60 last:border-0 dark:border-gray-800 dark:odd:bg-transparent dark:even:bg-white/[0.02] dark:hover:bg-white/[0.04]"
                       >
                         <td className="whitespace-nowrap px-3 py-2 tabular-nums">
                           <div className="text-gray-600 dark:text-gray-300">{fmtTime(log.createdAt)}</div>
                           <div className="text-[10px] text-gray-400 dark:text-gray-500">{fmtDate(log.createdAt)}</div>
                         </td>
                         <td className="whitespace-nowrap px-3 py-2">
-                          <span className="rounded-md bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-600 dark:bg-white/10 dark:text-gray-300">
+                          <span className="rounded-md bg-[var(--region-card-soft)] px-2 py-0.5 text-[10px] font-medium text-gray-600 dark:bg-white/10 dark:text-gray-300">
                             {log.sourceName || log.source}
                           </span>
                         </td>
@@ -557,11 +557,7 @@ function UsageLogs() {
                               <SurfaceButton
                                 onClick={() => changeTurn(turnId === turnFilter ? '' : turnId)}
                                 title={t('usage.iterationHint')}
-                                className={`rounded px-1.5 py-0.5 text-[10px] font-medium tabular-nums transition-colors ${
-                                  turnId === turnFilter
-                                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-500/25 dark:text-blue-200'
-                                    : 'bg-gray-100 text-gray-600 hover:bg-blue-50 hover:text-blue-600 dark:bg-white/10 dark:text-gray-300 dark:hover:bg-blue-500/15'
-                                }`}
+                                className={`rounded px-1.5 py-0.5 text-[10px] font-medium tabular-nums transition-colors ${ turnId === turnFilter ? 'bg-blue-100 text-blue-700 dark:bg-blue-500/25 dark:text-blue-200' : 'bg-[var(--region-card-soft)] text-gray-600 hover:bg-blue-50 hover:text-blue-600 dark:bg-white/10 dark:text-gray-300 dark:hover:bg-blue-500/15' }`}
                               >
                                 {t('usage.iteration', { n: log.iteration })}
                               </SurfaceButton>
@@ -587,13 +583,7 @@ function UsageLogs() {
                           ) : (
                             <span
                               title={t('usage.ratioTooltip', { before: log.inputTokens, after: log.compressedTokens, percent: (ratio * 100).toFixed(1) })}
-                              className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${
-                                ratio >= 0.5
-                                  ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400'
-                                  : ratio >= 0.2
-                                    ? 'bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400'
-                                    : 'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-gray-400'
-                              }`}
+                              className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${ ratio >= 0.5 ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400' : ratio >= 0.2 ? 'bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400' : 'bg-[var(--region-card-soft)] text-gray-500 dark:bg-white/10 dark:text-gray-400' }`}
                             >
                               {(ratio * 100).toFixed(1)}%
                             </span>
@@ -609,7 +599,7 @@ function UsageLogs() {
                             ? 'bg-teal-50 text-teal-600 dark:bg-teal-950/40 dark:text-teal-400'
                             : hit > 0
                               ? 'bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400'
-                              : 'bg-gray-100 text-gray-500 dark:bg-white/10 dark:text-gray-400'
+                              : 'bg-[var(--region-card-soft)] text-gray-500 dark:bg-white/10 dark:text-gray-400'
                           return (
                             <td className="whitespace-nowrap px-3 py-2 text-right" title={t('usage.tooltipCached', { value: cached ?? 0 })}>
                               <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium tabular-nums ${tone}`}>

@@ -216,7 +216,7 @@ export default function AiSettings() {
       {/* Empty State */}
       {providers.length === 0 && !showProviderForm && (
         <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-200 py-12 dark:border-white/[0.08]">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gray-100 dark:bg-white/[0.06]">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--region-card-soft)] ">
             <Bot size={24} className="text-gray-400" />
           </div>
           <p className="mt-3 text-sm font-medium text-gray-500 dark:text-gray-400">{t('ai.noProviders')}</p>
@@ -283,7 +283,7 @@ export default function AiSettings() {
                     <div className="flex items-center gap-3 min-w-0">
                       <span className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{model.displayName}</span>
                       <span className="text-xs text-gray-400 dark:text-gray-500 shrink-0">{model.modelId}</span>
-                      <span className="inline-flex shrink-0 items-center rounded-md bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-500 dark:bg-white/[0.06] dark:text-gray-400">
+                      <span className="inline-flex shrink-0 items-center rounded-md bg-[var(--region-card-soft)] px-1.5 py-0.5 text-[10px] font-medium text-gray-500 dark:text-gray-400">
                         {model.purpose === 'chat' ? t('ai.purposeChat') : model.purpose === 'embedding' ? 'Embedding' : model.purpose}
                       </span>
                       {model.supportsVision && (
@@ -308,7 +308,7 @@ export default function AiSettings() {
                         </span>
                       )}
                       {!model.isVisible && (
-                        <span className="inline-flex shrink-0 items-center rounded-md bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-400 dark:bg-white/[0.06] dark:text-gray-500">
+                        <span className="inline-flex shrink-0 items-center rounded-md bg-[var(--region-card-soft)] px-1.5 py-0.5 text-[10px] font-medium text-gray-400 dark:text-gray-500">
                           {t('ai.hidden')}
                         </span>
                       )}

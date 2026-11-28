@@ -88,7 +88,7 @@ const tooltipSideOptions = [
 const tooltipPreviewStyles: Record<TooltipStyle, string> = {
   card: 'rounded-md border border-gray-200/80 bg-white text-gray-700 shadow-sm dark:border-white/[0.08] dark:bg-gray-800 dark:text-gray-100',
   solid: 'rounded bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900',
-  outline: 'rounded border border-gray-300/80 bg-white/70 text-gray-600 dark:border-white/15 dark:bg-gray-900/70 dark:text-gray-200',
+  outline: 'rounded border border-gray-300/80 bg-[var(--region-card-solid)] text-gray-600 dark:border-white/15 dark:text-gray-200',
 }
 
 /** 正文字号预设 → 文案 key（避免用数字做 i18n key） */
@@ -498,7 +498,7 @@ function AppSettingsSection({
       </div>
 
       <div className="grid gap-4 xl:grid-cols-2">
-        <section className="rounded-xl border border-gray-200 bg-gray-50/70 p-4 dark:border-white/10 dark:bg-white/[0.03]">
+        <section className="rounded-xl border border-gray-200 bg-[var(--region-card-soft)] p-4 dark:border-white/10 ">
           <label htmlFor="settings-app-name" className="block text-sm font-medium text-gray-800 dark:text-gray-200">{t('app.displayName')}</label>
           <div className="mt-3 flex items-center gap-2">
             <Input tone="blue" size="lg" glass={false}
@@ -507,7 +507,7 @@ function AppSettingsSection({
               value={appName}
               onChange={(e) => onAppNameChange(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && onAppNameSave()}
-              className="flex-1 dark:border-white/10 dark:bg-gray-800 dark:text-gray-100 dark:focus:bg-gray-800"
+              className="flex-1 dark:border-white/10 dark:text-gray-100"
               placeholder={t('app.displayNamePlaceholder')}
             />
             <Button variant="primary" tone="blue" className="shrink-0 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm shadow-blue-600/20 transition-all hover:bg-blue-700 active:scale-[0.98]" onClick={onAppNameSave}>
@@ -517,7 +517,7 @@ function AppSettingsSection({
           <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">{t('app.displayNameHint')}</p>
         </section>
 
-        <section className="rounded-xl border border-gray-200 bg-gray-50/70 p-4 dark:border-white/10 dark:bg-white/[0.03]">
+        <section className="rounded-xl border border-gray-200 bg-[var(--region-card-soft)] p-4 dark:border-white/10 ">
           <label htmlFor="settings-assistant-name" className="block text-sm font-medium text-gray-800 dark:text-gray-200">{t('app.assistantName')}</label>
           <div className="mt-3 flex items-center gap-2">
             <Input tone="blue" size="lg" glass={false}
@@ -526,7 +526,7 @@ function AppSettingsSection({
               value={assistantName}
               onChange={(e) => onAssistantNameChange(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && onAssistantNameSave()}
-              className="flex-1 dark:border-white/10 dark:bg-gray-800 dark:text-gray-100 dark:focus:bg-gray-800"
+              className="flex-1 dark:border-white/10 dark:text-gray-100"
               placeholder={t('app.assistantNamePlaceholder')}
             />
             <Button variant="primary" tone="blue" className="shrink-0 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm shadow-blue-600/20 transition-all hover:bg-blue-700 active:scale-[0.98]" onClick={onAssistantNameSave}>
@@ -537,14 +537,14 @@ function AppSettingsSection({
         </section>
       </div>
 
-      <section className="rounded-xl border border-gray-200 bg-gray-50/70 p-4 dark:border-white/10 dark:bg-white/[0.03]">
+      <section className="rounded-xl border border-gray-200 bg-[var(--region-card-soft)] p-4 dark:border-white/10 ">
         <label htmlFor="settings-assistant-persona" className="block text-sm font-medium text-gray-800 dark:text-gray-200">{t('app.persona')}</label>
         <Textarea tone="blue" size="lg" glass={false}
           id="settings-assistant-persona"
           value={assistantPersona}
           onChange={(e) => onAssistantPersonaChange(e.target.value)}
           rows={4}
-          className="mt-3 w-full dark:border-white/10 dark:bg-gray-800 dark:text-gray-100 dark:focus:bg-gray-800"
+          className="mt-3 w-full dark:border-white/10 dark:text-gray-100"
           placeholder={t('app.personaPlaceholder')}
         />
         <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -570,11 +570,7 @@ function AppSettingsSection({
                 type="button"
                 aria-pressed={isActive}
                 onClick={() => onLanguageChange(opt.key)}
-                className={`group flex items-center gap-3 rounded-xl border px-4 py-3.5 text-left transition-colors ${
-                  isActive
-                    ? 'border-blue-500 bg-blue-50 dark:border-blue-400/60 dark:bg-blue-500/10'
-                    : 'border-gray-200 bg-gray-50/70 hover:border-blue-300 hover:bg-blue-50 dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-blue-400/40 dark:hover:bg-blue-500/[0.06]'
-                }`}
+                className={`group flex items-center gap-3 rounded-xl border px-4 py-3.5 text-left transition-colors ${ isActive ? 'border-blue-500 bg-blue-50 dark:border-blue-400/60 dark:bg-blue-500/10' : 'border-gray-200 bg-[var(--region-card-soft)] hover:border-blue-300 hover:bg-blue-50 dark:border-white/10 dark:hover:border-blue-400/40 dark:hover:bg-blue-500/[0.06]' }`}
               >
                 <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[13px] font-semibold ${
                   isActive
@@ -603,7 +599,7 @@ function AppSettingsSection({
           <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">{t('app.trayTitle')}</h3>
           <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">{t('app.traySubtitle')}</p>
         </div>
-        <div className="flex items-start justify-between gap-4 rounded-xl border border-gray-100 bg-gray-50/50 p-4 dark:border-white/[0.06] dark:bg-white/[0.02]">
+        <div className="flex items-start justify-between gap-4 rounded-xl border border-gray-100 bg-[var(--region-card-soft)] p-4 dark:border-white/[0.06] ">
           <div className="flex-1">
             <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('app.closeToTray')}</label>
             <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
@@ -689,11 +685,7 @@ function AppearanceSettingsSection({
                     : 'border-gray-200/80 hover:border-blue-200 hover:bg-blue-50/60 dark:border-white/[0.08] dark:hover:border-blue-500/30 dark:hover:bg-blue-950/20'
                 }`}
               >
-                <div className={`flex h-9 w-9 items-center justify-center rounded-lg transition-colors ${
-                  isActive
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-gray-100 text-gray-500 group-hover:bg-gray-200 dark:bg-white/[0.06] dark:text-gray-400'
-                }`}>
+                <div className={`flex h-9 w-9 items-center justify-center rounded-lg transition-colors ${ isActive ? 'bg-blue-500 text-white' : 'bg-[var(--region-card-soft)] text-gray-500 group-hover:bg-gray-200 dark:text-gray-400' }`}>
                   <Icon size={18} />
                 </div>
                 <div className="text-center">
@@ -828,7 +820,7 @@ function AppearanceSettingsSection({
           <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">{t('appearance.glassTitle')}</h3>
           <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">{t('appearance.glassSubtitle')}</p>
         </div>
-        <div className="flex items-start justify-between gap-4 rounded-xl border border-gray-100 bg-gray-50/50 p-4 dark:border-white/[0.06] dark:bg-white/[0.02]">
+        <div className="flex items-start justify-between gap-4 rounded-xl border border-gray-100 bg-[var(--region-card-soft)] p-4 dark:border-white/[0.06] ">
           <div className="flex-1">
             <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('appearance.glassLabel')}</label>
             <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">{t('appearance.glassHint')}</p>
@@ -1127,11 +1119,7 @@ function NavigationSettingsSection({
                     : 'border-gray-200/80 hover:border-blue-200 hover:bg-blue-50/60 dark:border-white/[0.08] dark:hover:border-blue-500/30 dark:hover:bg-blue-950/20'
                 }`}
               >
-                <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors ${
-                  isActive
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-gray-100 text-gray-500 group-hover:bg-gray-200 dark:bg-white/[0.06] dark:text-gray-400'
-                }`}>
+                <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors ${ isActive ? 'bg-blue-500 text-white' : 'bg-[var(--region-card-soft)] text-gray-500 group-hover:bg-gray-200 dark:text-gray-400' }`}>
                   <Icon size={18} />
                 </div>
                 <div className="min-w-0 text-left">
@@ -1169,11 +1157,7 @@ function NavigationSettingsSection({
                     : 'border-gray-200/80 hover:border-blue-200 hover:bg-blue-50/60 dark:border-white/[0.08] dark:hover:border-blue-500/30 dark:hover:bg-blue-950/20'
                 }`}
               >
-                <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors ${
-                  isActive
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-gray-100 text-gray-500 group-hover:bg-gray-200 dark:bg-white/[0.06] dark:text-gray-400'
-                }`}>
+                <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors ${ isActive ? 'bg-blue-500 text-white' : 'bg-[var(--region-card-soft)] text-gray-500 group-hover:bg-gray-200 dark:text-gray-400' }`}>
                   <Icon size={18} />
                 </div>
                 <div className="min-w-0 text-left">
@@ -1198,7 +1182,7 @@ function NavigationSettingsSection({
       <div className="space-y-5">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="text-xs text-gray-400 dark:text-gray-500">{t('navigation.zoneDragHint')}</p>
-          <Button variant="soft" tone="gray" className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-gray-50/50 px-3 py-1.5 text-xs text-gray-600 transition-all hover:border-blue-300 hover:text-blue-600 dark:border-white/[0.08] dark:bg-white/[0.02] dark:text-gray-400" onClick={onResetNav}>
+          <Button variant="soft" tone="gray" className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-[var(--region-card-soft)] px-3 py-1.5 text-xs text-gray-600 transition-all hover:border-blue-300 hover:text-blue-600 dark:border-white/[0.08] dark:text-gray-400" onClick={onResetNav}>
             <RotateCcw size={13} />
             {t('navigation.zoneReset')}
           </Button>
@@ -1340,7 +1324,7 @@ function NavZoneRow({
         onDragOverItem(zone, e.clientY > rect.top + rect.height / 2 ? index + 1 : index)
       }}
       onDrop={(e) => { e.preventDefault(); e.stopPropagation(); onDropItem(zone, index) }}
-      className={`flex items-center gap-2.5 rounded-lg border bg-white px-3 py-2 transition-colors dark:bg-gray-900 ${
+      className={`flex items-center gap-2.5 rounded-lg border bg-[var(--region-card-soft)] px-3 py-2 transition-colors ${
         isDragging ? 'border-blue-300 opacity-40 dark:border-blue-500/50' : 'border-gray-100 dark:border-white/[0.06]'
       } ${isDropTarget ? 'border-t-2 border-t-blue-500' : ''}`}
     >
@@ -1459,7 +1443,7 @@ function DefaultModelsSection({
           <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">{t('models.graphTitle')}</h3>
           <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">{t('models.graphSubtitle')}</p>
         </div>
-        <div className="flex items-start justify-between gap-4 rounded-xl border border-gray-100 bg-gray-50/50 p-4 dark:border-white/[0.06] dark:bg-white/[0.02]">
+        <div className="flex items-start justify-between gap-4 rounded-xl border border-gray-100 bg-[var(--region-card-soft)] p-4 dark:border-white/[0.06] ">
           <div className="flex-1">
             <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('models.graphAutoExtract')}</label>
             <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
@@ -1492,7 +1476,7 @@ function DefaultModelsSection({
           <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">{t('models.embeddingTitle')}</h3>
           <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">{t('models.embeddingSubtitle')}</p>
         </div>
-        <div className="flex items-start justify-between gap-4 rounded-xl border border-gray-100 bg-gray-50/50 p-4 dark:border-white/[0.06] dark:bg-white/[0.02]">
+        <div className="flex items-start justify-between gap-4 rounded-xl border border-gray-100 bg-[var(--region-card-soft)] p-4 dark:border-white/[0.06] ">
           <div className="flex-1">
             <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('models.autoEmbedding')}</label>
             <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
@@ -1555,7 +1539,7 @@ function DefaultModelSelect({
   const { t } = useTranslation('settings')
   const placeholderText = placeholder ?? t('models.notSet')
   return (
-    <div className="flex flex-col gap-3 rounded-xl border border-gray-100 bg-gray-50/50 p-4 sm:flex-row sm:items-start sm:justify-between sm:gap-4 dark:border-white/[0.06] dark:bg-white/[0.02]">
+    <div className="flex flex-col gap-3 rounded-xl border border-gray-100 bg-[var(--region-card-soft)] p-4 sm:flex-row sm:items-start sm:justify-between sm:gap-4 dark:border-white/[0.06] ">
       <div className="flex-1">
         <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{label}</label>
         <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">{description}</p>

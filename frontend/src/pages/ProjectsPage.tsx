@@ -234,7 +234,7 @@ export default function ProjectsPage() {
 
         <div className="flex min-w-0 flex-1 flex-col">
           {/* 页头 */}
-          <div className="flex shrink-0 flex-wrap items-center gap-3 border-b border-gray-200/80 bg-white/35 px-6 py-4 dark:border-white/[0.07] dark:bg-slate-950/20">
+          <div className="flex shrink-0 flex-wrap items-center gap-3 border-b border-gray-200/80 bg-[var(--region-content)] px-6 py-4 dark:border-white/[0.07] ">
             <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-indigo-200/70 bg-indigo-50 text-indigo-600 shadow-sm dark:border-indigo-400/15 dark:bg-indigo-500/10 dark:text-indigo-300">
               <FolderInput size={20} />
             </div>
@@ -253,7 +253,7 @@ export default function ProjectsPage() {
                   className="w-full"
                 />
               </div>
-              <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 rounded-xl border border-gray-200/80 bg-white/80 px-3.5 py-1.5 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300" onClick={() => setGroupManagerOpen(true)}>
+              <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 rounded-xl border border-gray-200/80 bg-[var(--region-card-solid)] px-3.5 py-1.5 text-[13px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300" onClick={() => setGroupManagerOpen(true)}>
                 <Settings2 size={14} />
                 {t('page.manageGroups')}
               </Button>
@@ -293,12 +293,12 @@ export default function ProjectsPage() {
             {projectsPending || groupsPending ? (
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3" aria-label={t('common:loading')}>
                 {Array.from({ length: 6 }, (_, index) => (
-                  <div key={index} className="h-48 animate-pulse rounded-2xl border border-gray-200/70 bg-white/50 p-4 dark:border-white/[0.07] dark:bg-slate-900/25">
+                  <div key={index} className="h-48 animate-pulse rounded-2xl border border-gray-200/70 bg-[var(--region-card-soft)] p-4 dark:border-white/[0.07]">
                     <div className="flex items-center gap-3">
                       <div className="h-10 w-10 rounded-xl bg-gray-200/80 dark:bg-white/[0.07]" />
                       <div className="flex-1 space-y-2">
                         <div className="h-3.5 w-2/5 rounded bg-gray-200/80 dark:bg-white/[0.07]" />
-                        <div className="h-2.5 w-3/5 rounded bg-gray-100 dark:bg-white/[0.04]" />
+                        <div className="h-2.5 w-3/5 rounded bg-[var(--region-card-soft)] " />
                       </div>
                     </div>
                   </div>
@@ -335,7 +335,7 @@ export default function ProjectsPage() {
                     {section.name && (
                       <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-200">
                         {section.name}
-                        <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] font-normal tabular-nums text-gray-400 dark:bg-white/[0.05]">{section.projects.length}</span>
+                        <span className="rounded-full bg-[var(--region-card-soft)] px-1.5 py-0.5 text-[10px] font-normal tabular-nums text-gray-400 ">{section.projects.length}</span>
                       </h2>
                     )}
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -368,11 +368,7 @@ export default function ProjectsPage() {
                                   {project.name}
                                 </span>
                                 {project.isPinned && <Pin size={11} className="shrink-0 text-amber-400" />}
-                                <span className={`flex shrink-0 items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
-                                  project.projectType === 'Ssh'
-                                    ? 'bg-violet-50 text-violet-600 dark:bg-violet-950/40 dark:text-violet-300'
-                                    : 'bg-gray-100 text-gray-500 dark:bg-white/[0.06] dark:text-gray-400'
-                                }`}>
+                                <span className={`flex shrink-0 items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${ project.projectType === 'Ssh' ? 'bg-violet-50 text-violet-600 dark:bg-violet-950/40 dark:text-violet-300' : 'bg-[var(--region-card-soft)] text-gray-500 dark:text-gray-400' }`}>
                                   {project.projectType === 'Ssh' ? <Server size={9} /> : <HardDrive size={9} />}
                                   {project.projectType === 'Ssh' ? 'SSH' : t('page.typeLocal')}
                                 </span>
@@ -409,12 +405,12 @@ export default function ProjectsPage() {
                               </span>
                             )}
                             {project.tags.slice(0, 3).map((tag) => (
-                              <span key={tag} className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] text-gray-500 dark:bg-white/[0.06] dark:text-gray-400">
+                              <span key={tag} className="rounded-full bg-[var(--region-card-soft)] px-2 py-0.5 text-[10px] text-gray-500 dark:text-gray-400">
                                 {tag}
                               </span>
                             ))}
                             {project.tags.length > 3 && (
-                              <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-400 dark:bg-white/[0.04]">+{project.tags.length - 3}</span>
+                              <span className="rounded-full bg-[var(--region-card-soft)] px-1.5 py-0.5 text-[10px] text-gray-400 ">+{project.tags.length - 3}</span>
                             )}
                           </div>
 
@@ -446,7 +442,7 @@ export default function ProjectsPage() {
                               Wiki
                             </Button>
                             {/* 管理操作：固定在卡片右上角、始终可见，不再占用操作行导致底部留空 */}
-                            <div className="absolute right-2.5 top-2.5 z-10 flex shrink-0 items-center gap-0.5 rounded-lg bg-gray-50/80 p-0.5 transition dark:bg-white/[0.04] dark:group-hover:bg-white/[0.07]">
+                            <div className="absolute right-2.5 top-2.5 z-10 flex shrink-0 items-center gap-0.5 rounded-lg bg-[var(--region-card-soft)] p-0.5 transition dark:group-hover:bg-white/[0.07]">
                               <SurfaceButton
                                 onClick={() => updateMutation.mutate({
                                   id: project.id,

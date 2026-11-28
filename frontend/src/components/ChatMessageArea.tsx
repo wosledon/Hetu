@@ -1199,11 +1199,7 @@ export default function ChatMessageArea({ topic, onTopicUpdated, projectId }: Ch
                         type="button"
                         onClick={() => void jumpToSearchResult(r.id)}
                         onMouseEnter={() => setSearchActiveIndex(index)}
-                        className={`flex w-full items-start gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors ${
-                          active
-                            ? 'bg-gray-50 dark:bg-white/[0.05]'
-                            : 'hover:bg-gray-50/70 dark:hover:bg-white/[0.035]'
-                        }`}
+                        className={`flex w-full items-start gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors ${ active ? 'bg-gray-50 ' : 'hover:bg-[var(--region-card-soft)] dark:hover:bg-white/[0.035]' }`}
                       >
                         <span className={`mt-px flex h-5 shrink-0 items-center rounded-md px-1.5 text-[10px] font-semibold ${
                           r.role === 'user'

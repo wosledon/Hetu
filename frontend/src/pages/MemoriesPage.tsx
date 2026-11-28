@@ -17,7 +17,7 @@ import { Button, Card, IconButton, Input, Modal, PageContainer, SearchInput, Tex
 
 /** 作用域元数据：模拟记忆归属层级——全局公共 / 会话私有 / 项目内 */
 const SCOPE_META: Record<MemoryScope, { icon: typeof Globe; badge: string }> = {
-  Global: { icon: Globe, badge: 'bg-gray-100 text-gray-600 dark:bg-white/[0.06] dark:text-gray-300' },
+  Global: { icon: Globe, badge: 'bg-[var(--region-card-soft)] text-gray-600 dark:text-gray-300' },
   Session: { icon: MessagesSquare, badge: 'bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-300' },
   Project: { icon: FolderInput, badge: 'bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-300' },
 }
@@ -36,7 +36,7 @@ const CATEGORY_COLORS: Record<string, string> = {
 }
 
 function getCategoryColor(category?: string): string {
-  if (!category) return 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
+  if (!category) return 'bg-[var(--region-card-soft)] text-gray-600 dark:text-gray-300'
   return CATEGORY_COLORS[category] || 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300'
 }
 
@@ -1015,7 +1015,7 @@ export default function MemoriesPage() {
                 </>
               )}
             </div>
-            <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 rounded-xl border border-gray-200/80 bg-white/80 px-3.5 py-1.5 text-[13px] font-medium text-gray-600 transition-colors hover:border-blue-300 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:border-gray-600" onClick={() => setView('sky')}
+            <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 rounded-xl border border-gray-200/80 bg-[var(--region-card-solid)] px-3.5 py-1.5 text-[13px] font-medium text-gray-600 transition-colors hover:border-blue-300 hover:text-gray-800 dark:border-gray-700 dark:text-gray-300 dark:hover:border-gray-600" onClick={() => setView('sky')}
               title={t('memories.backToSky')}>
               <Sparkles size={14} />{t('memories.starMap')}
             </Button>
@@ -1044,7 +1044,7 @@ export default function MemoriesPage() {
               </Button>
             </div>
             {dreamMsg && (
-              <p className="mt-3 animate-fade-in rounded-lg bg-white/70 px-3 py-2 text-xs text-indigo-800 dark:bg-white/[0.05] dark:text-indigo-200">
+              <p className="mt-3 animate-fade-in rounded-lg bg-[var(--region-card-solid)] px-3 py-2 text-xs text-indigo-800 dark:text-indigo-200">
                 {dreamMsg}
               </p>
             )}
@@ -1076,7 +1076,7 @@ export default function MemoriesPage() {
           </div>
 
           {/* 工具栏：分类筛选 + 排序 + 搜索 + 新建 */}
-          <div className="mb-6 flex flex-wrap items-center gap-3 rounded-2xl border border-gray-200/70 bg-white/70 glass glass-soft p-2.5 dark:border-white/[0.07] dark:bg-slate-900/35">
+          <div className="mb-6 flex flex-wrap items-center gap-3 rounded-2xl border border-gray-200/70 bg-[var(--region-card-solid)] glass glass-soft p-2.5 dark:border-white/[0.07] ">
             <div className="flex flex-wrap items-center gap-1.5">
               <SurfaceButton
                 onClick={() => setActiveCategory(null)}
@@ -1135,7 +1135,7 @@ export default function MemoriesPage() {
             </div>
           ) : sortedMemories.length === 0 ? (
             <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 py-24 text-gray-400 dark:border-gray-800 dark:text-gray-600">
-              <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-3xl bg-gray-100 dark:bg-white/[0.04]">
+              <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-3xl bg-[var(--region-card-soft)] ">
                 <Brain size={36} className="opacity-50" />
               </div>
               <p className="text-sm font-medium">

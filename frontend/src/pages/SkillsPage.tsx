@@ -15,11 +15,11 @@ const CATEGORY_COLORS: Record<string, string> = {
   通用: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
   编程: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300',
   写作: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300',
-  自定义: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
+  自定义: 'bg-[var(--region-card-soft)] text-gray-700 dark:text-gray-300',
   本地: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
 }
 
-const getCategoryColor = (c: string) => CATEGORY_COLORS[c] || 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+const getCategoryColor = (c: string) => CATEGORY_COLORS[c] || 'bg-[var(--region-card-soft)] text-gray-600 dark:text-gray-400'
 
 const defaultConfig = JSON.stringify({ promptTemplate: '请处理以下内容：\n\n{{input}}', systemPrompt: '你是智能助手。' }, null, 2)
 
@@ -147,11 +147,11 @@ export default function SkillsPage() {
                 </span>
               )}
               {isDb && (s as ISkill).isBuiltIn ? (
-                <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-400 dark:bg-white/[0.06]">{t('card.builtIn')}</span>
+                <span className="rounded-full bg-[var(--region-card-soft)] px-1.5 py-0.5 text-[10px] text-gray-400 ">{t('card.builtIn')}</span>
               ) : isLocal ? (
                 <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 dark:bg-amber-900/30">{t('card.local')}</span>
               ) : (
-                <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-500 dark:bg-white/[0.06] dark:text-gray-400">{t('card.database')}</span>
+                <span className="rounded-full bg-[var(--region-card-soft)] px-1.5 py-0.5 text-[10px] font-medium text-gray-500 dark:text-gray-400">{t('card.database')}</span>
               )}
             </div>
             <p className="mt-2 line-clamp-3 min-h-[3.75rem] text-xs leading-5 text-gray-600 dark:text-gray-300" title={s.description}>{s.description}</p>
@@ -209,7 +209,7 @@ export default function SkillsPage() {
       </div>
 
       {/* 工具栏：分类筛选 + 搜索 + 操作 */}
-      <div className="mb-5 flex flex-wrap items-center gap-2 rounded-2xl border border-gray-200/70 bg-white/70 glass glass-soft p-2.5 dark:border-white/[0.07] dark:bg-slate-900/35">
+      <div className="mb-5 flex flex-wrap items-center gap-2 rounded-2xl border border-gray-200/70 bg-[var(--region-card-solid)] glass glass-soft p-2.5 dark:border-white/[0.07] ">
         <div className="flex flex-wrap items-center gap-1">
           <SurfaceButton
             onClick={() => setActiveCategory(null)}
@@ -237,11 +237,11 @@ export default function SkillsPage() {
             className="w-full"
           />
         </div>
-        <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 rounded-xl border border-gray-200/80 bg-white/80 px-3 py-1.5 text-[12px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => setShowDirConfig(true)}>
+        <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 rounded-xl border border-gray-200/80 bg-[var(--region-card-solid)] px-3 py-1.5 text-[12px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => setShowDirConfig(true)}>
           <Settings size={14} />
           {t('skillsPage.configureDirectories')}{directories.length > 0 && <span className="text-[11px] text-gray-400">{directories.length}</span>}
         </Button>
-        <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 rounded-xl border border-gray-200/80 bg-white/80 px-3 py-1.5 text-[12px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => refetchLocal()}
+        <Button variant="secondary" pill className="flex shrink-0 items-center gap-1.5 rounded-xl border border-gray-200/80 bg-[var(--region-card-solid)] px-3 py-1.5 text-[12px] font-medium text-gray-700 transition-all hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => refetchLocal()}
           title={t('skillsPage.refreshLocalSkills')}>
           <RefreshCw size={14} />
           {t('common:refresh')}
@@ -263,7 +263,7 @@ export default function SkillsPage() {
         </div>
       ) : filteredSkills.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 py-24 text-gray-400 dark:border-gray-800 dark:text-gray-600">
-          <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-3xl bg-gray-100 dark:bg-white/[0.04]">
+          <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-3xl bg-[var(--region-card-soft)] ">
             <Zap size={36} className="opacity-50" />
           </div>
           <p className="text-sm font-medium">{t('empty.skills')}</p>
@@ -390,7 +390,7 @@ export default function SkillsPage() {
               </div>
             </div>
             <div className="flex justify-end border-t border-gray-100 px-5 py-3 dark:border-gray-700">
-              <Button variant="secondary" surface="modal" className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600" onClick={() => setShowDirConfig(false)}>
+              <Button variant="secondary" surface="modal" className="rounded-lg bg-[var(--region-card-soft)] px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200 dark:text-gray-200 dark:hover:bg-gray-600" onClick={() => setShowDirConfig(false)}>
                 {t('dir.done')}
               </Button>
             </div>

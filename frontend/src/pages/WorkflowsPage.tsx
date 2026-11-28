@@ -165,7 +165,7 @@ export default function WorkflowsPage() {
       showSidebar={false}
       mainContent={
         <PageContainer variant="fill" className="flex-col overflow-hidden">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200/80 bg-white/35 px-6 py-4 dark:border-white/[0.07] dark:bg-slate-950/20">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200/80 bg-[var(--region-content)] px-6 py-4 dark:border-white/[0.07] ">
             <div className="flex items-center gap-2">
               <GitBranch size={20} className="text-blue-500" />
               <h1 className="text-xl font-semibold tracking-tight text-gray-900 dark:text-gray-100">{t('page.title')}</h1>
@@ -179,7 +179,7 @@ export default function WorkflowsPage() {
           <div className="flex-1 overflow-y-auto p-6">
             {workflows.length === 0 ? (
               <div className="flex h-full flex-col items-center justify-center text-center">
-                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-100 dark:bg-white/[0.06]">
+                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--region-card-soft)] ">
                   <WorkflowIcon size={32} className="text-gray-400" />
                 </div>
                 <h2 className="text-lg font-semibold text-gray-700 dark:text-gray-200">{t('page.emptyTitle')}</h2>
@@ -204,7 +204,7 @@ export default function WorkflowsPage() {
                         onClick={(e) => { e.stopPropagation(); toggleMut.mutate(wf) }}
                         disabled={toggleMut.isPending}
                         title={wf.isEnabled ? t('page.clickToDisable') : t('page.clickToEnable')}
-                        className={`flex cursor-pointer items-center gap-1 rounded-full px-2 py-0.5 text-[10px] transition-all disabled:opacity-50 ${wf.isEnabled ? 'bg-green-100 text-green-600 hover:bg-green-200 dark:bg-green-500/10 dark:text-green-400 dark:hover:bg-green-500/20' : 'bg-gray-100 glass text-gray-400 hover:bg-blue-50/70 dark:bg-white/[0.06] dark:hover:bg-white/10'}`}
+                        className={`flex cursor-pointer items-center gap-1 rounded-full px-2 py-0.5 text-[10px] transition-all disabled:opacity-50 ${wf.isEnabled ? 'bg-green-100 text-green-600 hover:bg-green-200 dark:bg-green-500/10 dark:text-green-400 dark:hover:bg-green-500/20' : 'bg-[var(--region-card-soft)] glass text-gray-400 hover:bg-blue-50/70 dark:hover:bg-white/10'}`}
                       >
                         <span className={`h-1.5 w-1.5 rounded-full ${wf.isEnabled ? 'bg-green-500' : 'bg-gray-400'}`} />
                         {wf.isEnabled ? t('common:enable') : t('common:disable')}

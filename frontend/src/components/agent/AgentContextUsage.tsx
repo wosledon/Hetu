@@ -124,11 +124,11 @@ export default function AgentContextUsage({ usage, onRefresh, onCompact, compact
           ) : (
             <>
               <div className="mb-3 grid grid-cols-2 gap-2">
-                <div className="rounded-xl bg-gray-50/70 px-3 py-2 dark:bg-white/[0.035]">
+                <div className="rounded-xl bg-[var(--region-card-soft)] px-3 py-2 ">
                   <div className="text-[10px] text-gray-400">{t('contextUsage.window')}</div>
                   <div className="mt-0.5 text-xs font-semibold tabular-nums text-gray-800 dark:text-gray-100">{formatTokens(usage.window)}</div>
                 </div>
-                <div className="rounded-xl bg-gray-50/70 px-3 py-2 dark:bg-white/[0.035]">
+                <div className="rounded-xl bg-[var(--region-card-soft)] px-3 py-2 ">
                   <div className="text-[10px] text-gray-400">{t('contextUsage.used')}</div>
                   <div className="mt-0.5 text-xs font-semibold tabular-nums text-gray-800 dark:text-gray-100">{formatTokens(usage.used)}</div>
                 </div>

@@ -224,6 +224,8 @@ export interface RegionColors {
   cardSolid: string
   /** 条目卡片（tile）底色 */
   cardSoft: string
+  /** 浮层（弹窗 / 下拉 / 菜单）近不透明底色，保证可读且同色相 */
+  float: string
 }
 
 interface RegionPalettePreset {
@@ -243,6 +245,8 @@ export const REGION_PALETTES: RegionPalettePreset[] = [
       cardGlass: 'rgba(255, 255, 255, 0.50)',
       cardSolid: 'rgba(255, 255, 255, 0.92)',
       cardSoft: 'rgba(253, 254, 255, 0.82)',
+
+      float: 'rgba(252, 252, 253, 0.98)',
     },
     dark: {
       nav: 'rgba(13, 17, 25, 0.94)',
@@ -252,6 +256,8 @@ export const REGION_PALETTES: RegionPalettePreset[] = [
       cardGlass: 'rgba(255, 255, 255, 0.10)',
       cardSolid: 'rgba(32, 39, 53, 0.75)',
       cardSoft: 'rgba(255, 255, 255, 0.05)',
+
+      float: 'rgba(24, 30, 42, 0.98)',
     },
   },
   {
@@ -264,6 +270,8 @@ export const REGION_PALETTES: RegionPalettePreset[] = [
       cardGlass: 'rgba(255, 255, 255, 0.42)',
       cardSolid: 'rgba(255, 255, 255, 0.86)',
       cardSoft: 'rgba(250, 253, 255, 0.72)',
+
+      float: 'rgba(242, 247, 255, 0.98)',
     },
     dark: {
       nav: 'rgba(13, 22, 42, 0.90)',
@@ -273,6 +281,8 @@ export const REGION_PALETTES: RegionPalettePreset[] = [
       cardGlass: 'rgba(36, 48, 76, 0.28)',
       cardSolid: 'rgba(28, 40, 64, 0.62)',
       cardSoft: 'rgba(36, 48, 76, 0.20)',
+
+      float: 'rgba(19, 29, 49, 0.98)',
     },
   },
   {
@@ -285,6 +295,8 @@ export const REGION_PALETTES: RegionPalettePreset[] = [
       cardGlass: 'rgba(255, 252, 246, 0.44)',
       cardSolid: 'rgba(255, 252, 246, 0.86)',
       cardSoft: 'rgba(253, 248, 240, 0.74)',
+
+      float: 'rgba(255, 251, 245, 0.98)',
     },
     dark: {
       nav: 'rgba(38, 31, 20, 0.90)',
@@ -294,6 +306,8 @@ export const REGION_PALETTES: RegionPalettePreset[] = [
       cardGlass: 'rgba(60, 49, 34, 0.28)',
       cardSolid: 'rgba(52, 43, 30, 0.62)',
       cardSoft: 'rgba(60, 49, 34, 0.20)',
+
+      float: 'rgba(40, 34, 24, 0.98)',
     },
   },
   {
@@ -306,6 +320,8 @@ export const REGION_PALETTES: RegionPalettePreset[] = [
       cardGlass: 'rgba(255, 255, 255, 0.42)',
       cardSolid: 'rgba(250, 254, 252, 0.86)',
       cardSoft: 'rgba(245, 251, 247, 0.74)',
+
+      float: 'rgba(247, 252, 249, 0.98)',
     },
     dark: {
       nav: 'rgba(13, 28, 20, 0.90)',
@@ -315,6 +331,8 @@ export const REGION_PALETTES: RegionPalettePreset[] = [
       cardGlass: 'rgba(36, 56, 45, 0.28)',
       cardSolid: 'rgba(29, 46, 37, 0.62)',
       cardSoft: 'rgba(36, 56, 45, 0.20)',
+
+      float: 'rgba(21, 35, 27, 0.98)',
     },
   },
   {
@@ -327,6 +345,8 @@ export const REGION_PALETTES: RegionPalettePreset[] = [
       cardGlass: 'rgba(255, 255, 255, 0.42)',
       cardSolid: 'rgba(255, 254, 255, 0.86)',
       cardSoft: 'rgba(251, 249, 255, 0.74)',
+
+      float: 'rgba(250, 248, 255, 0.98)',
     },
     dark: {
       nav: 'rgba(25, 20, 48, 0.90)',
@@ -336,6 +356,8 @@ export const REGION_PALETTES: RegionPalettePreset[] = [
       cardGlass: 'rgba(56, 46, 88, 0.28)',
       cardSolid: 'rgba(44, 37, 70, 0.62)',
       cardSoft: 'rgba(56, 46, 88, 0.20)',
+
+      float: 'rgba(30, 26, 50, 0.98)',
     },
   },
   {
@@ -348,6 +370,8 @@ export const REGION_PALETTES: RegionPalettePreset[] = [
       cardGlass: 'rgba(255, 255, 255, 0.46)',
       cardSolid: 'rgba(255, 255, 255, 0.88)',
       cardSoft: 'rgba(249, 250, 252, 0.76)',
+
+      float: 'rgba(249, 250, 252, 0.98)',
     },
     dark: {
       nav: 'rgba(22, 25, 32, 0.90)',
@@ -357,6 +381,8 @@ export const REGION_PALETTES: RegionPalettePreset[] = [
       cardGlass: 'rgba(255, 255, 255, 0.11)',
       cardSolid: 'rgba(36, 40, 48, 0.64)',
       cardSoft: 'rgba(255, 255, 255, 0.06)',
+
+      float: 'rgba(27, 30, 37, 0.98)',
     },
   },
 ]
@@ -374,6 +400,7 @@ const REGION_VAR_MAP: Record<keyof RegionColors, string> = {
   cardGlass: '--region-card-glass',
   cardSolid: '--region-card-solid',
   cardSoft: '--region-card-soft',
+  float: '--region-float-bg',
 }
 
 /**

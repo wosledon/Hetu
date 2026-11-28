@@ -151,7 +151,7 @@ export default function TagsPage() {
           </div>
 
           {/* 控制行：筛选居左，搜索 + 新建居右 */}
-          <div className="mb-6 flex flex-wrap items-center gap-3 rounded-2xl border border-gray-200/70 bg-white/70 glass glass-soft p-2.5 dark:border-white/[0.07] dark:bg-slate-900/35">
+          <div className="mb-6 flex flex-wrap items-center gap-3 rounded-2xl border border-gray-200/70 bg-[var(--region-card-solid)] glass glass-soft p-2.5 dark:border-white/[0.07] ">
             <PillTabs
               value={filter}
               onSelect={(key) => setFilter(key as typeof filter)}
@@ -182,7 +182,7 @@ export default function TagsPage() {
           {/* 标签墙 */}
           {filteredTags.length === 0 ? (
             <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 py-24 text-gray-400 dark:border-gray-800 dark:text-gray-600">
-              <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-3xl bg-gray-100 dark:bg-white/[0.04]">
+              <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-3xl bg-[var(--region-card-soft)] ">
                 <TagIcon size={36} className="opacity-50" />
               </div>
               <p className="text-sm font-medium">
@@ -362,11 +362,7 @@ function TagChip({
     <div
       onContextMenu={onContextMenu}
       title={`${tag.name} · ${used ? t('tags.chipNotes', { n: noteCount }) : t('tags.chipNoNotes')}`}
-      className={`group inline-flex items-center gap-2 rounded-full border border-gray-200/70 bg-white/65 py-1.5 pl-3 pr-1.5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md dark:border-white/[0.07] dark:bg-slate-900/35 ${
-        used
-          ? 'hover:shadow-gray-300/40 dark:hover:shadow-black/30'
-          : 'border-dashed border-transparent bg-gray-50/80 dark:bg-white/[0.02]'
-      }`}
+      className={`group inline-flex items-center gap-2 rounded-full border border-gray-200/70 bg-[var(--region-card-soft)] py-1.5 pl-3 pr-1.5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md dark:border-white/[0.07] ${ used ? 'hover:shadow-gray-300/40 dark:hover:shadow-black/30' : 'border-dashed border-transparent bg-[var(--region-card-soft)] ' }`}
       style={used ? { background: palette.soft, borderColor: `${palette.dot}33` } : undefined}
     >
       <span
@@ -383,22 +379,22 @@ function TagChip({
       </SurfaceButton>
       {used && (
         <span
-          className={`rounded-full bg-white/70 px-1.5 font-semibold dark:bg-black/20 ${countSize}`}
+          className={`rounded-full bg-[var(--region-card-solid)] px-1.5 font-semibold ${countSize}`}
           style={{ color: palette.text }}
         >
           {noteCount}
         </span>
       )}
       <span className="flex items-center gap-0.5 opacity-0 transition-opacity duration-150 focus-within:opacity-100 group-hover:opacity-100">
-        <IconButton variant="ghost" tone="gray" className="rounded-full p-1 text-gray-400 transition-colors hover:bg-white/70 hover:text-gray-600 dark:hover:bg-white/10 dark:hover:text-gray-300" label={t('common:rename')} onClick={onRename}
+        <IconButton variant="ghost" tone="gray" className="rounded-full p-1 text-gray-400 transition-colors hover:bg-[var(--region-card-solid)] hover:text-gray-600 dark:hover:bg-white/10 dark:hover:text-gray-300" label={t('common:rename')} onClick={onRename}
           title={t('common:rename')}>
           <Pencil size={12} />
         </IconButton>
-        <IconButton variant="ghost" tone="gray" className="rounded-full p-1 text-gray-400 transition-colors hover:bg-white/70 hover:text-gray-600 dark:hover:bg-white/10 dark:hover:text-gray-300" label={t('tags.merge')} onClick={onMerge}
+        <IconButton variant="ghost" tone="gray" className="rounded-full p-1 text-gray-400 transition-colors hover:bg-[var(--region-card-solid)] hover:text-gray-600 dark:hover:bg-white/10 dark:hover:text-gray-300" label={t('tags.merge')} onClick={onMerge}
           title={t('tags.merge')}>
           <GitMerge size={12} />
         </IconButton>
-        <IconButton variant="ghost" tone="gray" className="rounded-full p-1 text-gray-400 transition-colors hover:bg-white/70 hover:text-red-600 dark:hover:bg-white/10 dark:hover:text-red-400" label={t('common:delete')} onClick={onDelete}
+        <IconButton variant="ghost" tone="gray" className="rounded-full p-1 text-gray-400 transition-colors hover:bg-[var(--region-card-solid)] hover:text-red-600 dark:hover:bg-white/10 dark:hover:text-red-400" label={t('common:delete')} onClick={onDelete}
           title={t('common:delete')}>
           <Trash2 size={12} />
         </IconButton>

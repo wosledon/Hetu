@@ -29,13 +29,13 @@ interface ColumnMeta {
 }
 
 const COLUMNS: ColumnMeta[] = [
-  { status: 'Backlog', labelKey: 'status.backlog', dot: 'bg-gray-400', countBg: 'bg-gray-100 text-gray-600 dark:bg-white/[0.06] dark:text-gray-300' },
+  { status: 'Backlog', labelKey: 'status.backlog', dot: 'bg-gray-400', countBg: 'bg-[var(--region-card-soft)] text-gray-600 dark:text-gray-300' },
   { status: 'Todo', labelKey: 'status.todo', dot: 'bg-sky-500', countBg: 'bg-sky-50 text-sky-600 dark:bg-sky-500/10 dark:text-sky-400' },
   { status: 'InProgress', labelKey: 'status.inProgress', dot: 'bg-blue-500', countBg: 'bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400' },
   { status: 'InReview', labelKey: 'status.inReview', dot: 'bg-violet-500', countBg: 'bg-violet-50 text-violet-600 dark:bg-violet-500/10 dark:text-violet-400' },
   { status: 'Blocked', labelKey: 'status.blocked', dot: 'bg-red-500', countBg: 'bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400' },
   { status: 'Done', labelKey: 'status.done', dot: 'bg-emerald-500', countBg: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400' },
-  { status: 'Archived', labelKey: 'status.archived', dot: 'bg-gray-300', countBg: 'bg-gray-100 text-gray-500 dark:bg-white/[0.06] dark:text-gray-400' },
+  { status: 'Archived', labelKey: 'status.archived', dot: 'bg-gray-300', countBg: 'bg-[var(--region-card-soft)] text-gray-500 dark:text-gray-400' },
 ]
 
 const STATUS_KEYS: Record<KanbanTaskStatus, string> = {
@@ -59,7 +59,7 @@ const TRANSITIONS: Record<KanbanTaskStatus, KanbanTaskStatus[]> = {
 }
 
 const PRIORITY_META: Record<KanbanTaskPriority, { labelKey: string; cls: string }> = {
-  Low: { labelKey: 'priority.low', cls: 'bg-gray-100 text-gray-500 dark:bg-white/[0.06] dark:text-gray-400' },
+  Low: { labelKey: 'priority.low', cls: 'bg-[var(--region-card-soft)] text-gray-500 dark:text-gray-400' },
   Medium: { labelKey: 'priority.medium', cls: 'bg-sky-50 text-sky-600 dark:bg-sky-500/10 dark:text-sky-400' },
   High: { labelKey: 'priority.high', cls: 'bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400' },
   Urgent: { labelKey: 'priority.urgent', cls: 'bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400' },
@@ -416,7 +416,7 @@ export default function KanbanPage() {
       mainContent={
         <PageContainer variant="fill" className="flex-col">
           {/* Header */}
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-3 border-b border-gray-200/80 bg-white/35 px-8 py-5 dark:border-white/[0.07] dark:bg-slate-950/20">
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-3 border-b border-gray-200/80 bg-[var(--region-content)] px-8 py-5 dark:border-white/[0.07] ">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-indigo-200/70 bg-indigo-50 text-indigo-600 shadow-sm dark:border-indigo-400/15 dark:bg-indigo-500/10 dark:text-indigo-300">
                 <SquareKanban size={20} />
@@ -591,7 +591,7 @@ export default function KanbanPage() {
                       <h3 className="text-[15px] font-semibold text-gray-900 dark:text-gray-100">
                         {editingId ? t('board.editTitle') : t('board.newTask')}
                       </h3>
-                      <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-500 dark:bg-white/[0.06] dark:text-gray-300">
+                      <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[var(--region-card-soft)] px-2 py-0.5 text-[10px] font-medium text-gray-500 dark:text-gray-300">
                         <span className={`h-1.5 w-1.5 rounded-full ${formColumn.dot}`} />
                         {t(formColumn.labelKey)}
                       </span>
@@ -622,7 +622,7 @@ export default function KanbanPage() {
                       placeholder={t('board.titlePlaceholder')}
                       className="h-auto w-full px-0 text-[20px] font-semibold leading-8 tracking-tight placeholder:font-normal placeholder:text-gray-300 dark:placeholder:text-gray-600"
                     />
-                    <div className="mt-2 h-px w-full bg-gray-100 dark:bg-white/[0.06]" />
+                    <div className="mt-2 h-px w-full bg-[var(--region-card-soft)] " />
                     <Textarea
                       variant="bare"
                       tone="indigo"
@@ -635,7 +635,7 @@ export default function KanbanPage() {
                   </div>
 
                   {/* 属性栏 */}
-                  <div className="w-full shrink-0 border-t border-gray-100 bg-gray-50/60 px-5 py-5 md:w-72 md:overflow-y-auto md:border-l md:border-t-0 dark:border-white/[0.06] dark:bg-white/[0.02]">
+                  <div className="w-full shrink-0 border-t border-gray-100 bg-[var(--region-card-soft)] px-5 py-5 md:w-72 md:overflow-y-auto md:border-l md:border-t-0 dark:border-white/[0.06] ">
                     <p className="mb-3 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">{t('board.properties')}</p>
                     <div className="space-y-2.5">
                       <FormField icon={<CircleDot size={12} />} label={t('board.status')}>
@@ -973,7 +973,7 @@ function TaskCard({ task, isDragging, onEdit, onDelete, onOpenDetail, onDragStar
       {task.hasAutomation && (
         <div className="mt-1.5 flex flex-wrap items-center gap-1">
           {task.projectName && (
-            <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500 dark:bg-white/[0.06] dark:text-gray-400">{task.projectName}</span>
+            <span className="rounded bg-[var(--region-card-soft)] px-1.5 py-0.5 text-[10px] text-gray-500 dark:text-gray-400">{task.projectName}</span>
           )}
           {task.agentName && (
             <span className="rounded bg-violet-50 px-1.5 py-0.5 text-[10px] text-violet-600 dark:bg-violet-500/10 dark:text-violet-300">{task.agentName}</span>
@@ -1002,7 +1002,7 @@ function TaskCard({ task, isDragging, onEdit, onDelete, onOpenDetail, onDragStar
           </span>
         )}
         {task.tags && task.tags.split(',').filter(Boolean).map((tag) => (
-          <span key={tag} className="rounded bg-gray-100 px-1.5 py-0.5 text-gray-500 dark:bg-white/[0.06] dark:text-gray-400">{tag.trim()}</span>
+          <span key={tag} className="rounded bg-[var(--region-card-soft)] px-1.5 py-0.5 text-gray-500 dark:text-gray-400">{tag.trim()}</span>
         ))}
         {task.status === 'Done' && task.completedAt && (
           <span className="flex items-center gap-1 text-emerald-500"><CheckCircle2 size={11} />{t('board.completed')}</span>

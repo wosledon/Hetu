@@ -160,11 +160,7 @@ export default function ProjectsSidebar({
                 <SurfaceButton
                   key={name}
                   onClick={() => onFilterChange({ type: 'tag', id: name })}
-                  className={`flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] transition-colors ${
-                    active
-                      ? 'border-blue-300 bg-blue-50 text-blue-600 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-300'
-                      : 'border-transparent text-gray-500 hover:bg-white/70 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/[0.05]'
-                  }`}
+                  className={`flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] transition-colors ${ active ? 'border-blue-300 bg-blue-50 text-blue-600 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-300' : 'border-transparent text-gray-500 hover:bg-[var(--region-card-solid)] hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/[0.05]' }`}
                 >
                   <Tag size={9} />
                   {name}

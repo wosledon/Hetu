@@ -19,9 +19,9 @@ import { Badge, Button, Card, EmptyState, IconButton, Input, Modal, PageContaine
 type TasksMode = 'background' | 'scheduled'
 
 const STATUS_MAP: Record<number, { labelKey: string; color: string; bg: string; icon: typeof Clock; tone: 'gray' | 'blue' | 'emerald' | 'red' }> = {
-  0: { labelKey: 'tasks.statusQueued', color: 'text-gray-500', bg: 'bg-gray-100 dark:bg-white/[0.06]', icon: Clock, tone: 'gray' },
+  0: { labelKey: 'tasks.statusQueued', color: 'text-gray-500', bg: 'bg-[var(--region-card-soft)] ', icon: Clock, tone: 'gray' },
   1: { labelKey: 'tasks.statusRunning', color: 'text-blue-500', bg: 'bg-blue-50 dark:bg-blue-500/10', icon: Loader2, tone: 'blue' },
-  2: { labelKey: 'tasks.statusCompleted', color: 'text-emerald-600 dark:text-emerald-300', bg: 'bg-gray-100 dark:bg-white/[0.05]', icon: CheckCircle2, tone: 'emerald' },
+  2: { labelKey: 'tasks.statusCompleted', color: 'text-emerald-600 dark:text-emerald-300', bg: 'bg-[var(--region-card-soft)] ', icon: CheckCircle2, tone: 'emerald' },
   3: { labelKey: 'tasks.statusFailed', color: 'text-red-500', bg: 'bg-red-50 dark:bg-red-500/10', icon: XCircle, tone: 'red' },
 }
 
@@ -41,7 +41,7 @@ type FilterStatus = 'all' | '0' | '1' | '2' | '3'
 const TASK_PAGE_SIZE = 20
 
 /** 工具栏内的紧凑下拉触发器（与本地模型页同一语法） */
-const COMPACT_SELECT_TRIGGER = 'flex w-full items-center justify-between gap-1.5 rounded-lg border border-gray-200 bg-gray-50/70 px-2.5 py-1.5 text-[12px] outline-none transition-all hover:border-gray-300 focus:border-sky-400 dark:border-white/[0.08] dark:bg-white/[0.03] dark:hover:border-white/[0.16] dark:focus:border-sky-500'
+const COMPACT_SELECT_TRIGGER = 'flex w-full items-center justify-between gap-1.5 rounded-lg border border-gray-200 bg-[var(--region-card-soft)] px-2.5 py-1.5 text-[12px] outline-none transition-all hover:border-gray-300 focus:border-sky-400 dark:border-white/[0.08] dark:hover:border-white/[0.16] dark:focus:border-sky-500'
 
 export default function TasksPage({ mode }: { mode: TasksMode }) {
   const { t } = useTranslation('projects')
@@ -214,7 +214,7 @@ function BackgroundTasksView({
   return (
     <>
       {/* 筛选：状态胶囊 + 类型下拉 + 清理/刷新 */}
-      <div className="mb-4 flex flex-wrap items-center gap-2 rounded-2xl border border-gray-200/70 bg-white/70 glass glass-soft p-2 dark:border-white/[0.07] dark:bg-slate-900/35">
+      <div className="mb-4 flex flex-wrap items-center gap-2 rounded-2xl border border-gray-200/70 bg-[var(--region-card-solid)] glass glass-soft p-2 dark:border-white/[0.07] ">
         <PillTabs
           value={filter}
           // PillTabs 的 key 固定是下面的状态枚举，这里收窄回筛选类型
@@ -247,13 +247,13 @@ function BackgroundTasksView({
 
       {/* Task List */}
       {isLoading ? (
-        <div className="overflow-hidden rounded-2xl border border-gray-200/70 bg-white/70 glass glass-soft dark:border-white/[0.07] dark:bg-slate-900/35">
+        <div className="overflow-hidden rounded-2xl border border-gray-200/70 bg-[var(--region-card-solid)] glass glass-soft dark:border-white/[0.07] ">
           {Array.from({ length: 6 }, (_, index) => (
             <div key={index} className="flex items-center gap-3 border-b border-gray-100 px-4 py-3.5 last:border-0 dark:border-white/[0.06]">
-              <div className="h-7 w-7 animate-pulse rounded-lg bg-gray-100 dark:bg-white/[0.05]" />
+              <div className="h-7 w-7 animate-pulse rounded-lg bg-[var(--region-card-soft)] " />
               <div className="flex-1 space-y-1.5">
                 <div className="h-3 w-1/3 animate-pulse rounded bg-gray-200/80 dark:bg-white/[0.06]" />
-                <div className="h-2.5 w-1/5 animate-pulse rounded bg-gray-100 dark:bg-white/[0.04]" />
+                <div className="h-2.5 w-1/5 animate-pulse rounded bg-[var(--region-card-soft)] " />
               </div>
             </div>
           ))}
@@ -268,8 +268,8 @@ function BackgroundTasksView({
         </div>
       ) : (
         <>
-          <div className="overflow-hidden rounded-2xl border border-gray-200/70 bg-white/70 glass glass-soft dark:border-white/[0.07] dark:bg-slate-900/35">
-            <div className="hidden items-center gap-3 border-b border-gray-100 bg-gray-50/50 px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:border-white/[0.06] dark:bg-white/[0.02] dark:text-gray-500 md:flex">
+          <div className="overflow-hidden rounded-2xl border border-gray-200/70 bg-[var(--region-card-solid)] glass glass-soft dark:border-white/[0.07] ">
+            <div className="hidden items-center gap-3 border-b border-gray-100 bg-[var(--region-card-soft)] px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:border-white/[0.06] dark:text-gray-500 md:flex">
               <span className="min-w-0 flex-1 pl-[38px]">{t('tasks.tableTask')}</span>
               <span className="w-[180px] shrink-0">{t('tasks.tableType')}</span>
               <span className="w-16 shrink-0">{t('tasks.tableDuration')}</span>
@@ -393,7 +393,7 @@ function ScheduledTasksView() {
   return (
     <>
       {/* 工具栏 */}
-      <div className="mb-5 flex flex-wrap items-center gap-3 rounded-2xl border border-gray-200/70 bg-white/70 glass glass-soft p-2.5 dark:border-white/[0.07] dark:bg-slate-900/35">
+      <div className="mb-5 flex flex-wrap items-center gap-3 rounded-2xl border border-gray-200/70 bg-[var(--region-card-solid)] glass glass-soft p-2.5 dark:border-white/[0.07] ">
         <div className="ml-auto flex items-center gap-2">
           {isRefetching && <Loader2 size={14} className="animate-spin text-gray-400" />}
           <Button variant="secondary" pill className="flex items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-3.5 py-2 text-[13px] font-medium text-gray-600 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => queryClient.invalidateQueries({ queryKey: ['scheduled-tasks'] })}
@@ -481,11 +481,7 @@ function ScheduledTaskRow({
         {/* Enable indicator */}
         <SurfaceButton
           onClick={onToggle}
-          className={`shrink-0 rounded-xl p-1.5 transition-colors ${
-            task.isEnabled
-              ? 'bg-emerald-50 text-emerald-500 dark:bg-emerald-500/10'
-              : 'bg-gray-100 text-gray-400 dark:bg-white/[0.06]'
-          }`}
+          className={`shrink-0 rounded-xl p-1.5 transition-colors ${ task.isEnabled ? 'bg-emerald-50 text-emerald-500 dark:bg-emerald-500/10' : 'bg-[var(--region-card-soft)] text-gray-400 ' }`}
           title={task.isEnabled ? t('tasks.clickDisable') : t('tasks.clickEnable')}
         >
           <Power size={15} />
@@ -503,7 +499,7 @@ function ScheduledTaskRow({
               {task.name}
             </span>
             {!task.isEnabled && (
-              <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-400 dark:bg-white/[0.06]">{t('tasks.disabledBadge')}</span>
+              <span className="rounded bg-[var(--region-card-soft)] px-1.5 py-0.5 text-[10px] text-gray-400 ">{t('tasks.disabledBadge')}</span>
             )}
             {task.retryCount > 0 && (
               <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[10px] text-amber-600 dark:bg-amber-500/10 dark:text-amber-400">
@@ -901,7 +897,7 @@ function ScheduledTaskEditor({
                     <SurfaceButton
                       key={m}
                       onClick={() => set('intervalMinutes', m)}
-                      className="rounded-md bg-gray-100 px-2 py-1 text-[11px] text-gray-500 hover:bg-gray-200 dark:bg-white/[0.06] dark:text-gray-400"
+                      className="rounded-md bg-[var(--region-card-soft)] px-2 py-1 text-[11px] text-gray-500 hover:bg-gray-200 dark:text-gray-400"
                     >
                       {m < 60 ? t('tasks.minutesShort', { count: m }) : m < 1440 ? t('tasks.hoursShort', { count: m / 60 }) : t('tasks.daysShort', { count: m / 1440 })}
                     </SurfaceButton>
@@ -923,7 +919,7 @@ function ScheduledTaskEditor({
                   <SurfaceButton
                     key={p.value}
                     onClick={() => set('cronExpression', p.value)}
-                    className="rounded-md bg-gray-100 px-2 py-1 text-[11px] text-gray-500 hover:bg-gray-200 dark:bg-white/[0.06] dark:text-gray-400"
+                    className="rounded-md bg-[var(--region-card-soft)] px-2 py-1 text-[11px] text-gray-500 hover:bg-gray-200 dark:text-gray-400"
                   >
                     {t(p.labelKey)}
                   </SurfaceButton>
@@ -959,7 +955,7 @@ function ScheduledTaskEditor({
           )}
 
           {/* Enabled toggle */}
-          <label className="flex cursor-pointer items-center justify-between rounded-lg border border-gray-100 bg-gray-50/50 px-4 py-2.5 dark:border-white/[0.06] dark:bg-white/[0.02]">
+          <label className="flex cursor-pointer items-center justify-between rounded-lg border border-gray-100 bg-[var(--region-card-soft)] px-4 py-2.5 dark:border-white/[0.06] ">
             <span className="text-sm text-gray-700 dark:text-gray-300">{t('tasks.enableOnCreate')}</span>
             <SurfaceButton
               type="button"
@@ -1067,7 +1063,7 @@ function ExecutionRow({ exec }: { exec: IScheduledTaskExecution }) {
   }
 
   return (
-    <div className="rounded-lg border border-gray-100 bg-gray-50/50 p-3 dark:border-white/[0.06] dark:bg-white/[0.02]">
+    <div className="rounded-lg border border-gray-100 bg-[var(--region-card-soft)] p-3 dark:border-white/[0.06] ">
       <div className="flex items-center gap-2">
         <StatusIcon size={14} className={`${statusInfo.color} ${spinning ? 'animate-spin' : ''}`} />
         <span className={`text-xs font-medium ${statusInfo.color}`}>{t(statusInfo.labelKey)}</span>
@@ -1114,7 +1110,7 @@ function TaskRow({ task, onDelete }: { task: ITaskItem; onDelete: () => void }) 
   }
 
   return (
-    <div className="group border-b border-gray-100 transition-colors last:border-b-0 hover:bg-gray-50/70 dark:border-white/[0.06] dark:hover:bg-white/[0.03]">
+    <div className="group border-b border-gray-100 transition-colors last:border-b-0 hover:bg-[var(--region-card-soft)] dark:border-white/[0.06] dark:hover:bg-white/[0.03]">
       <div className="flex items-start gap-3 px-4 py-3 md:items-center md:py-2.5">
         <div className="flex min-w-0 flex-1 items-start gap-2.5 md:items-center">
           <div className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg md:mt-0 ${status.bg}`}>

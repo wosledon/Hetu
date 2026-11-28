@@ -98,7 +98,7 @@ export default function CompressionSettings() {
       </div>
 
       {(draft.mode === 'llm' || draft.mode === 'hybrid') && (
-        <div className="space-y-3 rounded-xl border border-gray-200 bg-gray-50/50 p-4 dark:border-gray-700 dark:bg-gray-800/30">
+        <div className="space-y-3 rounded-xl border border-gray-200 bg-[var(--region-card-soft)] p-4 dark:border-gray-700 ">
           <div>
             <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">{t('compression.model')}</label>
             <Select

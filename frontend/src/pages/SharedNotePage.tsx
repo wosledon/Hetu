@@ -38,7 +38,7 @@ export default function SharedNotePage() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <PageContainer>
-        <div className="rounded-2xl border border-gray-200/70 bg-white/70 p-6 glass glass-soft dark:border-white/[0.07] dark:bg-slate-900/35">
+        <div className="rounded-2xl border border-gray-200/70 bg-[var(--region-card-solid)] p-6 glass glass-soft dark:border-white/[0.07] ">
           <header className="mb-6 border-b border-gray-200/80 pb-4 dark:border-white/[0.08]">
             <h1 className="text-2xl font-semibold tracking-tight text-gray-900 dark:text-gray-100">
               {note.title || t('note.untitled')}

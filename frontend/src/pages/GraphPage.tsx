@@ -1118,7 +1118,7 @@ export default function GraphPage() {
   const mainContent = (
     <div className="flex flex-1 flex-col bg-transparent">
       {/* 工具条与画布同处一块面，只留底部分隔线；外框四角由根的圆角裁切，这里不再自成卡片 */}
-      <div className="flex h-14 shrink-0 items-center justify-between border-b border-gray-200/80 bg-white/35 px-4 dark:border-white/[0.07] dark:bg-slate-950/20">
+      <div className="flex h-14 shrink-0 items-center justify-between border-b border-gray-200/80 bg-[var(--region-content)] px-4 dark:border-white/[0.07] ">
         <div className="flex items-center gap-1.5"><div className="mr-1 flex items-center gap-2 border-r border-gray-200 pr-3 dark:border-white/[0.08]"><Network size={16} className="text-blue-500" /><span className="text-sm font-semibold text-gray-800 dark:text-gray-100">{t('graph.title')}</span></div>
           <Button variant="ghost" tone="gray" className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200" onClick={() => setZoom(z => Math.min(z + 0.2, 3))}  title={t('graph.zoomIn')}><ZoomIn size={15} /></Button>
           <Button variant="ghost" tone="gray" className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200" onClick={() => setZoom(z => Math.max(z - 0.2, 0.3))}  title={t('graph.zoomOut')}><ZoomOut size={15} /></Button>
@@ -1137,7 +1137,7 @@ export default function GraphPage() {
           <canvas ref={canvasRef} className="block h-full w-full" style={{ cursor: 'grab', width: '100%', height: '100%' }} />
 
           {isLoading && (
-            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-gray-50/80 text-gray-500 dark:bg-gray-950/80">
+            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-[var(--region-card-soft)] text-gray-500 ">
               <Loader2 size={32} className="animate-spin text-indigo-500" />
               {streamMeta ? (
                 <div className="mt-3 text-center">
@@ -1336,8 +1336,8 @@ export default function GraphPage() {
         {rightPanel}
       </PageContainer>
     }>
-      <div className="flex w-64 shrink-0 flex-col border-r border-gray-200/80 bg-white/30 dark:border-white/[0.07] dark:bg-slate-950/15">
-        <div className="border-b border-gray-200/80 bg-white/35 p-4 dark:border-white/[0.07] dark:bg-slate-950/20">
+      <div className="flex w-64 shrink-0 flex-col border-r border-gray-200/80 bg-[var(--region-secondary)] dark:border-white/[0.07]">
+        <div className="border-b border-gray-200/80 bg-[var(--region-content)] p-4 dark:border-white/[0.07] ">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">{t('graph.entitiesHeader')}</h2>
             <span className="text-[11px] tabular-nums text-gray-400">{filteredEntities.length} / {entities.length}</span>

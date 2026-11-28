@@ -1028,7 +1028,7 @@ export default function WorkExplorer({ projectId, sessionId, sessionTitle, panel
                 </div>
               )}
               {saveMessage && (
-                <div className="shrink-0 border-b border-gray-100 bg-gray-50/60 px-3 py-1 text-[11px] text-gray-500 dark:border-gray-800 dark:bg-gray-800/40 dark:text-gray-400">
+                <div className="shrink-0 border-b border-gray-100 bg-[var(--region-card-soft)] px-3 py-1 text-[11px] text-gray-500 dark:border-gray-800 dark:text-gray-400">
                   {saveMessage}
                 </div>
               )}

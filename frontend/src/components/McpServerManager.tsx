@@ -175,7 +175,7 @@ export default function McpServerManager({ embedded = false }: { embedded?: bool
     <section className="space-y-6">
       {/* Header / toolbar */}
       {embedded ? (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-200/70 bg-white/70 glass glass-soft p-2.5 dark:border-white/[0.07] dark:bg-slate-900/35">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-200/70 bg-[var(--region-card-solid)] glass glass-soft p-2.5 dark:border-white/[0.07] ">
           <p className="text-[11px] text-gray-500 dark:text-gray-400">
             {t('mcp.configuredCount', { count: servers.length })}
           </p>
@@ -206,7 +206,7 @@ export default function McpServerManager({ embedded = false }: { embedded?: bool
 
       {/* Form */}
       {(isCreating || editingId) && (
-        <div ref={formRef} className="rounded-2xl border border-blue-200/70 bg-white/70 p-5 shadow-sm dark:bg-slate-900/35 dark:border-blue-500/20 dark:bg-blue-950/10">
+        <div ref={formRef} className="rounded-2xl border border-blue-200/70 bg-[var(--region-card-solid)] p-5 shadow-sm dark:border-blue-500/20 dark:bg-blue-950/10">
           <h3 className="mb-4 text-sm font-semibold text-gray-800 dark:text-gray-200">
             {editingId ? t('mcp.editServer') : t('mcp.createServer')}
           </h3>
@@ -277,9 +277,9 @@ export default function McpServerManager({ embedded = false }: { embedded?: bool
             const Icon = PRESET_ICONS[preset.id] ?? Wrench
             const added = servers.some((server) => server.name === t(preset.nameKey))
             return (
-              <Card key={preset.id} className="border-gray-200/70 bg-white/70 p-3.5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-blue-200/70 dark:border-white/[0.07] dark:bg-slate-900/35 dark:hover:border-blue-400/20">
+              <Card key={preset.id} className="border-gray-200/70 bg-[var(--region-card-solid)] p-3.5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-blue-200/70 dark:border-white/[0.07] dark:hover:border-blue-400/20">
                 <div className="flex items-start gap-2.5">
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400">
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--region-card-soft)] text-gray-500 dark:text-gray-400">
                     <Icon size={14} />
                   </div>
                   <div className="min-w-0 flex-1">
@@ -288,11 +288,7 @@ export default function McpServerManager({ embedded = false }: { embedded?: bool
                       {preset.requires.map((req) => (
                         <span
                           key={req}
-                          className={`rounded-full px-1.5 py-0.5 text-[9px] font-medium ${
-                            req === 'path' || req === 'token'
-                              ? 'bg-amber-50 text-amber-600 dark:bg-amber-950/30 dark:text-amber-400'
-                              : 'bg-gray-100 text-gray-500 dark:bg-white/[0.06] dark:text-gray-400'
-                          }`}
+                          className={`rounded-full px-1.5 py-0.5 text-[9px] font-medium ${ req === 'path' || req === 'token' ? 'bg-amber-50 text-amber-600 dark:bg-amber-950/30 dark:text-amber-400' : 'bg-[var(--region-card-soft)] text-gray-500 dark:text-gray-400' }`}
                         >
                           {t(`mcpPresets.requires.${req}`)}
                         </span>
@@ -323,7 +319,7 @@ export default function McpServerManager({ embedded = false }: { embedded?: bool
       {/* Empty State */}
       {servers.length === 0 && !isCreating && (
         <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-200 py-12 dark:border-white/[0.08]">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gray-100 dark:bg-white/[0.06]">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--region-card-soft)] ">
             <Wrench size={24} className="text-gray-400" />
           </div>
           <p className="mt-3 text-sm font-medium text-gray-500 dark:text-gray-400">{t('mcp.empty')}</p>
@@ -337,21 +333,17 @@ export default function McpServerManager({ embedded = false }: { embedded?: bool
           <Card
             key={server.id}
             padded={false}
-            className={`border-gray-200/70 bg-white/70 shadow-sm transition-all dark:border-white/[0.07] dark:bg-slate-900/35 ${
-              server.isEnabled
-                ? ''
-                : 'opacity-60'
-            }`}
+            className={`border-gray-200/70 bg-[var(--region-card-solid)] shadow-sm transition-all dark:border-white/[0.07] ${ server.isEnabled ? '' : 'opacity-60' }`}
           >
             <div className="flex items-start justify-between px-5 py-4">
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">{server.name}</span>
-                  <span className="inline-flex items-center rounded-md bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-500 dark:bg-white/[0.06] dark:text-gray-400">
+                  <span className="inline-flex items-center rounded-md bg-[var(--region-card-soft)] px-1.5 py-0.5 text-[10px] font-medium text-gray-500 dark:text-gray-400">
                     {server.type}
                   </span>
                   {!server.isEnabled && (
-                    <span className="inline-flex items-center rounded-md bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-400 dark:bg-white/[0.06] dark:text-gray-500">
+                    <span className="inline-flex items-center rounded-md bg-[var(--region-card-soft)] px-1.5 py-0.5 text-[10px] font-medium text-gray-400 dark:text-gray-500">
                       {t('common:disabled')}
                     </span>
                   )}
@@ -386,7 +378,7 @@ export default function McpServerManager({ embedded = false }: { embedded?: bool
 
       {/* Tools Panel */}
       {selectedServer && (
-        <Card className="border-gray-200/70 bg-white/70 p-5 shadow-sm dark:border-white/[0.07] dark:bg-slate-900/35">
+        <Card className="border-gray-200/70 bg-[var(--region-card-solid)] p-5 shadow-sm dark:border-white/[0.07] ">
           <div className="mb-4 flex items-center gap-2.5">
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-50 text-violet-500 dark:bg-violet-500/10 dark:text-violet-400">
               <Wrench size={13} />

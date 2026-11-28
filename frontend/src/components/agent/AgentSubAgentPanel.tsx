@@ -41,12 +41,8 @@ export default function AgentSubAgentPanel({
   const items = entries ?? []
 
   return (
-    <div className={`overflow-hidden rounded-xl border shadow-[0_1px_2px_rgba(15,23,42,0.03)] ${
-      stage === 'error'
-        ? 'border-red-200/80 bg-red-50/40 dark:border-red-400/15 dark:bg-red-500/[0.04]'
-        : 'border-gray-200/80 bg-white/65 dark:border-white/[0.07] dark:bg-slate-900/35'
-    }`}>
-      <div onClick={() => setOpen(!open)} className="flex min-h-11 cursor-pointer items-center gap-2 px-2.5 py-2 transition-colors hover:bg-white/55 dark:hover:bg-white/[0.025]">
+    <div className={`overflow-hidden rounded-xl border shadow-[0_1px_2px_rgba(15,23,42,0.03)] ${ stage === 'error' ? 'border-red-200/80 bg-red-50/40 dark:border-red-400/15 dark:bg-red-500/[0.04]' : 'border-gray-200/80 bg-[var(--region-card-soft)] dark:border-white/[0.07] ' }`}>
+      <div onClick={() => setOpen(!open)} className="flex min-h-11 cursor-pointer items-center gap-2 px-2.5 py-2 transition-colors hover:bg-[var(--region-card-soft)] dark:hover:bg-white/[0.025]">
         <SurfaceButton
           type="button"
           aria-label={open ? t('subagent.collapse') : t('subagent.expand')}

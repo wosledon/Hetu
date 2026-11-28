@@ -1013,7 +1013,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
                   )}
                 </div>
 
-                <div className="flex items-center justify-between border-t border-gray-100 bg-gray-50/50 px-3 py-2 dark:border-gray-800 dark:bg-gray-950/50">
+                <div className="flex items-center justify-between border-t border-gray-100 bg-[var(--region-card-soft)] px-3 py-2 dark:border-gray-800 ">
                   <div className="relative" ref={modelPickerRef}>
                     <Button variant="ghost" tone="gray" className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] text-gray-500 transition-colors hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700" onClick={() => setShowModelPicker((v) => !v)}
                       
@@ -1246,11 +1246,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
                 <div
                   key={version.id}
                   onClick={() => setPreviewVersion(version)}
-                  className={`cursor-pointer rounded-xl border p-3 transition-all ${
-                    previewVersion?.id === version.id
-                      ? 'border-indigo-200 bg-indigo-50/60 shadow-sm shadow-indigo-500/5 dark:border-indigo-800/50 dark:bg-indigo-900/20'
-                      : 'border-gray-100 hover:border-gray-200 hover:bg-gray-50/60 dark:border-gray-800 dark:hover:border-gray-700 dark:hover:bg-white/[0.03]'
-                  }`}
+                  className={`cursor-pointer rounded-xl border p-3 transition-all ${ previewVersion?.id === version.id ? 'border-indigo-200 bg-indigo-50/60 shadow-sm shadow-indigo-500/5 dark:border-indigo-800/50 dark:bg-indigo-900/20' : 'border-gray-100 hover:border-gray-200 hover:bg-[var(--region-card-soft)] dark:border-gray-800 dark:hover:border-gray-700 dark:hover:bg-white/[0.03]' }`}
                 >
                   <div className="truncate text-[13px] font-medium text-gray-700 dark:text-gray-200">{version.title || t('note.untitledShort')}</div>
                   <div className="mt-1 text-[11px] text-gray-400">{new Date(version.createdAt).toLocaleString()}</div>

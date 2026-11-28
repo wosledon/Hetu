@@ -415,7 +415,7 @@ export default function AgentModelPicker({
                           onChange={(i) => onContextWindowChange(i === ctxValuesK.length - 1 ? undefined : ctxValuesK[i] * 1000)}
                         />
                       ) : (
-                        <div className="rounded-2xl border border-gray-200/80 bg-gray-50/80 px-3 py-2 text-[11px] font-medium text-gray-500 dark:border-white/10 dark:bg-white/[0.035] dark:text-gray-400">
+                        <div className="rounded-2xl border border-gray-200/80 bg-[var(--region-card-soft)] px-3 py-2 text-[11px] font-medium text-gray-500 dark:border-white/10 dark:text-gray-400">
                           {ctxLabels[0] ?? '—'}
                         </div>
                       )}

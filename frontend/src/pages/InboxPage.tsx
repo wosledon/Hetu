@@ -25,7 +25,7 @@ const LEVEL_STYLE: Record<InboxLevel, { icon: typeof Info; className: string }> 
 const CATEGORY_STYLE: Record<string, string> = {
   '定时任务': 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300',
   '工作流': 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300',
-  '系统': 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300',
+  '系统': 'bg-[var(--region-card-soft)] text-gray-600 dark:text-gray-300',
 }
 
 function getCategoryStyle(category: string): string {
@@ -161,7 +161,7 @@ export default function InboxPage() {
                   <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-600 dark:bg-blue-500/10 dark:text-blue-300">
                     {t('inbox.unreadCount', { n: unreadCount })}
                   </span>
-                  <Button variant="secondary" size="sm" pill className="flex items-center gap-1 rounded-xl border border-gray-200/80 bg-white/80 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => runBatch('read', unreadIds)}>
+                  <Button variant="secondary" size="sm" pill className="flex items-center gap-1 rounded-xl border border-gray-200/80 bg-[var(--region-card-solid)] px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => runBatch('read', unreadIds)}>
                     <CheckCheck size={13} />{t('inbox.markAllRead')}
                   </Button>
                 </>
@@ -170,7 +170,7 @@ export default function InboxPage() {
           </div>
 
           {/* 归档切换 + 分类筛选 */}
-          <div className="mb-4 flex flex-wrap items-center gap-3 rounded-2xl border border-gray-200/70 bg-white/70 glass glass-soft p-2.5 dark:border-white/[0.07] dark:bg-slate-900/35">
+          <div className="mb-4 flex flex-wrap items-center gap-3 rounded-2xl border border-gray-200/70 bg-[var(--region-card-solid)] glass glass-soft p-2.5 dark:border-white/[0.07] ">
             <PillTabs
               value={archived ? 'archived' : 'inbox'}
               onSelect={(key) => switchTab(key === 'archived')}
@@ -183,11 +183,7 @@ export default function InboxPage() {
             <div className="flex flex-wrap items-center gap-1.5">
               <SurfaceButton
                 onClick={() => switchCategory(null)}
-                className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
-                  category === null
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-white/[0.06] dark:text-gray-300 dark:hover:bg-white/[0.1]'
-                }`}
+                className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${ category === null ? 'bg-blue-500 text-white' : 'bg-[var(--region-card-soft)] text-gray-600 hover:bg-gray-200 dark:text-gray-300 dark:hover:bg-white/[0.1]' }`}
               >
                 {t('common:all')}
               </SurfaceButton>
@@ -195,11 +191,7 @@ export default function InboxPage() {
                 <SurfaceButton
                   key={c.category}
                   onClick={() => switchCategory(c.category)}
-                  className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
-                    category === c.category
-                      ? 'bg-blue-500 text-white'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-white/[0.06] dark:text-gray-300 dark:hover:bg-white/[0.1]'
-                  }`}
+                  className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${ category === c.category ? 'bg-blue-500 text-white' : 'bg-[var(--region-card-soft)] text-gray-600 hover:bg-gray-200 dark:text-gray-300 dark:hover:bg-white/[0.1]' }`}
                 >
                   {c.category}
                   {c.unreadCount > 0 && (
@@ -219,7 +211,7 @@ export default function InboxPage() {
             </div>
           ) : items.length === 0 ? (
             <div className="flex h-56 flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-gray-200 text-gray-400 dark:border-gray-800 dark:text-gray-500">
-              <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-gray-100 dark:bg-white/[0.04]">
+              <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-[var(--region-card-soft)] ">
                 <Inbox size={28} className="opacity-50" />
               </div>
               <p className="text-[13px] font-medium">{archived ? t('inbox.emptyArchived') : t('inbox.emptyInbox')}</p>
@@ -228,7 +220,7 @@ export default function InboxPage() {
           ) : (
             <div className="space-y-2.5">
               {/* 工具栏：全选 + 批量操作 */}
-              <Card padded={false} className="flex flex-wrap items-center gap-2 border-gray-200/70 bg-white/65 px-3.5 py-2.5 dark:border-white/[0.07] dark:bg-slate-900/35">
+              <Card padded={false} className="flex flex-wrap items-center gap-2 border-gray-200/70 bg-[var(--region-card-soft)] px-3.5 py-2.5 dark:border-white/[0.07] ">
                 <label className="flex cursor-pointer items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
                   <Checkbox
                     checked={allSelected}
@@ -239,7 +231,7 @@ export default function InboxPage() {
                 </label>
                 {selected.length > 0 ? (
                   <div className="flex flex-wrap items-center gap-1">
-                    <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] text-gray-500 dark:bg-white/[0.06] dark:text-gray-400">
+                    <span className="rounded-full bg-[var(--region-card-soft)] px-2 py-0.5 text-[11px] text-gray-500 dark:text-gray-400">
                       {t('inbox.selectedCount', { n: selected.length })}
                     </span>
                     <BatchButton icon={CheckCheck} label={t('inbox.read')} onClick={() => runBatch('read')} />
@@ -289,7 +281,7 @@ export default function InboxPage() {
                           {item.title}
                         </span>
                         {item.occurrenceCount > 1 && (
-                          <span className="shrink-0 rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500 dark:bg-white/[0.06] dark:text-gray-400">
+                          <span className="shrink-0 rounded-full bg-[var(--region-card-soft)] px-1.5 py-0.5 text-[10px] text-gray-500 dark:text-gray-400">
                             ×{item.occurrenceCount}
                           </span>
                         )}

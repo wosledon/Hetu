@@ -58,7 +58,7 @@ export default function WhiteboardPage() {
       showSidebar={false}
       mainContent={
         <PageContainer variant="fill" className="flex-col overflow-hidden">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200/80 bg-white/35 px-6 py-4 dark:border-white/[0.07] dark:bg-slate-950/20">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200/80 bg-[var(--region-content)] px-6 py-4 dark:border-white/[0.07] ">
             <div className="flex items-center gap-2">
               <PenTool size={20} className="text-blue-500" />
               <h1 className="text-xl font-semibold tracking-tight text-gray-900 dark:text-gray-100">{t('page.title')}</h1>
@@ -80,7 +80,7 @@ export default function WhiteboardPage() {
           <div className="flex-1 overflow-y-auto p-6">
             {boards.length === 0 ? (
               <div className="flex h-full flex-col items-center justify-center text-center">
-                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-100 dark:bg-white/[0.06]">
+                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--region-card-soft)] ">
                   <PenTool size={32} className="text-gray-400" />
                 </div>
                 <h2 className="text-lg font-semibold text-gray-700 dark:text-gray-200">{t('page.emptyTitle')}</h2>

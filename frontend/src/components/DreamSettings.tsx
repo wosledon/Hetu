@@ -253,7 +253,7 @@ export default function DreamSettings() {
       </div>
 
       {dreamResult && (
-        <p className="rounded-lg bg-gray-100 px-3 py-2 text-xs text-gray-600 dark:bg-white/[0.06] dark:text-gray-300">{dreamResult}</p>
+        <p className="rounded-lg bg-[var(--region-card-soft)] px-3 py-2 text-xs text-gray-600 dark:text-gray-300">{dreamResult}</p>
       )}
     </div>
   )

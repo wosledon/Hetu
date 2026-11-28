@@ -129,7 +129,7 @@ function ProcessGroup({
           if (!open) stickRef.current = true
           setOverride(!open)
         }}
-        className="-mx-1 flex min-h-7 w-[calc(100%+0.5rem)] items-center gap-1.5 rounded-lg px-1 py-0.5 text-left transition-colors hover:bg-gray-50/80 dark:hover:bg-white/[0.025]"
+        className="-mx-1 flex min-h-7 w-[calc(100%+0.5rem)] items-center gap-1.5 rounded-lg px-1 py-0.5 text-left transition-colors hover:bg-[var(--region-card-soft)] dark:hover:bg-white/[0.025]"
       >
         {/* 展开箭头按钮 20px，图标与文字保持 24px 行盒 */}
         <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border bg-white shadow-[0_1px_1px_rgba(15,23,42,0.04)] transition-colors dark:bg-white/[0.03] ${

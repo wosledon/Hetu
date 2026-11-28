@@ -364,6 +364,7 @@ button {
   --region-card-glass: rgba(255, 255, 255, 0.50);
   --region-card-solid: rgba(255, 255, 255, 0.92);
   --region-card-soft: rgba(253, 254, 255, 0.82);
+  --region-float-bg: rgba(252, 252, 253, 0.98);
 }
 
 .dark {
@@ -385,6 +386,7 @@ button {
   --region-card-glass: rgba(255, 255, 255, 0.10);
   --region-card-solid: rgba(32, 39, 53, 0.75);
   --region-card-soft: rgba(255, 255, 255, 0.05);
+  --region-float-bg: rgba(24, 30, 42, 0.98);
 }
 
 /* 放进 components 层：Tailwind 的 fixed / absolute utility 才能覆盖这里的 position。
@@ -436,22 +438,18 @@ button {
      backdrop-filter，不是真亚克力，透出来的是清清楚楚的文字，很难读。
      浮层统一换成接近不透明的底色，只留一点材质感。 */
   .glass-float {
-    --glass-bg: rgba(255, 255, 255, 0.97);
-  }
-
-  .dark .glass-float {
-    --glass-bg: rgba(20, 24, 38, 0.97);
+    --glass-bg: var(--region-float-bg);
   }
 }
 
-/* 设置页包含多个独立分区组件，统一兜底低对比辅助文字和嵌套卡片材质。 */
+/* 设置页包含多个独立分区组件，统一兜底低对比辅助文字；卡片材质跟随区域配色 */
 @layer utilities {
   .settings-workspace .glass-soft {
-    --glass-bg: rgba(255, 255, 255, 0.96);
+    --glass-bg: var(--region-card-solid);
   }
 
   .dark .settings-workspace .glass-soft {
-    --glass-bg: rgba(17, 24, 39, 0.96);
+    --glass-bg: var(--region-card-solid);
   }
 
   .settings-workspace .text-gray-400 {
@@ -484,6 +482,11 @@ button {
   background-color: var(--glass-field-bg);
   background-image: var(--glass-noise);
   box-shadow: var(--glass-sheen);
+}
+
+/* 关闭亚克力：浮层没有材质层，宿主直接落同色的近不透明底，保证可读且跟配色一致 */
+:root[data-glass='off'] .glass-float {
+  background-color: var(--region-float-bg) !important;
 }
 
 /* 关闭：材质整块消失，回到纯白卡片 / 灰轨道 */
