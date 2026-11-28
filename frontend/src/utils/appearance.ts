@@ -102,7 +102,7 @@ export function applyAccent(key: string): void {
 
 /* ─── 画布背景 ─── */
 
-export type BackgroundKey = 'solid' | 'dawn' | 'dusk' | 'grid' | 'dots' | 'aurora'
+export type BackgroundKey = 'solid' | 'palette' | 'dawn' | 'dusk' | 'grid' | 'dots' | 'aurora'
 
 interface BackgroundPreset {
   key: BackgroundKey
@@ -141,6 +141,8 @@ function auroraStyle(isDark: boolean): CSSProperties {
 }
 
 export const BACKGROUND_PRESETS: BackgroundPreset[] = [
+  /** 跟随区域：不额外上色，画布直接取区域配色里的内容底色（实际样式在 applyBackground 里按调色板计算） */
+  { key: 'palette', style: (isDark) => ({ backgroundColor: isDark ? '#0c0f1a' : '#f8f9fb' }) },
   { key: 'solid', style: (isDark) => ({ backgroundColor: isDark ? '#0c0f1a' : '#f8f9fb' }) },
   {
     key: 'dawn',
@@ -163,21 +165,42 @@ export const BACKGROUND_PRESETS: BackgroundPreset[] = [
   { key: 'aurora', style: auroraStyle },
 ]
 
-/** 把画布背景写到 body（AppLayout 根与页主内容区透明，卡片不透） */
-export function applyBackground(key: string, isDark: boolean): void {
-  const preset = BACKGROUND_PRESETS.find((p) => p.key === key) ?? BACKGROUND_PRESETS[0]
+const solidPreset = () => BACKGROUND_PRESETS.find((p) => p.key === 'solid') ?? BACKGROUND_PRESETS[1]
+
+/** 把画布背景写到 body（AppLayout 根与页主内容区透明，卡片不透）
+ *  key=palette 时画布取当前区域配色的内容底色，随区域配色一起变化。 */
+export function applyBackground(key: string, isDark: boolean, regionPalette?: string): void {
   const body = document.body
-  const style = preset.style(isDark)
+  const root = document.documentElement
   // 先清掉内联背景，避免上一次的 backgroundImage 残留
   body.style.removeProperty('background-color')
   body.style.removeProperty('background-image')
   body.style.removeProperty('background-size')
-  Object.assign(body.style, style)
+  root.style.removeProperty('background-color')
+  if (key === 'palette') {
+    // 内容色本身太接近白，和内容区叠加后会「看不出跟随」；用列表栏色做画布，
+    // 内容区再叠内容色，既保持清晰又能明显带出区域色调
+    const preset = REGION_PALETTES.find((p) => p.key === regionPalette) ?? REGION_PALETTES[0]
+    const colors = isDark ? preset.dark : preset.light
+    root.style.backgroundColor = isDark ? '#0c0f1a' : '#f8f9fb'
+    body.style.backgroundColor = colors.list
+    return
+  }
+  const preset = BACKGROUND_PRESETS.find((p) => p.key === key) ?? solidPreset()
+  Object.assign(body.style, preset.style(isDark))
 }
 
-/** 选择器预览用：把预设样式搬到缩略容器上 */
-export function backgroundPreviewStyle(key: string, isDark: boolean): CSSProperties {
-  const preset = BACKGROUND_PRESETS.find((p) => p.key === key) ?? BACKGROUND_PRESETS[0]
+/** 选择器预览用：把预设样式搬到缩略容器上；「跟随区域」按当前调色板的内容色渲染 */
+export function backgroundPreviewStyle(key: string, isDark: boolean, regionPalette?: string): CSSProperties {
+  if (key === 'palette') {
+    const preset = REGION_PALETTES.find((p) => p.key === regionPalette) ?? REGION_PALETTES[0]
+    const colors = isDark ? preset.dark : preset.light
+    return {
+      backgroundColor: isDark ? '#0c0f1a' : '#f8f9fb',
+      backgroundImage: `linear-gradient(${colors.list}, ${colors.list})`,
+    }
+  }
+  const preset = BACKGROUND_PRESETS.find((p) => p.key === key) ?? solidPreset()
   return preset.style(isDark)
 }
 
@@ -222,13 +245,13 @@ export const REGION_PALETTES: RegionPalettePreset[] = [
       cardSoft: 'rgba(253, 254, 255, 0.82)',
     },
     dark: {
-      nav: 'rgba(255, 255, 255, 0.050)',
-      secondary: 'rgba(255, 255, 255, 0.032)',
-      list: 'rgba(255, 255, 255, 0.020)',
-      content: 'rgba(255, 255, 255, 0.012)',
-      cardGlass: 'rgba(255, 255, 255, 0.08)',
-      cardSolid: 'rgba(15, 23, 42, 0.35)',
-      cardSoft: 'rgba(255, 255, 255, 0.03)',
+      nav: 'rgba(13, 17, 25, 0.94)',
+      secondary: 'rgba(18, 23, 33, 0.86)',
+      list: 'rgba(22, 28, 39, 0.74)',
+      content: 'rgba(25, 31, 43, 0.58)',
+      cardGlass: 'rgba(255, 255, 255, 0.10)',
+      cardSolid: 'rgba(32, 39, 53, 0.75)',
+      cardSoft: 'rgba(255, 255, 255, 0.05)',
     },
   },
   {

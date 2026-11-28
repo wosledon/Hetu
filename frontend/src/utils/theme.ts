@@ -30,7 +30,7 @@ export function useTheme() {
       root.style.colorScheme = isDark ? 'dark' : 'light';
       // 主题配色与画布背景跟随明暗一起落地
       applyAccent(accent);
-      applyBackground(background, isDark);
+      applyBackground(background, isDark, regionPalette);
       // 区域配色同时依赖明暗（亮/暗各一套），在同一个应用点落地
       applyRegionPalette(regionPalette, isDark);
       // 毛玻璃（亚克力）材质开关

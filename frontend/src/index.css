@@ -373,13 +373,13 @@ button {
   --glass-noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.12'/%3E%3C/svg%3E");
   --glass-sheen: inset 0 1px 0 rgba(255, 255, 255, 0.08);
   --glass-shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 10px 28px -14px rgba(0, 0, 0, 0.6);
-  --region-nav: rgba(255, 255, 255, 0.050);
-  --region-secondary: rgba(255, 255, 255, 0.032);
-  --region-list: rgba(255, 255, 255, 0.020);
-  --region-content: rgba(255, 255, 255, 0.012);
-  --region-card-glass: rgba(255, 255, 255, 0.08);
-  --region-card-solid: rgba(15, 23, 42, 0.35);
-  --region-card-soft: rgba(255, 255, 255, 0.03);
+  --region-nav: rgba(13, 17, 25, 0.94);
+  --region-secondary: rgba(18, 23, 33, 0.86);
+  --region-list: rgba(22, 28, 39, 0.74);
+  --region-content: rgba(25, 31, 43, 0.58);
+  --region-card-glass: rgba(255, 255, 255, 0.10);
+  --region-card-solid: rgba(32, 39, 53, 0.75);
+  --region-card-soft: rgba(255, 255, 255, 0.05);
 }
 
 /* 放进 components 层：Tailwind 的 fixed / absolute utility 才能覆盖这里的 position。
@@ -412,13 +412,13 @@ button {
   }
 
   /* 激进轻量卡片：直接借用轨道的高透明底色，去掉边框感（试效果中）。
-     区域配色开启时改用区域卡片材质色，其余外观逻辑不变。 */
+     区域卡片色由 Card 自己用 --glass-bg 覆盖，外壳与其他软材质保持轨道色。 */
   .glass-soft {
-    --glass-bg: var(--region-card-glass, var(--glass-track-bg));
+    --glass-bg: var(--glass-track-bg);
   }
 
   .dark .glass-soft {
-    --glass-bg: var(--region-card-glass, var(--glass-track-bg));
+    --glass-bg: var(--glass-track-bg);
   }
 
   /* 浮层材质：菜单 / 模态 / 下拉浮在任意内容之上。.glass 那 74% / 72% 的透明白是给

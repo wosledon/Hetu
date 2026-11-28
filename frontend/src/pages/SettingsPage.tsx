@@ -646,7 +646,7 @@ function AppearanceSettingsSection({
   uiZoom: number
   onThemeChange: (v: Theme) => void
   onAccentChange: (v: 'blue' | 'violet' | 'cyan' | 'emerald' | 'amber' | 'rose') => void
-  onBackgroundChange: (v: 'solid' | 'dawn' | 'dusk' | 'grid' | 'dots' | 'aurora') => void
+  onBackgroundChange: (v: BackgroundKey) => void
   regionPalette: RegionPaletteKey
   onRegionPaletteChange: (v: RegionPaletteKey) => void
   onGlassChange: (v: boolean) => void
@@ -663,7 +663,7 @@ function AppearanceSettingsSection({
   const setTooltipSide = useUIStore((state) => state.setTooltipSide)
   const accent: 'blue' | 'violet' | 'cyan' | 'emerald' | 'amber' | 'rose' =
     (snapshot?.themeAccent as 'blue') ?? 'blue'
-  const background: 'solid' | 'dawn' | 'dusk' | 'grid' | 'dots' | 'aurora' =
+  const background: 'solid' | 'palette' | 'dawn' | 'dusk' | 'grid' | 'dots' | 'aurora' =
     (snapshot?.background as 'solid') ?? 'solid'
   return (
     <div className="space-y-8">
@@ -795,7 +795,7 @@ function AppearanceSettingsSection({
           <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">{t('appearance.backgroundTitle')}</h3>
           <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">{t('appearance.backgroundSubtitle')}</p>
         </div>
-        <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
+        <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-7">
           {BACKGROUND_PRESETS.map((preset) => {
             const isActive = background === preset.key
             return (
@@ -810,7 +810,7 @@ function AppearanceSettingsSection({
               >
                 <span
                   className="h-14 w-full rounded-lg ring-1 ring-black/[0.06] dark:ring-white/10"
-                  style={backgroundPreviewStyle(preset.key, isDark)}
+                  style={backgroundPreviewStyle(preset.key, isDark, regionPalette)}
                 />
                 <span className={`text-xs font-medium ${isActive ? 'text-blue-700 dark:text-blue-200' : 'text-gray-600 dark:text-gray-300'}`}>
                   {t(`appearance.background.${preset.key}`)}
