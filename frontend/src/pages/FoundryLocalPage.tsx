@@ -65,6 +65,8 @@ export default function FoundryLocalPage() {
     refetchOnWindowFocus: false,
   })
   const status = statusQuery.data
+  // 环境检测尚未返回：先渲染加载态，避免把「尚未安装」提前闪给用户
+  const detecting = statusQuery.isPending
 
   // CLI 没装时整页只展示安装引导，不该再去拉目录
   const cliReady = status?.cliInstalled === true && status?.supported === true
@@ -217,8 +219,14 @@ export default function FoundryLocalPage() {
             </div>
           )}
 
-          {/* CLI 没装：整页只做安装引导，不展示任何管理界面 */}
-          {!cliReady ? (
+          {/* 环境检测中：先展示加载动画，不提前渲染安装引导 */}
+          {detecting ? (
+            <Card className="flex flex-col items-center justify-center gap-3 py-20 text-center">
+              <Loader2 size={24} className="animate-spin text-cyan-500" />
+              <div className="text-sm font-medium text-gray-600 dark:text-gray-300">{t('detect.title')}</div>
+              <p className="max-w-md text-[11px] leading-relaxed text-gray-400">{t('detect.hint')}</p>
+            </Card>
+          ) : !cliReady ? (
             <InstallGuide status={status} copied={copied} onCopy={() => setCopied(true)} />
           ) : (
             <div className="space-y-5">

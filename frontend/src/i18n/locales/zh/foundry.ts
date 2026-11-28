@@ -1,6 +1,10 @@
 export default {
   title: '本地模型',
   subtitle: '通过 Foundry Local CLI 在本地运行开源模型：浏览目录、下载、加载，并直接接入 Hetu 的对话与知识库',
+  detect: {
+    title: '正在检测本地模型环境…',
+    hint: '确认 CLI 安装状态、运行时与缓存目录；首次检测可能需要几秒钟',
+  },
   install: {
     title: '尚未安装 Foundry Local CLI',
     lead: '本地模型功能依赖 Foundry Local CLI（微软官方的本地推理运行时）。 Hetu 通过调用它来管理模型，自身不再内置任何原生库。',

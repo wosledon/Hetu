@@ -1,6 +1,10 @@
 export default {
   title: 'Local models',
   subtitle: 'Run open-source models locally via the Foundry Local CLI: browse the catalog, download, load, and wire them straight into Hetu chat and the knowledge base',
+  detect: {
+    title: 'Detecting local model environment…',
+    hint: 'Checking CLI installation, runtime status and cache directory — the first check can take a few seconds',
+  },
   install: {
     title: 'Foundry Local CLI is not installed',
     lead: 'Local models rely on the Foundry Local CLI, Microsoft\'s official local inference runtime. Hetu drives it instead of bundling any native libraries itself.',
