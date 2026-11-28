@@ -336,7 +336,6 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
             className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-3 py-2 transition-opacity hover:opacity-80"
           >
             <BrandMark size={30} />
-            <span className="truncate text-lg font-bold tracking-tight text-gray-800 dark:text-gray-100">{appName}</span>
           </button>
           {!desktop && (
             <IconButton
