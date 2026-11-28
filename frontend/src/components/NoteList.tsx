@@ -1,16 +1,18 @@
 import { useRef, useEffect, useState, useCallback, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { CornerLeftUp, FileText, Pin, Plus, Search, Star, Trash2, RotateCcw } from 'lucide-react'
+import { CornerLeftUp, FileText, Loader2, Pin, Plus, Search, Star, Trash2, RotateCcw, X } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { enUS, zhCN } from 'date-fns/locale'
 import { useUIStore } from '../stores/uiStore'
+import { useNoteSearch } from '../hooks/useNoteSearch'
 import { noteService } from '../services/noteService'
 import { tagPalette } from '../utils/tagColor'
 import { uiLocale } from '../utils/locale'
 import type { INote } from '../types'
 import { Card, ContextMenu, IconButton, SearchInput } from './ui'
 import EmojiPicker from './EmojiPicker'
+import NoteSearchResults from './NoteSearchResults'
 
 interface NoteListProps {
   onSelectNote: (note: INote) => void
@@ -40,6 +42,8 @@ export default function NoteList({
   const [scrollTop, setScrollTop] = useState(0)
   const [containerHeight, setContainerHeight] = useState(0)
   const [searchTerm, setSearchTerm] = useState('')
+  const [searchActiveIndex, setSearchActiveIndex] = useState(0)
+  const searchInputRef = useRef<HTMLInputElement>(null)
   const [menu, setMenu] = useState<ContextMenuState | null>(null)
   const hasValidHeight = useRef(false)
   const selectedNoteParentId = useUIStore((state) => state.selectedNoteParentId)
@@ -114,14 +118,41 @@ export default function NoteList({
     onSuccess: invalidate,
   })
 
-  const notes = useMemo(() => {
-    const allNotes = data?.items ?? []
-    const keyword = searchTerm.trim().toLowerCase()
-    if (!keyword) return allNotes
-    return allNotes.filter((note) =>
-      `${note.title} ${note.content}`.toLowerCase().includes(keyword)
-    )
-  }, [data?.items, searchTerm])
+  const notes = useMemo(() => data?.items ?? [], [data])
+
+  // ---- 搜索：标题 + 正文服务端检索（标签范围内），命中时结果替换当前列表 ----
+  const searchKeyword = searchTerm.trim()
+  const searchActive = searchKeyword.length > 0
+  const { results: searchResults, total: searchTotal, ready: searchReady, inFlight: searchInFlight } = useNoteSearch(searchTerm, { tagId: selectedTagId, includeDeleted })
+  const activeSearchIndex = searchResults.length > 0 ? Math.min(searchActiveIndex, searchResults.length - 1) : -1
+
+  const openSearchResult = async (id: string) => {
+    try {
+      onSelectNote(await noteService.getById(id))
+    } catch {
+      // 结果已失效（被删除或移动）时忽略，下一次输入会重新检索
+    }
+  }
+
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Escape') {
+      e.preventDefault()
+      setSearchTerm('')
+      return
+    }
+    if (searchResults.length === 0) return
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setSearchActiveIndex(Math.min(activeSearchIndex + 1, searchResults.length - 1))
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setSearchActiveIndex(Math.max(activeSearchIndex - 1, 0))
+    } else if (e.key === 'Enter') {
+      e.preventDefault()
+      const target = searchResults[Math.max(0, activeSearchIndex)]
+      if (target) void openSearchResult(target.id)
+    }
+  }
 
   const handleCreate = () => {
     createNote.mutate({
@@ -215,16 +246,42 @@ export default function NoteList({
             </button>
           )}
         </div>
-        <SearchInput tone="blue"
+        <SearchInput tone="blue" ref={searchInputRef}
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
+          onKeyDown={handleSearchKeyDown}
           placeholder={t('list.searchPlaceholder')}
           className="w-full"
+          iconRight={searchInFlight
+            ? <Loader2 size={13} className="animate-spin" />
+            : searchActive
+              ? <button
+                  type="button"
+                  onClick={() => { setSearchTerm(''); searchInputRef.current?.focus() }}
+                  aria-label={t('search.clear')}
+                  title={t('search.clear')}
+                  className="flex h-4 w-4 items-center justify-center rounded text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/10 dark:hover:text-gray-300"
+                >
+                  <X size={12} />
+                </button>
+              : undefined}
         />
       </div>
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-2" onScroll={handleScroll}>
-        {isLoading ? (
+        {searchActive ? (
+          <NoteSearchResults
+            keyword={searchKeyword}
+            results={searchResults}
+            total={searchTotal}
+            ready={searchReady}
+            inFlight={searchInFlight}
+            activeIndex={activeSearchIndex}
+            selectedNoteId={selectedNoteId}
+            onHover={setSearchActiveIndex}
+            onOpen={(id) => void openSearchResult(id)}
+          />
+        ) : isLoading ? (
           <div className="flex flex-col items-center justify-center py-16 text-sm text-gray-400">
             <div className="relative mb-3">
               <div className="h-10 w-10 rounded-full border-2 border-gray-200 dark:border-gray-700" />

@@ -46,6 +46,7 @@ import { useImageAttachments } from '../hooks/useImageAttachments'
 import { consumeSseStream } from '../utils/sse'
 import { formatDateTime } from '../utils/locale'
 import { POPOVER_PANEL_CLASS } from '../utils/styles'
+import { highlightSearchMatches, plainSearchSnippet } from '../utils/searchHighlight'
 import type { IChatMessage, IChatTopic, IPagedResult, IPromptPreset, ISkill } from '../types'
 import { Button, Card, IconButton } from './ui'
 
@@ -1646,28 +1647,4 @@ export default function ChatMessageArea({ topic, onTopicUpdated, projectId }: Ch
 
 
 
-/** 在搜索结果片段中高亮命中词（大小写不敏感，正则特殊字符按字面量匹配） */
-function highlightSearchMatches(text: string, keyword: string): React.ReactNode {
-  const query = keyword.trim()
-  if (!query) return text
-  const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  const parts = text.split(new RegExp(`(${escaped})`, 'gi'))
-  if (parts.length === 1) return text
-  const lower = query.toLowerCase()
-  return parts.map((part, index) => part.toLowerCase() === lower
-    ? <mark key={index} className="rounded-[3px] bg-amber-200/70 px-0.5 text-inherit dark:bg-amber-300/25">{part}</mark>
-    : part)
-}
 
-/** 搜索结果片段去 Markdown 标记：让两行摘要更干净，命中词仍可高亮 */
-function plainSearchSnippet(text: string): string {
-  return text
-    .replace(/```[\s\S]*?```/g, ' ')
-    .replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
-    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
-    .replace(/^#{1,6}\s+/gm, '')
-    .replace(/^>\s?/gm, '')
-    .replace(/[*`~|]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-}

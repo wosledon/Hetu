@@ -198,7 +198,11 @@ public class NoteRepository : EfRepository<Note>, INoteRepository
             query = query.Where(n => n.NoteTags.Any(nt => nt.TagId == tagId.Value));
 
         var notes = await query.ToListAsync(cancellationToken);
-        return notes.OrderByDescending(n => n.UpdatedAt).ToList();
+        // 标题命中优先（更符合搜索预期），同档内按最近更新排序
+        return notes
+            .OrderByDescending(n => n.Title.Contains(keyword, System.StringComparison.OrdinalIgnoreCase))
+            .ThenByDescending(n => n.UpdatedAt)
+            .ToList();
     }
 
     public async Task<IReadOnlyList<Note>> GetDeletedAsync(CancellationToken cancellationToken = default)

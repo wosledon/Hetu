@@ -16,7 +16,8 @@ export interface InputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 
   iconRight?: ReactNode
 }
 
-const BASE = 'w-full border bg-gray-50 text-sm outline-none transition-all placeholder:text-gray-400'
+/** Tailwind v4 的默认边框色是 currentColor：基础层必须给浅色描边，否则未覆盖的变体（如胶囊）会描出近黑色边框 */
+const BASE = 'w-full border border-gray-200/80 bg-gray-50 text-sm outline-none transition-all placeholder:text-gray-400'
 
 const SIZES = {
   sm: 'rounded-lg border-gray-200/80 bg-gray-50/80 px-2.5 py-1.5 text-[13px]',

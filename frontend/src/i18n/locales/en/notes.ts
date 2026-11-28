@@ -14,12 +14,19 @@ export default {
   sidebar: {
     notesCount: '{{n}} notes',
   },
+  search: {
+    resultCount: '{{count}} results',
+    searching: 'Searching…',
+    empty: 'No notes match “{{keyword}}”',
+    emptyHint: 'Try a shorter keyword — titles and content are searched',
+    clear: 'Clear search',
+  },
   list: {
     titleChildren: 'Child notes',
     titleTag: 'Tagged notes',
     titleTrash: 'Trash',
     titleAll: 'All notes',
-    searchPlaceholder: 'Search notes...',
+    searchPlaceholder: 'Search note titles and content…',
     empty: 'No notes yet',
     emptyHint: 'Click "New" above to create your first note',
     restore: 'Restore',
@@ -32,7 +39,7 @@ export default {
   },
   tree: {
     label: 'Notes',
-    searchPlaceholder: 'Search...',
+    searchPlaceholder: 'Search note titles and content…',
     newNote: 'New note',
     newChild: 'New sub-note',
     empty: 'No notes yet — click "New note" above to start',

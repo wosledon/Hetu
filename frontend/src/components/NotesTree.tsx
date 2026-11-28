@@ -1,13 +1,15 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { FileText, Pin, Plus, Star, Trash2, CornerLeftUp } from 'lucide-react'
+import { FileText, Loader2, Pin, Plus, Star, Trash2, CornerLeftUp, X } from 'lucide-react'
 import { confirm } from './confirm'
 import { useUIStore } from '../stores/uiStore'
+import { useNoteSearch } from '../hooks/useNoteSearch'
 import { noteService } from '../services/noteService'
 import type { INote } from '../types'
 import { Button, Card, ContextMenu, IconButton, SearchInput, TreeRow } from './ui'
 import EmojiPicker from './EmojiPicker'
+import NoteSearchResults from './NoteSearchResults'
 
 interface NotesTreeProps {
   selectedNoteId?: string
@@ -39,14 +41,12 @@ function NoteIconButton({ note, onPick }: { note: INote; onPick: (emoji: string)
 function NoteNode({
   note,
   depth,
-  search,
   selectedNoteId,
   onSelectNote,
   onOpenLeafMenu,
 }: {
   note: INote
   depth: number
-  search: string
   selectedNoteId?: string
   onSelectNote: (note: INote) => void
   onOpenLeafMenu: (e: React.MouseEvent, note: INote) => void
@@ -63,9 +63,7 @@ function NoteNode({
     queryFn: () => noteService.getList({ parentId: note.id, page: 1, pageSize: 200 }),
     enabled: expanded,
   })
-  const children = (childrenData?.items ?? []).filter((n) =>
-    !search || (n.title || '').toLowerCase().includes(search)
-  )
+  const children = childrenData?.items ?? []
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['notes-tree'] })
@@ -165,7 +163,6 @@ function NoteNode({
               key={child.id}
               note={child}
               depth={depth + 1}
-              search={search}
               selectedNoteId={selectedNoteId}
               onSelectNote={onSelectNote}
               onOpenLeafMenu={onOpenLeafMenu}
@@ -182,16 +179,49 @@ export default function NotesTree({ selectedNoteId, onSelectNote, className, emb
   const queryClient = useQueryClient()
   const { t } = useTranslation('notes')
   const [searchTerm, setSearchTerm] = useState('')
+  const [searchActiveIndex, setSearchActiveIndex] = useState(0)
+  const searchInputRef = useRef<HTMLInputElement>(null)
   const [leafMenu, setLeafMenu] = useState<LeafMenuState | null>(null)
 
   const { data: rootData } = useQuery({
     queryKey: ['notes-tree', 'root'],
     queryFn: () => noteService.getList({ filterRoot: true, page: 1, pageSize: 500 }),
   })
-  const search = searchTerm.trim().toLowerCase()
-  const rootNotes = (rootData?.items ?? []).filter((n) =>
-    !search || (n.title || '').toLowerCase().includes(search)
-  )
+  const rootNotes = rootData?.items ?? []
+
+  // ---- 搜索：标题 + 正文服务端检索，命中则用结果列表替换整棵树 ----
+  const searchKeyword = searchTerm.trim()
+  const searchActive = searchKeyword.length > 0
+  const { results: searchResults, total: searchTotal, ready: searchReady, inFlight: searchInFlight } = useNoteSearch(searchTerm)
+  const activeSearchIndex = searchResults.length > 0 ? Math.min(searchActiveIndex, searchResults.length - 1) : -1
+
+  const openSearchResult = async (id: string) => {
+    try {
+      onSelectNote(await noteService.getById(id))
+    } catch {
+      // 结果已失效（被删除或移动）时忽略，下一次输入会重新检索
+    }
+  }
+
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Escape') {
+      e.preventDefault()
+      setSearchTerm('')
+      return
+    }
+    if (searchResults.length === 0) return
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setSearchActiveIndex(Math.min(activeSearchIndex + 1, searchResults.length - 1))
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setSearchActiveIndex(Math.max(activeSearchIndex - 1, 0))
+    } else if (e.key === 'Enter') {
+      e.preventDefault()
+      const target = searchResults[Math.max(0, activeSearchIndex)]
+      if (target) void openSearchResult(target.id)
+    }
+  }
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['notes-tree'] })
@@ -246,37 +276,68 @@ export default function NotesTree({ selectedNoteId, onSelectNote, className, emb
         <div className="mb-2.5 flex items-center justify-between">
           <h2 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">{t('tree.label')}</h2>
         </div>
-        <SearchInput tone="blue" size="sm"
+        <SearchInput tone="blue" size="sm" ref={searchInputRef}
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
+          onKeyDown={handleSearchKeyDown}
           placeholder={t('tree.searchPlaceholder')}
           className="w-full"
+          iconRight={searchInFlight
+            ? <Loader2 size={12} className="animate-spin" />
+            : searchActive
+              ? <button
+                  type="button"
+                  onClick={() => { setSearchTerm(''); searchInputRef.current?.focus() }}
+                  aria-label={t('search.clear')}
+                  title={t('search.clear')}
+                  className="flex h-4 w-4 items-center justify-center rounded text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/10 dark:hover:text-gray-300"
+                >
+                  <X size={11} />
+                </button>
+              : undefined}
         />
       </div>
 
-      <div className="shrink-0 px-2 pt-2">
-        <Button variant="link" tone="gray" className="mb-1 flex w-full items-center justify-center gap-1.5 rounded-xl border border-blue-200/70 bg-blue-50/70 px-3 py-2 text-[13px] font-medium text-blue-600 transition-colors hover:bg-blue-100 dark:border-blue-400/15 dark:bg-blue-500/10 dark:text-blue-300 dark:hover:bg-blue-500/15" onClick={() => createRootNote.mutate({ title: '', content: '' })}>
-          <Plus size={14} className="shrink-0" />
-          {t('tree.newNote')}
-        </Button>
-      </div>
-
-      <div className="flex-1 overflow-y-auto p-2">
-        {rootNotes.length === 0 && (
-          <p className="px-2 py-4 text-center text-[11px] text-gray-300 dark:text-gray-600">{t('tree.empty')}</p>
-        )}
-        {rootNotes.map((note) => (
-          <NoteNode
-            key={note.id}
-            note={note}
-            depth={0}
-            search={search}
+      {searchActive ? (
+        <div className="min-h-0 flex-1 overflow-y-auto p-2">
+          <NoteSearchResults
+            keyword={searchKeyword}
+            results={searchResults}
+            total={searchTotal}
+            ready={searchReady}
+            inFlight={searchInFlight}
+            activeIndex={activeSearchIndex}
             selectedNoteId={selectedNoteId}
-            onSelectNote={onSelectNote}
-            onOpenLeafMenu={handleOpenLeafMenu}
+            onHover={setSearchActiveIndex}
+            onOpen={(id) => void openSearchResult(id)}
           />
-        ))}
-      </div>
+        </div>
+      ) : (
+        <>
+          <div className="shrink-0 px-2 pt-2">
+            <Button variant="link" tone="gray" className="mb-1 flex w-full items-center justify-center gap-1.5 rounded-xl border border-blue-200/70 bg-blue-50/70 px-3 py-2 text-[13px] font-medium text-blue-600 transition-colors hover:bg-blue-100 dark:border-blue-400/15 dark:bg-blue-500/10 dark:text-blue-300 dark:hover:bg-blue-500/15" onClick={() => createRootNote.mutate({ title: '', content: '' })}>
+              <Plus size={14} className="shrink-0" />
+              {t('tree.newNote')}
+            </Button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-2">
+            {rootNotes.length === 0 && (
+              <p className="px-2 py-4 text-center text-[11px] text-gray-300 dark:text-gray-600">{t('tree.empty')}</p>
+            )}
+            {rootNotes.map((note) => (
+              <NoteNode
+                key={note.id}
+                note={note}
+                depth={0}
+                selectedNoteId={selectedNoteId}
+                onSelectNote={onSelectNote}
+                onOpenLeafMenu={handleOpenLeafMenu}
+              />
+            ))}
+          </div>
+        </>
+      )}
 
       {leafMenu && (
         <ContextMenu

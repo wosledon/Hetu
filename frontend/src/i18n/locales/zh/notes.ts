@@ -14,12 +14,19 @@ export default {
   sidebar: {
     notesCount: '{{n}} 篇笔记',
   },
+  search: {
+    resultCount: '{{count}} 条结果',
+    searching: '搜索中…',
+    empty: '没有找到「{{keyword}}」相关的笔记',
+    emptyHint: '试试更短的关键词，标题与正文都会被搜索',
+    clear: '清除搜索',
+  },
   list: {
     titleChildren: '子笔记',
     titleTag: '标签笔记',
     titleTrash: '回收站',
     titleAll: '全部笔记',
-    searchPlaceholder: '搜索笔记...',
+    searchPlaceholder: '搜索笔记标题与正文…',
     empty: '暂无笔记',
     emptyHint: '点击上方「新建」创建第一条笔记',
     restore: '恢复',
@@ -32,7 +39,7 @@ export default {
   },
   tree: {
     label: '笔记',
-    searchPlaceholder: '搜索...',
+    searchPlaceholder: '搜索笔记标题与正文…',
     newNote: '新建笔记',
     newChild: '新建子笔记',
     empty: '暂无笔记，点击上方「新建笔记」开始',
