@@ -3,25 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import {
-  Network,
-  RotateCcw,
-  Sparkles,
-  Trash2,
-  X,
-  ZoomIn,
-  ZoomOut,
-  Lightbulb,
-  Code,
-  Building,
-  Brain,
-  Box,
-  Tag,
-  Loader2,
-  Check,
-  FolderOpen,
-  FileText,
-  BookText,
-} from 'lucide-react'
+  Network, RotateCcw, Sparkles, Trash2, X, ZoomIn, ZoomOut, Lightbulb, Code, Building, Brain, Box, Tag, Loader2, Check, FolderOpen, FileText, BookText, } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
 // 笔记预览用的 Markdown 渲染链（react-markdown + katex + mermaid 等）非常重，
 // 只有打开预览弹窗才需要：懒加载，别让它拖慢图谱页首屏
@@ -30,7 +12,7 @@ import { graphService } from '../services/graphService'
 import { noteService } from '../services/noteService'
 import i18n from '../i18n'
 import type { IGraphEntity, IGraphRelation, INote, IExtractGraphResult } from '../types'
-import { Button, IconButton, Modal, PageContainer, SearchInput, TreeRow } from '../components/ui'
+import { Button, IconButton, Modal, PageContainer, SearchInput, TreeRow, SurfaceButton } from '../components/ui'
 
 const ENTITY_COLORS: Record<string, string> = {
   concept: '#6366f1',
@@ -1196,7 +1178,7 @@ export default function GraphPage() {
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-900/30"><Sparkles size={16} className="text-emerald-600 dark:text-emerald-400" /></div>
                 <div><h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">{t('graph.extractDialogTitle')}</h3><p className="text-xs text-gray-500">{selectedNoteIds.size > 0 ? t('graph.selectedNotes', { n: selectedNoteIds.size }) : t('graph.extractDialogHint')}</p></div>
               </div>
-              <button onClick={() => { setShowExtractDialog(false); setSelectedNoteIds(new Set()); setExtractResults(new Map()); setExtractSearch('') }} className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200"><X size={18} /></button>
+              <SurfaceButton onClick={() => { setShowExtractDialog(false); setSelectedNoteIds(new Set()); setExtractResults(new Map()); setExtractSearch('') }} className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200"><X size={18} /></SurfaceButton>
             </div>
             <div className="shrink-0 border-b border-gray-100 px-5 py-3 dark:border-gray-700">
               <SearchInput tone="emerald"
@@ -1262,7 +1244,7 @@ export default function GraphPage() {
                 </div>
                 <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">{previewNoteTitle}</h3>
               </div>
-              <button onClick={() => { setPreviewNoteId(null); setPreviewNoteContent('') }} className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200"><X size={18} /></button>
+              <SurfaceButton onClick={() => { setPreviewNoteId(null); setPreviewNoteContent('') }} className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200"><X size={18} /></SurfaceButton>
             </div>
             <div className="flex-1 overflow-y-auto p-6">
               {isLoadingNote ? (
@@ -1369,11 +1351,11 @@ export default function GraphPage() {
             />
           </div>
           <div className="flex flex-wrap gap-1.5">
-            <button onClick={() => setTypeFilter('all')} className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] transition-colors ${typeFilter === 'all' ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:border-indigo-400 dark:bg-indigo-950/40 dark:text-indigo-200' : 'border-transparent text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-white/[0.06]'}`}>{t('common:all')} {entities.length}</button>
+            <SurfaceButton onClick={() => setTypeFilter('all')} className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] transition-colors ${typeFilter === 'all' ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:border-indigo-400 dark:bg-indigo-950/40 dark:text-indigo-200' : 'border-transparent text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-white/[0.06]'}`}>{t('common:all')} {entities.length}</SurfaceButton>
             {entityTypes.map(type => (
-              <button key={type} onClick={() => setTypeFilter(type)} className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] transition-colors ${typeFilter === type ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:border-indigo-400 dark:bg-indigo-950/40 dark:text-indigo-200' : 'border-transparent text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-white/[0.06]'}`}>
+              <SurfaceButton key={type} onClick={() => setTypeFilter(type)} className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] transition-colors ${typeFilter === type ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:border-indigo-400 dark:bg-indigo-950/40 dark:text-indigo-200' : 'border-transparent text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-white/[0.06]'}`}>
                 <span className="h-2 w-2 rounded-full" style={{ backgroundColor: ENTITY_COLORS[type] || ENTITY_COLORS.custom }} />{entityTypeLabel(type)} {typeCounts.get(type) ?? 0}
-              </button>
+              </SurfaceButton>
             ))}
           </div>
         </div>

@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { Plus, Trash2, Edit2, Check, X, Download, Upload, RefreshCw } from 'lucide-react'
 import { promptPresetService } from '../services/promptPresetService'
 import type { IPromptPreset } from '../types'
-import { Button, Input, Textarea } from './ui'
+import { Button, Input, Textarea, SurfaceButton, FileInput } from './ui'
 
 export default function PromptPresetManager() {
   const { t } = useTranslation('chat')
@@ -146,7 +146,7 @@ export default function PromptPresetManager() {
             <Upload size={14} />
             {t('common:import')}
           </Button>
-          <input ref={fileInputRef} type="file" accept=".json" className="hidden" onChange={handleImport} />
+          <FileInput ref={fileInputRef} accept=".json" className="hidden" onChange={handleImport} />
           {!isCreating && !editingId && (
             <Button variant="primary" tone="indigo" className="flex items-center gap-1 text-sm px-3 py-1.5 bg-indigo-600 text-white rounded-md hover:bg-indigo-700" onClick={() => setIsCreating(true)}>
               <Plus size={14} />
@@ -207,7 +207,7 @@ export default function PromptPresetManager() {
               <Check size={14} />
               {t('common:save')}
             </Button>
-            <button
+            <SurfaceButton
               onClick={() => {
                 setIsCreating(false)
                 setEditingId(null)
@@ -217,7 +217,7 @@ export default function PromptPresetManager() {
             >
               <X size={14} />
               {t('common:cancel')}
-            </button>
+            </SurfaceButton>
           </div>
         </div>
       )}

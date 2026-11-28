@@ -1,20 +1,6 @@
 import { useCallback, useRef, useState } from 'react'
 import {
-  ReactFlow,
-  ReactFlowProvider,
-  Background,
-  Controls,
-  MiniMap,
-  useNodesState,
-  useEdgesState,
-  addEdge,
-  type Node,
-  type Edge,
-  type Connection,
-  type NodeChange,
-  type EdgeChange,
-  MarkerType,
-} from '@xyflow/react'
+  ReactFlow, ReactFlowProvider, Background, Controls, MiniMap, useNodesState, useEdgesState, addEdge, type Node, type Edge, type Connection, type NodeChange, type EdgeChange, MarkerType, } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import dagre from 'dagre'
 import { useTranslation } from 'react-i18next'
@@ -28,7 +14,7 @@ import NodePalette from './NodePalette'
 import NodeConfigPanel from './NodeConfigPanel'
 import type { IPromptPreset } from '../../types'
 import type { NodeTypes } from '@xyflow/react'
-import { Button, Input, Textarea } from '../ui'
+import { Button, Input, Textarea, SurfaceButton } from '../ui'
 
 interface WorkflowEditorProps {
   workflow: IWorkflow
@@ -173,14 +159,14 @@ function LayoutedEditor({ workflow, agents, workflows, availableTools, onBack, o
         <div className="h-4 w-px bg-gray-200 dark:bg-white/[0.08]" />
         {/* 名称/描述 可编辑 */}
         <div className="relative">
-          <button
+          <SurfaceButton
             onClick={() => setShowMeta((v) => !v)}
             className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-white/[0.06]"
             title={t('editor.editMeta')}
           >
             {name || t('editor.untitledWorkflow')}
             <Pencil size={12} className="text-gray-400" />
-          </button>
+          </SurfaceButton>
           {showMeta && (
             <>
               <div className="fixed inset-0 z-40" onClick={() => setShowMeta(false)} />
@@ -214,7 +200,7 @@ function LayoutedEditor({ workflow, agents, workflows, availableTools, onBack, o
         </div>
         <span className="text-xs text-gray-400">{isNew ? t('common:unsaved') : `v${workflow.version}`}</span>
         {/* 启用/禁用开关 */}
-        <button
+        <SurfaceButton
           onClick={() => { setIsEnabled((v) => !v); setSaved(false) }}
           className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
             isEnabled
@@ -225,7 +211,7 @@ function LayoutedEditor({ workflow, agents, workflows, availableTools, onBack, o
         >
           <span className={`h-1.5 w-1.5 rounded-full ${isEnabled ? 'bg-green-500' : 'bg-gray-400'}`} />
           {isEnabled ? t('common:enable') : t('common:disable')}
-        </button>
+        </SurfaceButton>
         <div className="flex-1" />
         <Button variant="ghost" tone="gray" size="sm" className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/[0.06]" onClick={autoLayout}>
           <Layout size={14} /> {t('editor.autoLayout')}

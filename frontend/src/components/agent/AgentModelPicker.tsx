@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Check, ChevronDown, Cpu } from 'lucide-react'
 import { reasoningEffortDefault, reasoningEffortLabel, reasoningEffortOptions } from '../../utils/agentReasoning'
 import { POPOVER_EMPTY_CLASS, POPOVER_PANEL_CLASS } from '../../utils/styles'
-import { SearchInput } from '../ui'
+import { SearchInput, SurfaceButton, Slider } from '../ui'
 
 export interface ModelPickerModel {
   id: string
@@ -117,8 +117,7 @@ function EnclosedSlider({ labels, index, onChange, ariaLabel, tone, className }:
         className="absolute top-1/2 h-8 w-8 -translate-y-1/2 rounded-full bg-white shadow-[0_2px_10px_rgba(15,23,42,0.28)] ring-1 ring-black/5 transition-[left] duration-200 dark:bg-gray-50 dark:ring-white/10"
         style={{ left: thumbLeft }}
       />
-      <input
-        type="range"
+      <Slider
         min={0}
         max={Math.max(0, count - 1)}
         step={1}
@@ -231,7 +230,7 @@ export default function AgentModelPicker({
 
   return (
     <div className="relative" ref={containerRef}>
-      <button
+      <SurfaceButton
         type="button"
         onClick={toggleOpen}
         aria-haspopup="dialog"
@@ -253,7 +252,7 @@ export default function AgentModelPicker({
         )}
         {currentCtxK && <span className="shrink-0 text-[9px] tabular-nums text-gray-400 dark:text-gray-500">{formatK(currentCtxK)}</span>}
         <ChevronDown size={10} className={`shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
-      </button>
+      </SurfaceButton>
 
       {open && (
         <div
@@ -275,7 +274,7 @@ export default function AgentModelPicker({
                 const active = !query.trim() && activeProvider === p.id
                 const count = models.filter((m) => m.providerId === p.id).length
                 return (
-                  <button
+                  <SurfaceButton
                     key={p.id}
                     type="button"
                     aria-pressed={active}
@@ -297,7 +296,7 @@ export default function AgentModelPicker({
                     }`}>
                       {count}
                     </span>
-                  </button>
+                  </SurfaceButton>
                 )
               })}
             </div>
@@ -322,7 +321,7 @@ export default function AgentModelPicker({
                 {visibleModels.map((m) => {
                   const selected = m.id === effectiveModelId
                   return (
-                    <button
+                    <SurfaceButton
                       key={m.id}
                       type="button"
                       onClick={() => {
@@ -348,7 +347,7 @@ export default function AgentModelPicker({
                         )}
                       </span>
                       {selected && <Check size={13} className="shrink-0 text-indigo-500 dark:text-indigo-300" />}
-                    </button>
+                    </SurfaceButton>
                   )
                 })}
               </div>

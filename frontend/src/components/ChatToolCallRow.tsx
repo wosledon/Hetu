@@ -3,6 +3,7 @@ import { Brain, ChevronDown, ChevronRight, Loader2, Play, Wrench, X } from 'luci
 import { useTranslation } from 'react-i18next'
 import { renderToolName, renderToolResult } from '../utils/toolRendering'
 import { TOOL_ICONS } from '../utils/toolIcons'
+import { SurfaceButton } from './ui'
 
 export interface ChatToolCallRowProps {
   name: string
@@ -111,7 +112,7 @@ function ChatToolCallRow({ name, args, result, isError, running, text, label, on
           : `group flex min-h-11 items-center gap-2 px-2.5 py-2 text-left transition-colors ${canExpand ? 'cursor-pointer hover:bg-white/55 dark:hover:bg-white/[0.025]' : ''}`}
       >
         {canExpand ? (
-          <button
+          <SurfaceButton
             type="button"
             aria-label={open ? t('tool.collapseDetails') : t('tool.expandDetails')}
             title={open ? t('tool.collapseDetails') : t('tool.expandDetails')}
@@ -119,7 +120,7 @@ function ChatToolCallRow({ name, args, result, isError, running, text, label, on
             className={`shrink-0 rounded-md text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06] dark:hover:text-gray-200 ${compact ? 'p-0.5' : 'p-1'}`}
           >
             {open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-          </button>
+          </SurfaceButton>
         ) : compact && (
           // 不可展开时预留与 Chevron 同宽的槽位，保证同一时间线各行的图标与文字左对齐
           <span className="h-4 w-4 shrink-0" aria-hidden />
@@ -134,21 +135,21 @@ function ChatToolCallRow({ name, args, result, isError, running, text, label, on
           : 'shrink-0 text-xs font-semibold text-gray-700 dark:text-gray-200'}>{rowLabel}</span>
         {summary && (
           onOpenPath && isFileTarget(name) ? (
-            <button
+            <SurfaceButton
               type="button"
               onClick={(e) => { e.stopPropagation(); onOpenPath(summary) }}
               title={t('tool.openInEditor')}
               className="min-w-0 flex-1 truncate text-left font-mono text-[11px] text-gray-500 underline-offset-2 hover:text-blue-500 hover:underline dark:text-gray-400"
             >
               {summary}
-            </button>
+            </SurfaceButton>
           ) : (
             <span className={`min-w-0 flex-1 truncate text-[11px] text-gray-500 dark:text-gray-400 ${isText ? '' : 'font-mono'}`} title={summary}>{summary}</span>
           )
         )}
         {!summary && <span className="flex-1" />}
         {canRun && (
-          <button
+          <SurfaceButton
             type="button"
             aria-label={t('tool.runInTerminal')}
             title={t('tool.runInTerminal')}
@@ -156,7 +157,7 @@ function ChatToolCallRow({ name, args, result, isError, running, text, label, on
             className="shrink-0 rounded p-0.5 text-gray-400 transition-colors hover:bg-gray-200 hover:text-emerald-500 dark:hover:bg-gray-700"
           >
             <Play size={11} />
-          </button>
+          </SurfaceButton>
         )}
         {running && (
           <span className="ml-auto flex h-5 w-5 shrink-0 items-center justify-center text-blue-500 dark:text-blue-400" title={t('tool.running')}>

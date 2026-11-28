@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Bot, ChevronDown, ChevronRight, Loader2 } from 'lucide-react'
 import AgentTimeline from './AgentTimeline'
 import type { AgentTimelineItem } from '../../utils/agentTimeline'
+import { SurfaceButton } from '../ui'
 
 const STAGE_META: Record<string, { labelKey: string; cls: string }> = {
   running: { labelKey: 'subagent.running', cls: 'text-sky-600 dark:text-sky-400' },
@@ -46,7 +47,7 @@ export default function AgentSubAgentPanel({
         : 'border-gray-200/80 bg-white/65 dark:border-white/[0.07] dark:bg-slate-900/35'
     }`}>
       <div onClick={() => setOpen(!open)} className="flex min-h-11 cursor-pointer items-center gap-2 px-2.5 py-2 transition-colors hover:bg-white/55 dark:hover:bg-white/[0.025]">
-        <button
+        <SurfaceButton
           type="button"
           aria-label={open ? t('subagent.collapse') : t('subagent.expand')}
           title={open ? t('subagent.collapse') : t('subagent.expand')}
@@ -54,7 +55,7 @@ export default function AgentSubAgentPanel({
           className="shrink-0 rounded-md p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06] dark:hover:text-gray-200"
         >
           {open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-        </button>
+        </SurfaceButton>
         <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-lg ${
           stage === 'error'
             ? 'bg-red-100 text-red-600 dark:bg-red-500/10 dark:text-red-300'

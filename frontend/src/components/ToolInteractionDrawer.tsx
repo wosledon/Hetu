@@ -1,19 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  Check,
-  ChevronDown,
-  ChevronRight,
-  ClipboardList,
-  HelpCircle,
-  ListChecks,
-  Loader2,
-} from 'lucide-react'
+  Check, ChevronDown, ChevronRight, ClipboardList, HelpCircle, ListChecks, Loader2, } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { getInteraction, useInteractionStore } from '../stores/interactionStore'
 import type { InteractionTodo } from '../stores/interactionStore'
 import QuestionFlow from './tools/QuestionFlow'
 import PlanFlow from './tools/PlanFlow'
-import { IconButton } from './ui'
+import { IconButton, SurfaceButton } from './ui'
 
 type InteractionTab = 'question' | 'plan' | 'todo'
 
@@ -220,7 +213,7 @@ export default function ToolInteractionDrawer({ streamKey, streaming = false, pl
           {tabs.length > 1 && (
             <div className="flex items-center gap-0.5 rounded-xl border border-gray-200/70 bg-gray-50 p-0.5 dark:border-white/[0.06] dark:bg-white/[0.035]">
               {tabs.map((tab) => (
-                <button
+                <SurfaceButton
                   key={tab.key}
                   type="button"
                   onClick={() => setSelectedTab(tab.key)}
@@ -233,7 +226,7 @@ export default function ToolInteractionDrawer({ streamKey, streaming = false, pl
                   <tab.icon size={11} />
                   {tab.label}
                   {tab.badge && <span className="tabular-nums opacity-70">{tab.badge}</span>}
-                </button>
+                </SurfaceButton>
               ))}
             </div>
           )}

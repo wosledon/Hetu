@@ -3,8 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  AlertCircle, BookText, Check, Code, Copy, FolderInput, HardDrive, MoreHorizontal, Pencil, Pin, PinOff, Plus, Server, Settings2, Trash2, X,
-} from 'lucide-react'
+  AlertCircle, BookText, Check, Code, Copy, FolderInput, HardDrive, MoreHorizontal, Pencil, Pin, PinOff, Plus, Server, Settings2, Trash2, X, } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
 import ProjectsSidebar from '../components/projects/ProjectsSidebar'
 import ProjectFormDialog from '../components/projects/ProjectFormDialog'
@@ -12,10 +11,8 @@ import GroupManagerDialog from '../components/projects/GroupManagerDialog'
 import { projectService, projectGroupService } from '../services/projectService'
 import { useConfirm } from '../components/confirm'
 import type {
-  IManagedProject, IProjectGroup, ICreateProjectRequest, IUpdateProjectRequest,
-  ICreateProjectGroupRequest, IUpdateProjectGroupRequest, IProjectFilter,
-} from '../types/project'
-import { Button, Card, PageContainer, SearchInput } from '../components/ui'
+  IManagedProject, IProjectGroup, ICreateProjectRequest, IUpdateProjectRequest, ICreateProjectGroupRequest, IUpdateProjectGroupRequest, IProjectFilter, } from '../types/project'
+import { Button, Card, PageContainer, SearchInput, SurfaceButton } from '../components/ui'
 import { recoverableQueryOptions } from '../utils/queryClient'
 
 const ALL_PROJECTS_FILTER: IProjectFilter = { type: 'all' }
@@ -276,7 +273,7 @@ export default function ProjectsPage() {
             }`}>
               {toast.ok ? <Check size={13} /> : <AlertCircle size={13} />}
               <span className="min-w-0 flex-1">{toast.text}</span>
-              <button onClick={() => setToast(null)} className="shrink-0 rounded p-0.5 hover:bg-black/5"><X size={12} /></button>
+              <SurfaceButton onClick={() => setToast(null)} className="shrink-0 rounded p-0.5 hover:bg-black/5"><X size={12} /></SurfaceButton>
             </div>
           )}
 
@@ -285,9 +282,9 @@ export default function ProjectsPage() {
             <div className="flex shrink-0 animate-fade-in items-center gap-2 bg-amber-50 px-6 py-2 text-[12px] text-amber-700 dark:bg-amber-950/30 dark:text-amber-300">
               <AlertCircle size={13} className="shrink-0" />
               <span className="min-w-0 flex-1">{groupsError ? t('page.groupsLoadFailed') : t('page.loadFailed')}</span>
-              <button className="shrink-0 font-medium underline-offset-2 hover:underline" onClick={() => { void refetchProjects(); void refetchGroups() }}>
+              <SurfaceButton className="shrink-0 font-medium underline-offset-2 hover:underline" onClick={() => { void refetchProjects(); void refetchGroups() }}>
                 {t('common:retry')}
-              </button>
+              </SurfaceButton>
             </div>
           )}
 
@@ -345,6 +342,7 @@ export default function ProjectsPage() {
                       {section.projects.map((project, projectIndex) => (
                         <Card
                           key={project.id}
+                          interactive
                           draggable
                           onDragStart={(e) => {
                             e.dataTransfer.setData('application/x-project-id', project.id)
@@ -358,7 +356,7 @@ export default function ProjectsPage() {
                             handleCardDrop(section, project.id, e.dataTransfer.getData('application/x-project-id'))
                           }}
                           style={{ animationDelay: `${Math.min(projectIndex * 35, 140)}ms` }}
-                          className="group animate-list-item relative flex flex-col border-gray-200/70 bg-white/70 p-4 shadow-sm transition-[transform,border-color,box-shadow] duration-200 ease-[var(--ease-enter)] hover:-translate-y-0.5 hover:border-indigo-200/70 hover:shadow-md dark:border-white/[0.07] dark:bg-slate-900/35 dark:hover:border-indigo-400/20"
+                          className="group animate-list-item relative flex flex-col p-4"
                         >
                           <div className="flex items-start gap-3">
                             <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-base font-bold ${avatarClass(project.name)}`}>
@@ -449,7 +447,7 @@ export default function ProjectsPage() {
                             </Button>
                             {/* 管理操作：固定在卡片右上角、始终可见，不再占用操作行导致底部留空 */}
                             <div className="absolute right-2.5 top-2.5 z-10 flex shrink-0 items-center gap-0.5 rounded-lg bg-gray-50/80 p-0.5 transition dark:bg-white/[0.04] dark:group-hover:bg-white/[0.07]">
-                              <button
+                              <SurfaceButton
                                 onClick={() => updateMutation.mutate({
                                   id: project.id,
                                   data: {
@@ -462,24 +460,24 @@ export default function ProjectsPage() {
                                 className={cardActionClass}
                               >
                                 {project.isPinned ? <PinOff size={13} /> : <Pin size={13} />}
-                              </button>
-                              <button
+                              </SurfaceButton>
+                              <SurfaceButton
                                 onClick={() => openEdit(project)}
                                 title={t('common:edit')}
                                 aria-label={t('common:edit')}
                                 className={cardActionClass}
                               >
                                 <Pencil size={13} />
-                              </button>
-                              <button
+                              </SurfaceButton>
+                              <SurfaceButton
                                 onClick={() => setMenuFor(menuFor === project.id ? null : project.id)}
                                 title={t('page.moveToGroup')}
                                 aria-label={t('page.moveToGroup')}
                                 className={cardActionClass}
                               >
                                 <MoreHorizontal size={13} />
-                              </button>
-                              <button
+                              </SurfaceButton>
+                              <SurfaceButton
                                 onClick={() => confirm({
                                   title: t('page.deleteTitle'),
                                   message: t('page.deleteConfirm', { name: project.name }),
@@ -490,7 +488,7 @@ export default function ProjectsPage() {
                                 className={`${cardActionClass} hover:text-red-500`}
                               >
                                 <Trash2 size={13} />
-                              </button>
+                              </SurfaceButton>
 
                               {/* 移动分组菜单 */}
                               {menuFor === project.id && (

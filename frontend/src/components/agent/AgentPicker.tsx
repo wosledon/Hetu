@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Bot, Brain, Check, ChevronDown, FolderGit2, GitBranch, Search } from 'lucide-react'
 import { POPOVER_EMPTY_CLASS, POPOVER_PANEL_CLASS } from '../../utils/styles'
-import { SearchInput } from '../ui'
+import { SearchInput, SurfaceButton } from '../ui'
 
 export interface AgentPickerItem {
   id: string
@@ -166,7 +166,7 @@ export default function AgentPicker({
     const Icon = ICONS[type]
     const style = TYPE_STYLES[type]
     return (
-      <button
+      <SurfaceButton
         key={item.id}
         type="button"
         role="menuitemradio"
@@ -198,7 +198,7 @@ export default function AgentPicker({
             ? <Check size={13} strokeWidth={2.5} />
             : <span className="h-1.5 w-1.5 rounded-full bg-gray-200 dark:bg-gray-700" />}
         </span>
-      </button>
+      </SurfaceButton>
     )
   }
 
@@ -208,7 +208,7 @@ export default function AgentPicker({
 
   return (
     <div className="relative" ref={containerRef}>
-      <button
+      <SurfaceButton
         onClick={() => {
           if (!open) {
             setQuery('')
@@ -229,7 +229,7 @@ export default function AgentPicker({
         <CurrentIcon size={13} className="shrink-0" />
         <span className="truncate">{selectedWorkflow?.name ?? selectedProject?.name ?? selected?.name ?? triggerLabel}</span>
         <ChevronDown size={10} className={`shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
-      </button>
+      </SurfaceButton>
 
       {open && (
         <div
@@ -250,7 +250,7 @@ export default function AgentPicker({
               {categories.map((cat) => {
                 const isActive = activeCategory === cat.key
                 return (
-                  <button
+                  <SurfaceButton
                     key={cat.key}
                     type="button"
                     aria-pressed={isActive}
@@ -269,7 +269,7 @@ export default function AgentPicker({
                     }`}>
                       {cat.count}
                     </span>
-                  </button>
+                  </SurfaceButton>
                 )
               })}
             </div>

@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Check, ChevronDown, Cloud, FolderGit2, GitBranch, Loader2 } from 'lucide-react'
 import { workGitService, workSessionService } from '../../services/workService'
 import type { IWorkSession } from '../../types/work'
-import { Button, SearchInput } from '../ui'
+import { Button, SearchInput, SurfaceButton } from '../ui'
 import { POPOVER_EMPTY_CLASS, POPOVER_PANEL_CLASS, POPOVER_SECTION_TITLE_CLASS, popoverItemClass } from '../../utils/styles'
 
 /**
@@ -102,7 +102,7 @@ export default function WorkSessionWorkspacePicker({ session, onChanged }: { ses
       <div className="inline-flex items-center gap-0.5 rounded-lg bg-gray-100/80 p-0.5 dark:bg-white/[0.06]" title={t('workspace.title')}>
         {/* 前：当前分支 / 新工作树 */}
         <div className="relative z-50">
-          <button
+          <SurfaceButton
             onClick={() => setMenu(menu === 'mode' ? null : 'mode')}
             disabled={busy}
             title={
@@ -120,11 +120,11 @@ export default function WorkSessionWorkspacePicker({ session, onChanged }: { ses
               {created ? t('workspace.worktreeMode') : useWorktree ? t('workspace.newWorktree') : t('workspace.currentBranch')}
             </span>
             {!created && <ChevronDown size={11} className="shrink-0 opacity-70" />}
-          </button>
+          </SurfaceButton>
 
           {menu === 'mode' && (
             <div className={`absolute bottom-full left-0 z-50 mb-2 w-72 max-w-[calc(100vw-2rem)] p-1.5 ${POPOVER_PANEL_CLASS}`}>
-              <button
+              <SurfaceButton
                 onClick={() => apply.mutate({ useWorktree: false, baseBranch: currentBranch })}
                 disabled={busy || !useWorktree}
                 className={itemClass(!useWorktree)}
@@ -135,8 +135,8 @@ export default function WorkSessionWorkspacePicker({ session, onChanged }: { ses
                   <span className="block truncate">{t('workspace.modeCurrentBranch')}</span>
                   <span className="block text-[11px] leading-4 text-gray-400">{t('workspace.modeCurrentBranchHint')}</span>
                 </span>
-              </button>
-              <button
+              </SurfaceButton>
+              <SurfaceButton
                 onClick={() => apply.mutate({ useWorktree: true })}
                 disabled={busy || useWorktree || (!!unsupportedHint && !created)}
                 title={unsupportedHint ?? undefined}
@@ -150,14 +150,14 @@ export default function WorkSessionWorkspacePicker({ session, onChanged }: { ses
                     {created ? t('workspace.worktreeCreatedHint', { branch: session.branch ?? '' }) : unsupportedHint ?? t('workspace.modeNewWorktreeHint')}
                   </span>
                 </span>
-              </button>
+              </SurfaceButton>
             </div>
           )}
         </div>
 
         {/* 后：分支（主工作区模式＝检出该分支；工作树模式＝新分支的起点） */}
         <div className="relative z-50">
-          <button
+          <SurfaceButton
             onClick={() => {
               if (menu !== 'branch') setBranchQuery('')
               setMenu(menu === 'branch' ? null : 'branch')
@@ -180,7 +180,7 @@ export default function WorkSessionWorkspacePicker({ session, onChanged }: { ses
               : <GitBranch size={11} className="shrink-0 opacity-80" />}
             <span className="truncate">{created ? session.branch : useWorktree ? baseBranch ?? '—' : currentModeBranch ?? '—'}</span>
             {!created && <ChevronDown size={11} className="shrink-0 opacity-70" />}
-          </button>
+          </SurfaceButton>
 
           {menu === 'branch' && (
             <div className={`absolute bottom-full right-0 z-50 mb-2 w-64 max-w-[calc(100vw-2rem)] p-1.5 ${POPOVER_PANEL_CLASS}`}>
@@ -204,7 +204,7 @@ export default function WorkSessionWorkspacePicker({ session, onChanged }: { ses
                 {localBranches.map((branch) => {
                   const active = useWorktree ? session.baseBranch === branch : branch === currentModeBranch
                   return (
-                    <button
+                    <SurfaceButton
                       key={branch}
                       onClick={() => apply.mutate({ baseBranch: branch })}
                       disabled={busy || active}
@@ -216,7 +216,7 @@ export default function WorkSessionWorkspacePicker({ session, onChanged }: { ses
                         {branch}
                         {branch === currentBranch && <span className="ml-1 text-gray-400">{t('workspace.baseBranchCurrentTag')}</span>}
                       </span>
-                    </button>
+                    </SurfaceButton>
                   )
                 })}
 
@@ -229,7 +229,7 @@ export default function WorkSessionWorkspacePicker({ session, onChanged }: { ses
                 {remoteBranches.map((branch) => {
                   const active = branch === (useWorktree ? session.baseBranch : currentModeBranch)
                   return (
-                    <button
+                    <SurfaceButton
                       key={branch}
                       onClick={() => apply.mutate({ baseBranch: branch })}
                       disabled={busy || active}
@@ -239,7 +239,7 @@ export default function WorkSessionWorkspacePicker({ session, onChanged }: { ses
                       <span className="w-3 shrink-0">{active && <Check size={12} className="text-emerald-500" />}</span>
                       <Cloud size={12} className="shrink-0 text-gray-400" />
                       <span className="min-w-0 flex-1 truncate">{branch}</span>
-                    </button>
+                    </SurfaceButton>
                   )
                 })}
                 {normalizedBranchQuery && localBranches.length + remoteBranches.length === 0 && (

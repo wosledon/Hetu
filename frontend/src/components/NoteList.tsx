@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState, useCallback, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { CornerLeftUp, FileText, Loader2, Pin, Plus, Search, Star, Trash2, RotateCcw, X } from 'lucide-react'
+import { CornerLeftUp, FileText, Pin, Plus, Search, Star, Trash2, RotateCcw, X } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { enUS, zhCN } from 'date-fns/locale'
 import { useUIStore } from '../stores/uiStore'
@@ -10,7 +10,7 @@ import { noteService } from '../services/noteService'
 import { tagPalette } from '../utils/tagColor'
 import { uiLocale } from '../utils/locale'
 import type { INote } from '../types'
-import { Card, ContextMenu, IconButton, SearchInput } from './ui'
+import { ContextMenu, IconButton, SearchInput, Spinner, SurfaceButton, WorkbenchColumn } from './ui'
 import EmojiPicker from './EmojiPicker'
 import NoteSearchResults from './NoteSearchResults'
 
@@ -223,29 +223,27 @@ export default function NoteList({
   const offsetY = startIndex * ITEM_HEIGHT
 
   return (
-    <Card padded={false} plain className="flex h-full w-full flex-col rounded-none">
-      <div className="border-b border-gray-200/80 bg-white/35 p-4 dark:border-white/[0.07] dark:bg-slate-950/20">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
-            {selectedNoteParentId
-              ? t('list.titleChildren')
-              : selectedTagId
-                ? t('list.titleTag')
-                : includeDeleted
-                  ? t('list.titleTrash')
-                  : t('list.titleAll')}
-          </h2>
-          {!includeDeleted && (
-            <button
-              onClick={handleCreate}
-              className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-blue-500 to-indigo-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm shadow-blue-500/20 transition-all hover:shadow-md hover:shadow-blue-500/25 hover:brightness-110 active:scale-[0.97]"
-              title={t('note.newNote')}
-            >
-              <Plus size={13} />
-              {t('common:create')}
-            </button>
-          )}
-        </div>
+    <WorkbenchColumn
+      role="list"
+      title={selectedNoteParentId
+        ? t('list.titleChildren')
+        : selectedTagId
+          ? t('list.titleTag')
+          : includeDeleted
+            ? t('list.titleTrash')
+            : t('list.titleAll')}
+      count={searchActive ? undefined : notes.length}
+      actions={!includeDeleted ? (
+        <SurfaceButton
+          onClick={handleCreate}
+          className="flex items-center gap-1 rounded-lg bg-gradient-to-r from-blue-500 to-indigo-600 px-2.5 py-1 text-[11px] font-medium text-white shadow-sm shadow-blue-500/20 transition-all hover:shadow-md hover:shadow-blue-500/25 hover:brightness-110 active:scale-[0.97]"
+          title={t('note.newNote')}
+        >
+          <Plus size={12} />
+          {t('common:create')}
+        </SurfaceButton>
+      ) : undefined}
+      toolbar={
         <SearchInput tone="blue" ref={searchInputRef}
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
@@ -253,22 +251,22 @@ export default function NoteList({
           placeholder={t('list.searchPlaceholder')}
           className="w-full"
           iconRight={searchInFlight
-            ? <Loader2 size={13} className="animate-spin" />
+            ? <Spinner size={13} />
             : searchActive
-              ? <button
-                  type="button"
+              ? <IconButton
+                  size="xs"
+                  variant="bare"
+                  label={t('search.clear')}
                   onClick={() => { setSearchTerm(''); searchInputRef.current?.focus() }}
-                  aria-label={t('search.clear')}
-                  title={t('search.clear')}
-                  className="flex h-4 w-4 items-center justify-center rounded text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/10 dark:hover:text-gray-300"
                 >
                   <X size={12} />
-                </button>
+                </IconButton>
               : undefined}
         />
-      </div>
-
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-2" onScroll={handleScroll}>
+      }
+      bodyRef={scrollRef}
+      onBodyScroll={handleScroll}
+    >
         {searchActive ? (
           <NoteSearchResults
             keyword={searchKeyword}
@@ -314,8 +312,8 @@ export default function NoteList({
                     style={{ height: ITEM_HEIGHT }}
                     className={`note-card group mb-1 cursor-pointer rounded-xl border px-4 py-3 ${
                       isSelected
-                        ? 'border-blue-200/60 bg-gradient-to-br from-blue-50/80 to-indigo-50/40 shadow-[inset_2px_0_0_#3b82f6] shadow-blue-500/5 dark:border-blue-800/40 dark:from-blue-950/40 dark:to-indigo-950/20'
-                        : 'border-transparent bg-white/70 hover:border-gray-100 hover:bg-white hover:shadow-sm dark:bg-gray-900/50 dark:hover:border-gray-800 dark:hover:bg-gray-900/80 dark:hover:shadow-black/10'
+                        ? 'border-blue-300/70 bg-blue-50/60 dark:border-blue-400/30 dark:bg-blue-500/[0.08]'
+                        : 'border-gray-200/70 bg-white/60 hover:border-gray-300 hover:shadow-sm dark:border-white/[0.07] dark:bg-white/[0.03] dark:hover:border-white/[0.15]'
                     }`}
                   >
                     <div className="mb-1.5 flex items-start justify-between gap-2">
@@ -334,36 +332,38 @@ export default function NoteList({
                       <div className="flex shrink-0 items-center gap-0.5">
                         {includeDeleted ? (
                           <>
-                            <IconButton variant="ghost" tone="gray" className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-green-50 hover:text-green-600 dark:hover:bg-green-900/20" label={t('list.restore')} onClick={(e) => { e.stopPropagation(); restoreNote.mutate(note.id) }}
-                              
-                              title={t('list.restore')}>
+                            <IconButton variant="success" size="tiny" label={t('list.restore')} onClick={(e) => { e.stopPropagation(); restoreNote.mutate(note.id) }}>
                               <RotateCcw size={13} />
                             </IconButton>
-                            <IconButton variant="ghost" tone="gray" className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20" label={t('list.hardDelete')} onClick={(e) => { e.stopPropagation(); hardDeleteNote.mutate(note.id) }}
-                              
-                              title={t('list.hardDelete')}>
+                            <IconButton variant="danger" size="tiny" label={t('list.hardDelete')} onClick={(e) => { e.stopPropagation(); hardDeleteNote.mutate(note.id) }}>
                               <Trash2 size={13} />
                             </IconButton>
                           </>
                         ) : (
                           <>
-                            <button
+                            <IconButton
+                              variant="ghost"
+                              tone="blue"
+                              size="tiny"
+                              active={note.isPinned}
+                              label={note.isPinned ? t('list.unpin') : t('list.pin')}
+                              className={note.isPinned ? '' : 'opacity-0 group-hover:opacity-100'}
                               onClick={(e) => { e.stopPropagation(); togglePin.mutate({ id: note.id, isPinned: !note.isPinned }) }}
-                              className={`rounded-lg p-1.5 transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 ${note.isPinned ? 'text-blue-500' : 'text-gray-300 opacity-0 group-hover:opacity-100 dark:text-gray-600'}`}
-                              title={note.isPinned ? t('list.unpin') : t('list.pin')}
                             >
                               <Pin size={13} className={note.isPinned ? 'fill-blue-500' : ''} />
-                            </button>
-                            <button
+                            </IconButton>
+                            <IconButton
+                              variant="ghost"
+                              tone="amber"
+                              size="tiny"
+                              active={note.isFavorite}
+                              label={note.isFavorite ? t('list.unfavorite') : t('list.favorite')}
+                              className={note.isFavorite ? '' : 'opacity-0 group-hover:opacity-100'}
                               onClick={(e) => { e.stopPropagation(); toggleFavorite.mutate({ id: note.id, isFavorite: !note.isFavorite }) }}
-                              className={`rounded-lg p-1.5 transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 ${note.isFavorite ? 'text-amber-400' : 'text-gray-300 opacity-0 group-hover:opacity-100 dark:text-gray-600'}`}
-                              title={note.isFavorite ? t('list.unfavorite') : t('list.favorite')}
                             >
                               <Star size={13} className={note.isFavorite ? 'fill-amber-400' : ''} />
-                            </button>
-                            <IconButton variant="ghost" tone="gray" className="rounded-lg p-1.5 text-gray-300 opacity-0 transition-colors hover:bg-red-50 hover:text-red-500 group-hover:opacity-100 dark:text-gray-600 dark:hover:bg-red-900/20" label={t('common:delete')} onClick={(e) => { e.stopPropagation(); deleteNote.mutate(note.id) }}
-                              
-                              title={t('common:delete')}>
+                            </IconButton>
+                            <IconButton variant="danger" size="tiny" label={t('common:delete')} className="opacity-0 group-hover:opacity-100" onClick={(e) => { e.stopPropagation(); deleteNote.mutate(note.id) }}>
                               <Trash2 size={13} />
                             </IconButton>
                           </>
@@ -396,7 +396,6 @@ export default function NoteList({
             </div>
           </div>
         )}
-      </div>
 
       {/* 右键操作菜单 */}
       {menu && (
@@ -434,6 +433,6 @@ export default function NoteList({
           ]}
         />
       )}
-    </Card>
+    </WorkbenchColumn>
   )
 }

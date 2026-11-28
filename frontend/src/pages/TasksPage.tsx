@@ -3,24 +3,18 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  CheckCircle2, Clock, Loader2, AlertTriangle, Trash2, XCircle,
-  ListTodo, RefreshCw, Cpu, Network, CalendarClock, Plus, Sparkles,
-  Pencil, Play, History, Power, Timer, X, Bot, MessageSquare, BookText, Brain,
-} from 'lucide-react'
+  CheckCircle2, Clock, Loader2, AlertTriangle, Trash2, XCircle, ListTodo, RefreshCw, Cpu, Network, CalendarClock, Plus, Sparkles, Pencil, Play, History, Power, Timer, X, Bot, MessageSquare, BookText, Brain, } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
 import SlidingPill from '../components/SlidingPill'
 import Select from '../components/Select'
 import { taskService } from '../services/taskService'
 import { scheduledTaskService } from '../services/scheduledTaskService'
 import type {
-  ITaskItem, ITaskStats,
-  IScheduledTask, IScheduledTaskExecution, IScheduledTaskTargetOption,
-  ScheduledTaskKind, ScheduleType, ICreateScheduledTaskRequest,
-} from '../types'
+  ITaskItem, ITaskStats, IScheduledTask, IScheduledTaskExecution, IScheduledTaskTargetOption, ScheduledTaskKind, ScheduleType, ICreateScheduledTaskRequest, } from '../types'
 import { segmentTextClass } from '../utils/styles'
 import { formatDateTime, formatTime } from '../utils/locale'
 import type { TFunction } from 'i18next'
-import { Button, Card, IconButton, Input, Modal, PageContainer, Pagination, PillTabs, Textarea } from '../components/ui'
+import { Button, Card, IconButton, Input, Modal, PageContainer, Pagination, PillTabs, Textarea, SurfaceButton } from '../components/ui'
 
 type TasksMode = 'background' | 'scheduled'
 
@@ -199,7 +193,7 @@ function BackgroundTasksView({
   return (
     <>
       {/* 筛选：状态与操作一行，类型独立一行，避免换行后居中和挤压 */}
-      <div className="mb-3 flex flex-wrap items-center gap-2 rounded-2xl border border-gray-200/70 bg-white/45 p-2.5 dark:border-white/[0.07] dark:bg-white/[0.025]">
+      <div className="mb-3 flex flex-wrap items-center gap-2 rounded-2xl border border-gray-200/70 bg-white/70 glass glass-soft p-2.5 dark:border-white/[0.07] dark:bg-slate-900/35">
         <div className="flex flex-wrap items-center gap-1.5">
           {([
             { key: 'all', label: t('common:all'), count: stats?.total },
@@ -208,7 +202,7 @@ function BackgroundTasksView({
             { key: '2', label: t('tasks.statusCompleted'), count: stats?.completed },
             { key: '3', label: t('tasks.statusFailed'), count: stats?.failed },
           ] as const).map((subTab) => (
-            <button
+            <SurfaceButton
               key={subTab.key}
               onClick={() => setFilter(subTab.key)}
               className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-medium transition-all ${
@@ -219,7 +213,7 @@ function BackgroundTasksView({
             >
               {subTab.label}
               {subTab.count !== undefined && subTab.count > 0 && <span className="text-[11px] opacity-70">{subTab.count}</span>}
-            </button>
+            </SurfaceButton>
           ))}
         </div>
         <div className="ml-auto flex items-center gap-1.5">
@@ -233,7 +227,7 @@ function BackgroundTasksView({
           </Button>
         </div>
       </div>
-      <div className="mb-5 overflow-x-auto rounded-2xl border border-gray-200/70 bg-white/45 p-1.5 dark:border-white/[0.07] dark:bg-white/[0.025]">
+      <div className="mb-5 overflow-x-auto rounded-2xl border border-gray-200/70 bg-white/70 glass glass-soft p-1.5 dark:border-white/[0.07] dark:bg-slate-900/35">
         <PillTabs
           value={typeFilter}
           onSelect={(key) => setTypeFilter(key)}
@@ -252,7 +246,7 @@ function BackgroundTasksView({
         <EmptyState />
       ) : (
         <>
-          <div className="overflow-hidden rounded-2xl border border-gray-200/70 bg-white/65 shadow-sm dark:border-white/[0.07] dark:bg-slate-900/35">
+          <div className="overflow-hidden rounded-2xl border border-gray-200/70 bg-white/70 glass glass-soft dark:border-white/[0.07] dark:bg-slate-900/35">
             {tasks.map((task) => (
               <TaskRow key={task.id} task={task} onDelete={() => onDelete(task.id)} />
             ))}
@@ -369,7 +363,7 @@ function ScheduledTasksView() {
   return (
     <>
       {/* 工具栏 */}
-      <div className="mb-5 flex flex-wrap items-center gap-3 rounded-2xl border border-gray-200/70 bg-white/45 p-2.5 dark:border-white/[0.07] dark:bg-white/[0.025]">
+      <div className="mb-5 flex flex-wrap items-center gap-3 rounded-2xl border border-gray-200/70 bg-white/70 glass glass-soft p-2.5 dark:border-white/[0.07] dark:bg-slate-900/35">
         <div className="ml-auto flex items-center gap-2">
           {isRefetching && <Loader2 size={14} className="animate-spin text-gray-400" />}
           <Button variant="secondary" pill className="flex items-center gap-1.5 rounded-full border border-gray-200 bg-white glass px-3.5 py-2 text-[13px] font-medium text-gray-600 transition-all hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => queryClient.invalidateQueries({ queryKey: ['scheduled-tasks'] })}
@@ -377,13 +371,13 @@ function ScheduledTasksView() {
             <RefreshCw size={13} />
             {t('common:refresh')}
           </Button>
-          <button
+          <SurfaceButton
             onClick={handleCreate}
             className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-sky-500 to-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-sky-500/20 transition-all hover:shadow-md active:scale-[0.97]"
           >
             <Plus size={15} />
             {t('tasks.newScheduled')}
-          </button>
+          </SurfaceButton>
         </div>
       </div>
 
@@ -455,7 +449,7 @@ function ScheduledTaskRow({
     <Card interactive padded="sm">
       <div className="flex items-center gap-3">
         {/* Enable indicator */}
-        <button
+        <SurfaceButton
           onClick={onToggle}
           className={`shrink-0 rounded-xl p-1.5 transition-colors ${
             task.isEnabled
@@ -465,7 +459,7 @@ function ScheduledTaskRow({
           title={task.isEnabled ? t('tasks.clickDisable') : t('tasks.clickEnable')}
         >
           <Power size={15} />
-        </button>
+        </SurfaceButton>
 
         {/* Kind icon */}
         <div className="flex items-center gap-1.5 shrink-0">
@@ -565,13 +559,13 @@ function ScheduledEmptyState({ onCreate }: { onCreate: () => void }) {
       </div>
       <p className="text-sm font-medium">{t('tasks.emptyScheduled')}</p>
       <p className="mt-1 text-xs">{t('tasks.emptyScheduledHint')}</p>
-      <button
+      <SurfaceButton
         onClick={onCreate}
         className="mt-6 inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-sky-500 to-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-sky-500/20 transition-all hover:shadow-md active:scale-[0.97]"
       >
         <Plus size={15} />
         {t('tasks.newScheduled')}
-      </button>
+      </SurfaceButton>
     </div>
   )
 }
@@ -715,9 +709,9 @@ function ScheduledTaskEditor({
           <h2 className="text-base font-semibold text-gray-900 dark:text-gray-50">
             {isEdit ? t('tasks.editorEditTitle') : t('tasks.editorCreateTitle')}
           </h2>
-          <button onClick={onClose} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06]">
+          <SurfaceButton onClick={onClose} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06]">
             <X size={18} />
-          </button>
+          </SurfaceButton>
         </div>
 
         {/* Body */}
@@ -753,7 +747,7 @@ function ScheduledTaskEditor({
                 const Icon = info.icon
                 const active = form.taskKind === kind
                 return (
-                  <button
+                  <SurfaceButton
                     key={kind}
                     onClick={() => set('taskKind', kind)}
                     className={`flex items-start gap-2 rounded-lg border px-3 py-2.5 text-left text-xs transition-all ${
@@ -767,7 +761,7 @@ function ScheduledTaskEditor({
                       <div className="font-medium">{t(info.labelKey)}</div>
                       <div className="mt-0.5 text-[10px] leading-tight opacity-70">{t(info.descKey)}</div>
                     </div>
-                  </button>
+                  </SurfaceButton>
                 )
               })}
             </div>
@@ -845,16 +839,16 @@ function ScheduledTaskEditor({
           {/* Schedule Type */}
           <div>
             <label className="mb-1.5 block text-xs font-medium text-gray-600 dark:text-gray-400">{t('tasks.scheduleType')}</label>
-            <SlidingPill value={form.scheduleType} className="inline-flex w-full rounded-xl dark:bg-white/[0.04]" pillClassName="rounded-lg bg-white shadow-sm dark:bg-white/10">
+            <SlidingPill value={form.scheduleType} className="inline-flex w-full dark:bg-white/[0.04]" pillClassName="bg-white shadow-sm dark:bg-white/10">
               {(['Interval', 'Cron'] as ScheduleType[]).map((st) => (
-                <button
+                <SurfaceButton
                   key={st}
                   onClick={() => set('scheduleType', st)}
                   data-pill-key={st}
-                  className={`relative flex-1 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${segmentTextClass(form.scheduleType === st)}`}
+                  className={`relative flex-1 rounded-full px-3 py-1.5 text-xs font-medium transition-all ${segmentTextClass(form.scheduleType === st)}`}
                 >
                   {st === 'Interval' ? t('tasks.interval') : t('tasks.cron')}
-                </button>
+                </SurfaceButton>
               ))}
             </SlidingPill>
           </div>
@@ -874,13 +868,13 @@ function ScheduledTaskEditor({
                 <span className="text-xs text-gray-400">{t('tasks.minutesUnit')}</span>
                 <div className="ml-auto flex gap-1">
                   {[30, 60, 360, 1440].map((m) => (
-                    <button
+                    <SurfaceButton
                       key={m}
                       onClick={() => set('intervalMinutes', m)}
                       className="rounded-md bg-gray-100 px-2 py-1 text-[11px] text-gray-500 hover:bg-gray-200 dark:bg-white/[0.06] dark:text-gray-400"
                     >
                       {m < 60 ? t('tasks.minutesShort', { count: m }) : m < 1440 ? t('tasks.hoursShort', { count: m / 60 }) : t('tasks.daysShort', { count: m / 1440 })}
-                    </button>
+                    </SurfaceButton>
                   ))}
                 </div>
               </div>
@@ -896,13 +890,13 @@ function ScheduledTaskEditor({
               />
               <div className="mt-2 flex flex-wrap gap-1">
                 {CRON_PRESETS.map((p) => (
-                  <button
+                  <SurfaceButton
                     key={p.value}
                     onClick={() => set('cronExpression', p.value)}
                     className="rounded-md bg-gray-100 px-2 py-1 text-[11px] text-gray-500 hover:bg-gray-200 dark:bg-white/[0.06] dark:text-gray-400"
                   >
                     {t(p.labelKey)}
-                  </button>
+                  </SurfaceButton>
                 ))}
               </div>
             </div>
@@ -937,7 +931,7 @@ function ScheduledTaskEditor({
           {/* Enabled toggle */}
           <label className="flex cursor-pointer items-center justify-between rounded-lg border border-gray-100 bg-gray-50/50 px-4 py-2.5 dark:border-white/[0.06] dark:bg-white/[0.02]">
             <span className="text-sm text-gray-700 dark:text-gray-300">{t('tasks.enableOnCreate')}</span>
-            <button
+            <SurfaceButton
               type="button"
               onClick={() => set('isEnabled', !form.isEnabled)}
               className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:ring-offset-2 dark:focus:ring-offset-gray-900 ${
@@ -945,7 +939,7 @@ function ScheduledTaskEditor({
               }`}
             >
               <span className={`pointer-events-none absolute top-0.5 left-0.5 inline-block h-4 w-4 transform rounded-full bg-white glass shadow ring-0 transition-transform duration-200 ${form.isEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
-            </button>
+            </SurfaceButton>
           </label>
 
           {error && (
@@ -961,14 +955,14 @@ function ScheduledTaskEditor({
           <Button variant="ghost" tone="gray" className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06]" onClick={onClose}>
             {t('common:cancel')}
           </Button>
-          <button
+          <SurfaceButton
             onClick={handleSubmit}
             disabled={submitting}
             className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-sky-500/20 transition-all hover:shadow-md disabled:opacity-50"
           >
             {submitting && <Loader2 size={13} className="animate-spin" />}
             {isEdit ? t('common:save') : t('common:create')}
-          </button>
+          </SurfaceButton>
         </div>
     </Modal>
   )
@@ -1001,9 +995,9 @@ function ScheduledTaskHistoryModal({
             <h2 className="text-base font-semibold text-gray-900 dark:text-gray-50">{t('tasks.runHistory')}</h2>
             <span className="text-sm text-gray-400">· {taskName}</span>
           </div>
-          <button onClick={onClose} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06]">
+          <SurfaceButton onClick={onClose} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06]">
             <X size={18} />
-          </button>
+          </SurfaceButton>
         </div>
 
         {/* Body */}

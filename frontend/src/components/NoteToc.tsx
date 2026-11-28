@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { List } from 'lucide-react'
 import type { NoteTocItem } from '../utils/noteToc'
+import { SurfaceButton } from './ui'
 
 export interface NoteTocProps {
   items: NoteTocItem[]
@@ -32,7 +33,7 @@ export default function NoteToc({ items, activeIndex, onSelect }: NoteTocProps) 
       {items.map((item, index) => {
         const active = index === activeIndex
         return (
-          <button
+          <SurfaceButton
             key={`${index}-${item.text}`}
             ref={active ? activeRef : null}
             onClick={() => onSelect(index)}
@@ -45,7 +46,7 @@ export default function NoteToc({ items, activeIndex, onSelect }: NoteTocProps) 
             style={{ paddingLeft: `${(item.level - 1) * 10 + 8}px` }}
           >
             {item.text}
-          </button>
+          </SurfaceButton>
         )
       })}
     </nav>

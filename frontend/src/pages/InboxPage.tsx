@@ -4,26 +4,13 @@ import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { confirm } from '../components/confirm'
 import {
-  Inbox,
-  Info,
-  CheckCircle2,
-  AlertTriangle,
-  XCircle,
-  CheckCheck,
-  MailOpen,
-  Archive,
-  ArchiveRestore,
-  Trash2,
-  Check,
-  Loader2,
-  ChevronRight,
-} from 'lucide-react'
+  Inbox, Info, CheckCircle2, AlertTriangle, XCircle, CheckCheck, MailOpen, Archive, ArchiveRestore, Trash2, Check, Loader2, ChevronRight, } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
 import { inboxService } from '../services/inboxService'
 import i18n from '../i18n'
 import { formatDate } from '../utils/locale'
 import type { IInboxNotification, InboxLevel, InboxBatchAction } from '../types'
-import { Button, Card, IconButton, PageContainer, Pagination, PillTabs } from '../components/ui'
+import { Button, Card, IconButton, PageContainer, Pagination, PillTabs, SurfaceButton, Checkbox } from '../components/ui'
 
 /** 收件箱每页条数 */
 const INBOX_PAGE_SIZE = 20
@@ -183,7 +170,7 @@ export default function InboxPage() {
           </div>
 
           {/* 归档切换 + 分类筛选 */}
-          <div className="mb-4 flex flex-wrap items-center gap-3 rounded-2xl border border-gray-200/70 bg-white/45 p-2.5 dark:border-white/[0.07] dark:bg-white/[0.025]">
+          <div className="mb-4 flex flex-wrap items-center gap-3 rounded-2xl border border-gray-200/70 bg-white/70 glass glass-soft p-2.5 dark:border-white/[0.07] dark:bg-slate-900/35">
             <PillTabs
               value={archived ? 'archived' : 'inbox'}
               onSelect={(key) => switchTab(key === 'archived')}
@@ -194,7 +181,7 @@ export default function InboxPage() {
             />
 
             <div className="flex flex-wrap items-center gap-1.5">
-              <button
+              <SurfaceButton
                 onClick={() => switchCategory(null)}
                 className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
                   category === null
@@ -203,9 +190,9 @@ export default function InboxPage() {
                 }`}
               >
                 {t('common:all')}
-              </button>
+              </SurfaceButton>
               {(categories ?? []).map((c) => (
-                <button
+                <SurfaceButton
                   key={c.category}
                   onClick={() => switchCategory(c.category)}
                   className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
@@ -220,7 +207,7 @@ export default function InboxPage() {
                       {c.unreadCount}
                     </span>
                   )}
-                </button>
+                </SurfaceButton>
               ))}
             </div>
           </div>
@@ -243,8 +230,7 @@ export default function InboxPage() {
               {/* 工具栏：全选 + 批量操作 */}
               <Card padded={false} className="flex flex-wrap items-center gap-2 border-gray-200/70 bg-white/65 px-3.5 py-2.5 dark:border-white/[0.07] dark:bg-slate-900/35">
                 <label className="flex cursor-pointer items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={allSelected}
                     onChange={toggleSelectAll}
                     className="h-3.5 w-3.5 rounded border-gray-300 dark:border-gray-600"
@@ -283,8 +269,7 @@ export default function InboxPage() {
                         : 'border-blue-200/70 bg-blue-50/40 hover:border-blue-300 dark:border-blue-500/20 dark:bg-blue-500/[0.06] dark:hover:border-blue-500/30'
                     }`}
                   >
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       checked={selectedSet.has(item.id)}
                       onChange={() => toggleSelect(item.id)}
                       onClick={(e) => e.stopPropagation()}
@@ -386,7 +371,7 @@ function BatchButton({
   danger?: boolean
 }) {
   return (
-    <button
+    <SurfaceButton
       onClick={onClick}
       className={`flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-medium transition-colors ${
         danger
@@ -396,6 +381,6 @@ function BatchButton({
     >
       <Icon size={12} />
       {label}
-    </button>
+    </SurfaceButton>
   )
 }

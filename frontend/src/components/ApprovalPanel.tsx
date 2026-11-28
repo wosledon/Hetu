@@ -2,7 +2,7 @@ import { HelpCircle } from 'lucide-react'
 import { Trans, useTranslation } from 'react-i18next'
 import type { ApprovalRequest } from '../hooks/useStreaming'
 import { renderToolName } from '../utils/toolRendering'
-import { Button } from './ui'
+import { Button, SurfaceButton } from './ui'
 
 interface ApprovalPanelProps {
   requests: ApprovalRequest[]
@@ -29,12 +29,12 @@ export default function ApprovalPanel({ requests, onApprove }: ApprovalPanelProp
           <Button variant="primary" tone="emerald" className="rounded-md bg-emerald-500 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-emerald-600" onClick={() => onApprove(req.id, true)}>
             {t('approval.allow')}
           </Button>
-          <button
+          <SurfaceButton
             onClick={() => onApprove(req.id, false)}
             className="rounded-md bg-red-100 px-2.5 py-1 text-[11px] font-medium text-red-600 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400"
           >
             {t('approval.deny')}
-          </button>
+          </SurfaceButton>
         </div>
       ))}
     </div>

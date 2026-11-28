@@ -5,11 +5,11 @@ import { FolderGit2, Loader2, RefreshCw } from 'lucide-react'
 import { settingService, type WorktreeCleanupConfig } from '../services/settingService'
 import { formatDateTime } from '../utils/locale'
 import Select from './Select'
-import { Button, Card, Input } from './ui'
+import { Button, Card, Input, SurfaceButton } from './ui'
 
 function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void }) {
   return (
-    <button
+    <SurfaceButton
       type="button"
       onClick={onChange}
       className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors duration-200 ${
@@ -22,7 +22,7 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void 
         }`}
         style={{ marginTop: '2px' }}
       />
-    </button>
+    </SurfaceButton>
   )
 }
 

@@ -268,6 +268,7 @@ export default {
     serviceAddress: '服务地址',
     privacy: '本地优先：笔记、对话、记忆与向量索引都存放在本机数据库中；API Key 加密后仅保存在本机，不会上传到任何第三方服务器。',
     viewSource: '在 GitHub 上查看源码',
+    components: '组件库',
   },
   database: {
     title: '数据库存储',

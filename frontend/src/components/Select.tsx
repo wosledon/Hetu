@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { ChevronDown, Check } from 'lucide-react'
-import { SearchInput } from './ui'
+import { SearchInput, SurfaceButton } from './ui'
 
 export interface SelectOption {
   value: string
@@ -17,6 +17,8 @@ export interface SelectProps {
   placeholder?: string
   className?: string
   disabled?: boolean
+  /** 触发按钮的无障碍名称（紧凑触发器没有可见 label 时必填） */
+  ariaLabel?: string
   /** 是否启用搜索过滤 */
   searchable?: boolean
   searchPlaceholder?: string
@@ -37,6 +39,7 @@ export default function Select({
   searchable = false,
   searchPlaceholder,
   triggerClassName,
+  ariaLabel,
 }: SelectProps) {
   const { t } = useTranslation()
   const searchHint = searchPlaceholder ?? t('ui:searchPlaceholder')
@@ -186,10 +189,11 @@ export default function Select({
 
   return (
     <div className={`relative ${className}`}>
-      <button
+      <SurfaceButton
         ref={triggerRef}
         type="button"
         disabled={disabled}
+        aria-label={ariaLabel}
         onClick={() => {
           if (disabled) return
           if (open) close()
@@ -216,7 +220,7 @@ export default function Select({
             open ? 'rotate-180' : ''
           }`}
         />
-      </button>
+      </SurfaceButton>
 
       {open &&
         createPortal(
@@ -251,7 +255,7 @@ export default function Select({
                     : isSelected
 
                 return (
-                  <button
+                  <SurfaceButton
                     key={option.value}
                     ref={(el) => {
                       if (el) itemRefs.current.set(option.value, el)
@@ -279,7 +283,7 @@ export default function Select({
                     {isSelected && (
                       <Check size={15} className="shrink-0 text-blue-500 dark:text-blue-400" />
                     )}
-                  </button>
+                  </SurfaceButton>
                 )
                 })
               )}

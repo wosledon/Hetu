@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { AlertTriangle, X } from 'lucide-react'
 import { ConfirmContext, registerGlobalConfirm, type ConfirmOptions } from './confirm'
-import { Button, Modal } from './ui'
+import { Button, Modal, SurfaceButton } from './ui'
 
 export function ConfirmProvider({ children }: { children: ReactNode }) {
   const { t } = useTranslation()
@@ -37,7 +37,7 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
                 <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">{state.title || t('ui:confirmDialog.title')}</h3>
                 <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{state.message}</p>
               </div>
-              <button onClick={handleCancel} className="shrink-0 rounded-lg p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"><X size={16} /></button>
+              <SurfaceButton onClick={handleCancel} className="shrink-0 rounded-lg p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"><X size={16} /></SurfaceButton>
             </div>
             <div className="flex justify-end gap-2">
               <Button variant="ghost" tone="gray" className="shrink-0 rounded-lg p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700" onClick={handleCancel}>{t('common:cancel')}</Button>

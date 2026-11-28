@@ -10,7 +10,7 @@ import { renderToolName } from '../../utils/toolRendering'
 import QuestionFlow from '../tools/QuestionFlow'
 import PlanFlow from '../tools/PlanFlow'
 import type { InteractionPlan } from '../../stores/interactionStore'
-import { Button } from '../ui'
+import { Button, SurfaceButton } from '../ui'
 
 const nodeTypes: NodeTypes = { workflowNode: WorkflowNodeComponent }
 
@@ -85,13 +85,13 @@ export default function InlineWorkflowPanel({
         </span>
         <span className="min-w-0 flex-1 truncate text-xs font-semibold text-blue-800 dark:text-blue-200">{t('inline.title', { name: workflow.name })}</span>
         {hasInteraction && (
-          <button
+          <SurfaceButton
             onClick={() => setGraphCollapsed(v => !v)}
             className="ml-auto flex items-center gap-0.5 text-[10px] text-blue-400 hover:text-blue-600"
           >
             {graphCollapsed ? <ChevronRight size={10} /> : <ChevronLeft size={10} />}
             {graphCollapsed ? t('inline.expandGraph') : t('inline.collapseGraph')}
-          </button>
+          </SurfaceButton>
         )}
         {isStreaming && <Loader2 size={12} className="animate-spin text-blue-400 ml-auto" />}
       </div>

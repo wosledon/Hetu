@@ -2,6 +2,7 @@ import { useState, useRef, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Check, ChevronDown } from 'lucide-react'
 import { POPOVER_PANEL_CLASS, popoverItemClass } from '../../utils/styles'
+import { SurfaceButton } from '../ui'
 
 export interface AgentToolbarSelectOption {
   value: string
@@ -47,7 +48,7 @@ export default function AgentToolbarSelect({
         if (e.key === 'Escape') setOpen(false)
       }}
     >
-      <button
+      <SurfaceButton
         onClick={() => setOpen((v) => !v)}
         title={open ? undefined : (title ?? current?.label)}
         aria-haspopup="menu"
@@ -59,13 +60,13 @@ export default function AgentToolbarSelect({
         {current?.icon && <span className="shrink-0">{current.icon}</span>}
         <span className="truncate">{current?.label ?? t('toolbar.none')}</span>
         <ChevronDown size={11} className={`shrink-0 opacity-60 transition-transform ${open ? 'rotate-180' : ''}`} />
-      </button>
+      </SurfaceButton>
       {open && (
         <div role="menu" className={`absolute bottom-full left-0 z-50 mb-2 max-h-72 min-w-52 max-w-[calc(100vw-2rem)] overflow-y-auto p-1.5 ${POPOVER_PANEL_CLASS}`}>
           {options.map((opt) => {
             const active = opt.value === value
             return (
-              <button
+              <SurfaceButton
                 key={opt.value}
                 role="menuitemradio"
                 aria-checked={active}
@@ -85,7 +86,7 @@ export default function AgentToolbarSelect({
                   )}
                 </span>
                 {active && <Check size={13} className="mt-0.5 shrink-0 text-blue-500 dark:text-blue-300" />}
-              </button>
+              </SurfaceButton>
             )
           })}
         </div>

@@ -2,12 +2,7 @@ import { useState, useEffect, useRef, useMemo, useCallback, memo, lazy, Suspense
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import {
-  ChevronDown, ArrowDown, Loader2,
-
-  ListChecks, Coins, Copy, Check, X, Braces, FolderOpen, SquareTerminal, Bot, Plus,
-  Download, Stethoscope, RotateCcw, FileCode, PanelRightClose, PanelRightOpen, Zap,
-  Globe, Database, Pencil, Trash2, Gauge, AtSign, Tag, Library,
-} from 'lucide-react'
+  ChevronDown, ArrowDown, Loader2, ListChecks, Coins, Copy, Check, X, Braces, FolderOpen, SquareTerminal, Bot, Plus, Download, Stethoscope, RotateCcw, FileCode, PanelRightClose, PanelRightOpen, Zap, Globe, Database, Pencil, Trash2, Gauge, AtSign, Tag, Library, } from 'lucide-react'
 import { workSessionService, workProjectService, workOpenService, workCheckpointService, workFileService } from '../../services/workService'
 import { aiModelService, aiProviderService } from '../../services/aiProviderService'
 import { promptPresetService } from '../../services/promptPresetService'
@@ -61,7 +56,7 @@ import useElementWidth from '../../hooks/useElementWidth'
 import { useConfirm } from '../../components/confirm'
 import ToolInteractionDrawer from '../ToolInteractionDrawer'
 import { useInteractionStore } from '../../stores/interactionStore'
-import { Button, Card, IconButton, Textarea } from '../ui'
+import { Button, Card, IconButton, Textarea, ToolbarToggle, SurfaceButton } from '../ui'
 
 const InlineWorkflowPanel = lazy(() => import('../workflow/InlineWorkflowPanel'))
 
@@ -1701,7 +1696,7 @@ export default function WorkSessionArea({
             </div>
           )}
           {onTogglePanel && (
-            <button
+            <SurfaceButton
               onClick={onTogglePanel}
               title={panelOpen ? t('session.collapsePanel') : t('session.expandPanel')}
               aria-label={panelOpen ? t('session.collapsePanel') : t('session.expandPanel')}
@@ -1712,7 +1707,7 @@ export default function WorkSessionArea({
               }`}
             >
               {panelOpen ? <PanelRightClose size={14} /> : <PanelRightOpen size={14} />}
-            </button>
+            </SurfaceButton>
           )}
         </div>
         {openFeedback && (
@@ -1854,13 +1849,13 @@ export default function WorkSessionArea({
                   {prompt}
                 </Button>
               ))}
-              <button
+              <SurfaceButton
                 onClick={() => void retryLast()}
                 title={t('session.regenerateHint')}
                 className="ml-auto flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800"
               >
                 <RotateCcw size={11} />{t('session.regenerate')}
-              </button>
+              </SurfaceButton>
             </div>
           )}
 
@@ -1869,14 +1864,14 @@ export default function WorkSessionArea({
         </div>
         </div>
         {!following && (
-          <button
+          <SurfaceButton
             onClick={scrollToBottomNow}
             title={t('session.jumpToBottom')}
             aria-label={t('session.jumpToBottom')}
             className="absolute bottom-4 left-1/2 z-10 -translate-x-1/2 rounded-full border border-gray-200 bg-white/95 p-2 text-gray-500 shadow-lg backdrop-blur transition-colors hover:border-blue-300 hover:text-blue-600 dark:border-gray-700 dark:bg-gray-800/95 dark:text-gray-300 dark:hover:border-blue-600 dark:hover:text-blue-300"
           >
             <ArrowDown size={15} />
-          </button>
+          </SurfaceButton>
         )}
         <ConversationRail items={railItems} scrollRef={scrollRef} />
       </div>
@@ -1975,9 +1970,9 @@ export default function WorkSessionArea({
                 <div className="mb-2 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-700 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
                   <Gauge size={13} className="mt-0.5 shrink-0" />
                   <span className="min-w-0 flex-1">{contextNotice}</span>
-                  <button onClick={() => setContextNotice(null)} aria-label={t('session.closeNotice')} className="shrink-0 opacity-60 transition-opacity hover:opacity-100">
+                  <SurfaceButton onClick={() => setContextNotice(null)} aria-label={t('session.closeNotice')} className="shrink-0 opacity-60 transition-opacity hover:opacity-100">
                     <X size={12} />
-                  </button>
+                  </SurfaceButton>
                 </div>
               )}
               {inputNotice && (
@@ -2023,32 +2018,12 @@ export default function WorkSessionArea({
           forehead={
             <div className="flex items-center gap-0.5">
               {/* 与主对话一致的额头快捷开关：联网 / 知识库 / 推理强度 / 诊断（交互方式已并入审批档位） */}
-              <button
-                onClick={() => setWebSearch(!webSearch)}
-                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md transition-colors ${
-                  webSearch
-                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
-                    : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700/50 dark:hover:text-gray-300'
-                }`}
-                title={t('session.webSearch')}
-                aria-label={t('session.webSearch')}
-                aria-pressed={webSearch}
-              >
+              <ToolbarToggle active={webSearch} tone="emerald" label={t('session.webSearch')} onClick={() => setWebSearch(!webSearch)}>
                 <Globe size={13} />
-              </button>
-              <button
-                onClick={() => setKnowledgeBase(!knowledgeBase)}
-                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md transition-colors ${
-                  knowledgeBase
-                    ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
-                    : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700/50 dark:hover:text-gray-300'
-                }`}
-                title={t('session.knowledgeBase')}
-                aria-label={t('session.knowledgeBase')}
-                aria-pressed={knowledgeBase}
-              >
+              </ToolbarToggle>
+              <ToolbarToggle active={knowledgeBase} tone="amber" label={t('session.knowledgeBase')} onClick={() => setKnowledgeBase(!knowledgeBase)}>
                 <Database size={13} />
-              </button>
+              </ToolbarToggle>
               <AgentReasoningSelect
                 value={reasoningEffort}
                 onChange={(v) => session && setEffortOverride({ sessionId: session.id, value: v })}
@@ -2058,7 +2033,7 @@ export default function WorkSessionArea({
                 onEnabledChange={setDeepThinking}
               />
               {project && (
-                <button
+                <SurfaceButton
                   onClick={() => sendPreset(`运行构建诊断${project.diagnosticsCommand ? `（${project.diagnosticsCommand}）` : ''}，汇总错误与警告并给出修复建议`)}
                   disabled={isStreaming}
                   className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 disabled:opacity-40 dark:hover:bg-gray-700/50 dark:hover:text-gray-300"
@@ -2066,7 +2041,7 @@ export default function WorkSessionArea({
                   aria-label={t('session.runDiagnostics')}
                 >
                   <Stethoscope size={13} />
-                </button>
+                </SurfaceButton>
               )}
             </div>
           }
@@ -2218,7 +2193,7 @@ function OpenWithButton({ apps, onOpen, onCopyPath }: { apps: IWorkOpenApp[]; on
       {menuOpen && (
         <div className={`absolute right-0 top-9 z-50 w-52 overflow-hidden p-1.5 ${POPOVER_PANEL_CLASS}`}>
           {available.map((a) => (
-            <button
+            <SurfaceButton
               key={a.app}
               onClick={() => choose(a.app)}
               className={`${popoverItemClass(a.app === current.app)} items-center text-[12px]`}
@@ -2226,7 +2201,7 @@ function OpenWithButton({ apps, onOpen, onCopyPath }: { apps: IWorkOpenApp[]; on
               <AppIcon app={a.app} iconUrl={a.iconUrl} size={14} />
               <span className="flex-1">{a.label}</span>
               {a.app === current.app && <Check size={13} className="shrink-0 text-blue-500 dark:text-blue-300" />}
-            </button>
+            </SurfaceButton>
           ))}
           <div className="mx-1 my-1.5 border-t border-gray-100 dark:border-white/[0.06]" />
           <Button variant="ghost" tone="gray" className={`${popoverItemClass(false)} items-center text-[12px]`} onClick={() => { setMenuOpen(false); onCopyPath() }}>
@@ -2273,13 +2248,13 @@ function MessageEditor({ value, disabled, onChange, onCancel, onSave }: {
         <Button variant="ghost" tone="gray" className="rounded p-1 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700" onClick={onCancel}>
           <X size={14} />
         </Button>
-        <button
+        <SurfaceButton
           onClick={onSave}
           disabled={!value.trim() || disabled}
           className="rounded bg-blue-600 px-2 py-1 text-xs text-white disabled:opacity-50"
         >
           {t('common:save')}
-        </button>
+        </SurfaceButton>
       </div>
     </div>
   )

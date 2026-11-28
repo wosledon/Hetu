@@ -18,6 +18,7 @@ export default {
   models: '大模型',
   foundryLocal: '本地模型',
   workflows: '工作流',
+  components: '组件库',
   proxy: '代理服务',
   usage: '用量统计',
   inbox: '收件箱',

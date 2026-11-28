@@ -164,13 +164,13 @@ export default function SlidingPill({
   }, [measure])
 
   return (
-    <div ref={ref} className={cn('relative flex items-center gap-1 rounded-full bg-gray-100/80 p-1 dark:bg-white/[0.06] glass-track', className)}>
+    <div ref={ref} className={cn('relative flex items-center gap-1 bg-gray-100/80 p-1 dark:bg-white/[0.06] glass-track', className, orientation === 'vertical' ? 'flex-col items-stretch rounded-2xl' : 'rounded-full')}>
       {rect && (
         <span
           key={snapKey}
           ref={pillRef}
           aria-hidden
-          className={`pointer-events-none absolute left-0 top-0 ${pillClassName || DEFAULT_PILL_CLASS}`}
+          className={cn('pointer-events-none absolute left-0 top-0', pillClassName || DEFAULT_PILL_CLASS, orientation === 'vertical' ? 'rounded-xl' : 'rounded-full')}
           style={{
             width: rect.w,
             height: rect.h,

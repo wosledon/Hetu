@@ -1,5 +1,6 @@
 import React from 'react'
 import { POPOVER_PANEL_CLASS, popoverItemClass } from '../utils/styles'
+import { SurfaceButton } from './ui'
 
 export interface InputCommandItem {
   key: string
@@ -42,7 +43,7 @@ export default function InputCommandMenu({
         <div className="px-4 py-6 text-center text-[11px] text-gray-400">{emptyHint}</div>
       )}
       {items.map((item, i) => (
-        <button
+        <SurfaceButton
           key={item.key}
           ref={el => {
             if (itemRefs) itemRefs.current[i] = el
@@ -63,7 +64,7 @@ export default function InputCommandMenu({
               {item.tag}
             </span>
           )}
-        </button>
+        </SurfaceButton>
       ))}
     </div>
   )

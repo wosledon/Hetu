@@ -8,7 +8,7 @@ import { useAppVersion } from '../hooks/useAppVersion'
 import { useReleaseNotes } from '../hooks/useReleaseNotes'
 import { openRepo } from '../utils/repo'
 import { isTauriAclError, openExternal } from '../utils/tauri'
-import { Button } from './ui'
+import { Button, SurfaceButton } from './ui'
 
 // 发布说明渲染链（react-markdown + katex + mermaid）很重，只在打开更新面板时才需要：
 // 懒加载，否则挂在 AppLayout 上会把整条链拖进每个页面的首屏
@@ -100,9 +100,9 @@ export default function UpdatePanel() {
               {currentVersion ? t('update.current', { version: `v${currentVersion}` }) : t('update.checking')}
             </p>
           </div>
-          <button onClick={closePanel} className="shrink-0 rounded-lg p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-white/[0.06]">
+          <SurfaceButton onClick={closePanel} className="shrink-0 rounded-lg p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-white/[0.06]">
             <X size={16} />
-          </button>
+          </SurfaceButton>
         </div>
 
         {!supported && (

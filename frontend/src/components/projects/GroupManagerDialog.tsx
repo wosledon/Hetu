@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Loader2, Pencil, Plus, Trash2, X } from 'lucide-react'
 import type { IProjectGroup, ICreateProjectGroupRequest, IUpdateProjectGroupRequest } from '../../types/project'
-import { Button, IconButton, Input, Modal } from '../ui'
+import { Button, IconButton, Input, Modal, SurfaceButton } from '../ui'
 
 interface GroupManagerDialogProps {
   groups: IProjectGroup[]
@@ -48,7 +48,7 @@ export default function GroupManagerDialog({
 
         <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-800">
           <h3 className="text-base font-semibold text-gray-800 dark:text-gray-100">{t('groupDialog.title')}</h3>
-          <button onClick={onClose} className="rounded-md p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"><X size={16} /></button>
+          <SurfaceButton onClick={onClose} className="rounded-md p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"><X size={16} /></SurfaceButton>
         </div>
 
         <div className="max-h-[55vh] overflow-y-auto px-5 py-4">

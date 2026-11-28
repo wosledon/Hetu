@@ -4,6 +4,8 @@ import { FOCUS_DARK, FOCUS_LIGHT, type Tone } from './tones'
 
 export interface TextareaProps extends Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, 'size'> {
   tone?: Tone
+  /** default=完整输入框 / bare=无描边无底色（嵌在自有容器里） */
+  variant?: 'default' | 'bare'
   /** sm=紧凑（文本 13px）/ md=常规 / lg=亚克力大号（带 glass 材质） */
   size?: 'sm' | 'md' | 'lg'
   /** 亚克力材质；lg 默认开启 */
@@ -26,9 +28,18 @@ const DARK_GLASS = 'dark:border-white/[0.08] dark:bg-white/[0.03] dark:focus:bg-
 
 /** 通用多行输入框，样式与 Input 一致（resize 由调用方按需通过 className 指定） */
 const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(function Textarea(
-  { tone = 'blue', size = 'md', glass, className, ...rest },
+  { tone = 'blue', variant = 'default', size = 'md', glass, className, ...rest },
   ref,
 ) {
+  if (variant === 'bare') {
+    return (
+      <textarea
+        ref={ref}
+        className={cn('w-full bg-transparent text-sm text-inherit outline-none placeholder:text-gray-400', className)}
+        {...rest}
+      />
+    )
+  }
   const useGlass = glass ?? size === 'lg'
 
   return (

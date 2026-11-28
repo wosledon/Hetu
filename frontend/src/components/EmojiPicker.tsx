@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { RotateCcw } from 'lucide-react'
-import { SearchInput } from './ui'
+import { IconButton, SearchInput, SurfaceButton } from './ui'
 
 /** 常用 emoji（分组的精选集，避免引入外部依赖） */
 const EMOJI_GROUPS: { key: string; emojis: string[] }[] = [
@@ -70,17 +70,18 @@ export default function EmojiPicker({ value, onChange, children }: EmojiPickerPr
 
   return (
     <div ref={rootRef} className="relative">
-      <button
-        type="button"
+      <IconButton
+        variant="ghost"
+        size="sm"
+        label={t('icon.change')}
+        className="rounded-md text-base leading-none"
         onClick={(e) => {
           e.stopPropagation()
           setOpen((v) => !v)
         }}
-        title={t('icon.change')}
-        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-base leading-none transition-colors hover:bg-gray-100 dark:hover:bg-white/10"
       >
         {children}
-      </button>
+      </IconButton>
 
       {open && (
         <div
@@ -97,7 +98,7 @@ export default function EmojiPicker({ value, onChange, children }: EmojiPickerPr
           />
           <div className="grid max-h-44 grid-cols-8 gap-0.5 overflow-y-auto">
             {emojis.map((emoji) => (
-              <button
+              <SurfaceButton
                 key={emoji}
                 type="button"
                 onClick={() => {
@@ -110,10 +111,10 @@ export default function EmojiPicker({ value, onChange, children }: EmojiPickerPr
                 }`}
               >
                 {emoji}
-              </button>
+              </SurfaceButton>
             ))}
           </div>
-          <button
+          <SurfaceButton
             type="button"
             onClick={() => {
               onChange('')
@@ -124,7 +125,7 @@ export default function EmojiPicker({ value, onChange, children }: EmojiPickerPr
           >
             <RotateCcw size={11} />
             {t('icon.reset')}
-          </button>
+          </SurfaceButton>
         </div>
       )}
     </div>

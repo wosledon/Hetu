@@ -5,15 +5,7 @@ import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import {
-  BookOpen,
-  Check,
-  GitMerge,
-  Pencil,
-  Plus,
-  Tag as TagIcon,
-  Trash2,
-  X,
-} from 'lucide-react'
+  BookOpen, Check, GitMerge, Pencil, Plus, Tag as TagIcon, Trash2, X, } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
 import Select from '../components/Select'
 import { tagService } from '../services/tagService'
@@ -21,7 +13,7 @@ import { useDismissOnOutside } from '../hooks/useDismissOnOutside'
 import { useUIStore } from '../stores/uiStore'
 import { tagPalette, TAG_COLOR_HEX } from '../utils/tagColor'
 import type { ITag } from '../types'
-import { Button, IconButton, Input, Modal, PageContainer, PillTabs, SearchInput } from '../components/ui'
+import { Button, IconButton, Input, Modal, PageContainer, PillTabs, SearchInput, SurfaceButton } from '../components/ui'
 
 interface ContextMenuState {
   x: number
@@ -159,7 +151,7 @@ export default function TagsPage() {
           </div>
 
           {/* 控制行：筛选居左，搜索 + 新建居右 */}
-          <div className="mb-6 flex flex-wrap items-center gap-3 rounded-2xl border border-gray-200/70 bg-white/45 p-2.5 dark:border-white/[0.07] dark:bg-white/[0.025]">
+          <div className="mb-6 flex flex-wrap items-center gap-3 rounded-2xl border border-gray-200/70 bg-white/70 glass glass-soft p-2.5 dark:border-white/[0.07] dark:bg-slate-900/35">
             <PillTabs
               value={filter}
               onSelect={(key) => setFilter(key as typeof filter)}
@@ -257,12 +249,12 @@ export default function TagsPage() {
                 <GitMerge size={18} className="text-blue-500" />
                 <h3 className="text-base font-semibold text-gray-800 dark:text-gray-100">{t('tags.mergeTitle')}</h3>
               </div>
-              <button
+              <SurfaceButton
                 onClick={() => { setMergeSource(null); setMergeTargetId('') }}
                 className="rounded-md p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
               >
                 <X size={16} />
-              </button>
+              </SurfaceButton>
             </div>
             <div className="px-5 py-4">
               <p className="mb-4 text-sm leading-relaxed text-gray-600 dark:text-gray-400">
@@ -305,27 +297,27 @@ export default function TagsPage() {
           }}
           onClick={(e) => e.stopPropagation()}
         >
-          <button
+          <SurfaceButton
             onClick={() => { closeMenu(); handleViewNotes(menu.tag) }}
             className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-gray-700 transition-colors hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
           >
             <BookOpen size={14} className="text-gray-400" />
             {t('tags.viewNotes')}
-          </button>
-          <button
+          </SurfaceButton>
+          <SurfaceButton
             onClick={() => { closeMenu(); setEdit({ mode: 'rename', tag: menu.tag }) }}
             className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-gray-700 transition-colors hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
           >
             <Pencil size={14} className="text-gray-400" />
             {t('common:rename')}
-          </button>
-          <button
+          </SurfaceButton>
+          <SurfaceButton
             onClick={() => { closeMenu(); setMergeSource(menu.tag); setMergeTargetId('') }}
             className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-gray-700 transition-colors hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
           >
             <GitMerge size={14} className="text-gray-400" />
             {t('tags.merge')}
-          </button>
+          </SurfaceButton>
           <div className="my-1 border-t border-gray-100 dark:border-gray-700" />
           <Button variant="ghost" tone="red" className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-red-600 transition-colors hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30" onClick={() => { closeMenu(); handleDelete(menu.tag) }}>
             <Trash2 size={14} />
@@ -381,14 +373,14 @@ function TagChip({
         className={`shrink-0 rounded-full ${dotSize}`}
         style={{ background: used ? palette.dot : '#9ca3af' }}
       />
-      <button
+      <SurfaceButton
         onClick={onView}
         className={`font-medium ${nameSize} ${used ? '' : 'text-gray-500 dark:text-gray-400'}`}
         style={used ? { color: palette.text } : undefined}
       >
         <span className="mr-0.5 opacity-50">#</span>
         {tag.name}
-      </button>
+      </SurfaceButton>
       {used && (
         <span
           className={`rounded-full bg-white/70 px-1.5 font-semibold dark:bg-black/20 ${countSize}`}
@@ -442,9 +434,9 @@ function TagEditDialog({
             {mode === 'create' ? <Plus size={18} className="text-blue-500" /> : <Pencil size={18} className="text-blue-500" />}
             <h3 className="text-base font-semibold text-gray-800 dark:text-gray-100">{mode === 'create' ? t('tags.create') : t('tags.dialogRename')}</h3>
           </div>
-          <button onClick={onClose} className="rounded-md p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800">
+          <SurfaceButton onClick={onClose} className="rounded-md p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800">
             <X size={16} />
-          </button>
+          </SurfaceButton>
         </div>
         <div className="space-y-4 px-5 py-4">
           <div>
@@ -491,7 +483,7 @@ function ColorPicker({
   const { t } = useTranslation('notes')
   return (
     <div className="flex flex-wrap items-center gap-1.5">
-      <button
+      <SurfaceButton
         onClick={() => onChange('')}
         className={`flex h-6 w-6 items-center justify-center rounded-full border-2 transition-all ${
           value === ''
@@ -501,9 +493,9 @@ function ColorPicker({
         title={t('tags.autoColor')}
       >
         {value === '' && <Check size={12} className="text-gray-700 dark:text-white" />}
-      </button>
+      </SurfaceButton>
       {Object.entries(TAG_COLOR_HEX).map(([name, hex]) => (
-        <button
+        <SurfaceButton
           key={name}
           onClick={() => onChange(name)}
           className={`h-6 w-6 rounded-full border-2 transition-all hover:scale-110 ${

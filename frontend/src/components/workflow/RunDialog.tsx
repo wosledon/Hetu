@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { X, Play, CheckCircle, XCircle, Loader, UserCheck } from 'lucide-react'
 import type { IWorkflow, IWorkflowEvent } from '../../types/workflow'
 import { streamWorkflowRun, workflowService } from '../../services/workflowService'
-import { Button, Modal, Textarea } from '../ui'
+import { Button, Modal, Textarea, SurfaceButton } from '../ui'
 
 interface RunDialogProps {
   workflow: IWorkflow
@@ -99,9 +99,9 @@ export default function RunDialog({ workflow, topicId, onClose }: RunDialogProps
     <Modal open onClose={onClose} size="xl" className="flex max-h-[90vh] flex-col overflow-hidden">
       <div className="flex items-center justify-between border-b border-gray-200 px-5 py-3 dark:border-white/[0.08]">
           <h2 className="text-base font-semibold text-gray-800 dark:text-gray-100">{t('run.title', { name: workflow.name })}</h2>
-          <button onClick={onClose} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 dark:hover:bg-white/[0.06]">
+          <SurfaceButton onClick={onClose} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 dark:hover:bg-white/[0.06]">
             <X size={18} />
-          </button>
+          </SurfaceButton>
         </div>
 
         <div className="flex-1 space-y-4 overflow-y-auto p-5">

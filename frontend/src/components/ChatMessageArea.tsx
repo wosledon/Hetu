@@ -48,7 +48,7 @@ import { formatDateTime } from '../utils/locale'
 import { POPOVER_PANEL_CLASS } from '../utils/styles'
 import { highlightSearchMatches, plainSearchSnippet } from '../utils/searchHighlight'
 import type { IChatMessage, IChatTopic, IPagedResult, IPromptPreset, ISkill } from '../types'
-import { Button, Card, IconButton } from './ui'
+import { Button, Card, IconButton, Input, ToolbarToggle, SurfaceButton } from './ui'
 
 const InlineWorkflowPanel = lazy(() => import('./workflow/InlineWorkflowPanel'))
 
@@ -1115,14 +1115,14 @@ export default function ChatMessageArea({ topic, onTopicUpdated, projectId }: Ch
               {clearTopicMutation.isPending ? <Loader2 size={15} className="animate-spin" /> : <Eraser size={15} />}
             </IconButton>
           )}
-          <button
+          <SurfaceButton
             ref={searchToggleRef}
             onClick={toggleSearch}
             className={`p-2 rounded-lg transition-colors ${showSearch ? 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-300' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300'}`}
             title={t('common:search')}
           >
             <Search size={15} />
-          </button>
+          </SurfaceButton>
           {/* 分支话题：主对话是全局唯一对话，不拆分支 */}
           {!topic.isMain && (
             <IconButton variant="ghost" tone="gray" className="p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed dark:hover:bg-gray-800 dark:hover:text-gray-300" label={t('messageArea.forkTopic')} onClick={() => topic && forkMutation.mutate({ topicId: topic.id })}
@@ -1151,7 +1151,8 @@ export default function ChatMessageArea({ topic, onTopicUpdated, projectId }: Ch
               {/* 输入行：无边框输入 + 就绪数 / 搜索中 / 清空 */}
               <div className="flex items-center gap-2 px-3 py-2">
                 <Search size={14} className="shrink-0 text-gray-400 dark:text-gray-500" />
-                <input
+                <Input
+                  variant="bare"
                   ref={searchInputRef}
                   type="text"
                   value={searchQuery}
@@ -1169,7 +1170,7 @@ export default function ChatMessageArea({ topic, onTopicUpdated, projectId }: Ch
                   </span>
                 ) : null}
                 {searchTerm ? (
-                  <button
+                  <SurfaceButton
                     type="button"
                     onClick={() => {
                       setSearchQuery('')
@@ -1179,7 +1180,7 @@ export default function ChatMessageArea({ topic, onTopicUpdated, projectId }: Ch
                     className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-gray-300 transition-colors hover:bg-gray-100 hover:text-gray-500 dark:text-gray-600 dark:hover:bg-white/[0.06] dark:hover:text-gray-300"
                   >
                     <X size={12} />
-                  </button>
+                  </SurfaceButton>
                 ) : (
                   <kbd className="hidden shrink-0 rounded border border-gray-200/80 px-1 py-0.5 text-[9px] font-medium text-gray-300 sm:inline-block dark:border-white/10 dark:text-gray-600">
                     Esc
@@ -1193,7 +1194,7 @@ export default function ChatMessageArea({ topic, onTopicUpdated, projectId }: Ch
                   {searchResults.map((r, index) => {
                     const active = index === activeSearchIndex
                     return (
-                      <button
+                      <SurfaceButton
                         key={r.id}
                         type="button"
                         onClick={() => void jumpToSearchResult(r.id)}
@@ -1220,7 +1221,7 @@ export default function ChatMessageArea({ topic, onTopicUpdated, projectId }: Ch
                         >
                           {formatDateTime(r.createdAt, { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}
                         </span>
-                      </button>
+                      </SurfaceButton>
                     )
                   })}
                 </div>
@@ -1323,7 +1324,7 @@ export default function ChatMessageArea({ topic, onTopicUpdated, projectId }: Ch
           <div className="flex items-start gap-2.5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300">
             <AlertCircle size={16} className="mt-0.5 shrink-0" />
             <span className="min-w-0 flex-1">{streamError}</span>
-            <button onClick={() => setStreamError('')} className="shrink-0 text-red-400 hover:text-red-600 dark:hover:text-red-300"><X size={14} /></button>
+            <SurfaceButton onClick={() => setStreamError('')} className="shrink-0 text-red-400 hover:text-red-600 dark:hover:text-red-300"><X size={14} /></SurfaceButton>
           </div>
         )}
 
@@ -1338,14 +1339,14 @@ export default function ChatMessageArea({ topic, onTopicUpdated, projectId }: Ch
         </div>
         </div>
         {!following && (
-          <button
+          <SurfaceButton
             onClick={scrollToBottomNow}
             title={t('messageArea.jumpToBottom')}
             aria-label={t('messageArea.jumpToBottom')}
             className="absolute bottom-4 left-1/2 z-10 -translate-x-1/2 rounded-full border border-gray-200 bg-white/95 p-2 text-gray-500 shadow-lg backdrop-blur transition-colors hover:border-blue-300 hover:text-blue-600 dark:border-gray-700 dark:bg-gray-800/95 dark:text-gray-300 dark:hover:border-blue-600 dark:hover:text-blue-300"
           >
             <ArrowDown size={15} />
-          </button>
+          </SurfaceButton>
         )}
         <ConversationRail items={railItems} scrollRef={scrollRef} />
       </div>
@@ -1498,45 +1499,15 @@ export default function ChatMessageArea({ topic, onTopicUpdated, projectId }: Ch
           }
           forehead={
             <div className="flex items-center gap-0.5">
-              <button
-                onClick={() => setToolCalling(!toolCalling)}
-                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md transition-colors ${
-                  toolCalling
-                    ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300'
-                    : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700/50 dark:hover:text-gray-300'
-                }`}
-                title={t('messageArea.toolCalls')}
-                aria-label={t('messageArea.toolCalls')}
-                aria-pressed={toolCalling}
-              >
+              <ToolbarToggle active={toolCalling} tone="indigo" label={t('messageArea.toolCalls')} onClick={() => setToolCalling(!toolCalling)}>
                 <Zap size={13} />
-              </button>
-              <button
-                onClick={() => setWebSearch(!webSearch)}
-                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md transition-colors ${
-                  webSearch
-                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
-                    : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700/50 dark:hover:text-gray-300'
-                }`}
-                title={t('messageArea.webSearch')}
-                aria-label={t('messageArea.webSearch')}
-                aria-pressed={webSearch}
-              >
+              </ToolbarToggle>
+              <ToolbarToggle active={webSearch} tone="emerald" label={t('messageArea.webSearch')} onClick={() => setWebSearch(!webSearch)}>
                 <Globe size={13} />
-              </button>
-              <button
-                onClick={() => setKnowledgeBase(!knowledgeBase)}
-                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md transition-colors ${
-                  knowledgeBase
-                    ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
-                    : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700/50 dark:hover:text-gray-300'
-                }`}
-                title={t('messageArea.knowledgeBase')}
-                aria-label={t('messageArea.knowledgeBase')}
-                aria-pressed={knowledgeBase}
-              >
+              </ToolbarToggle>
+              <ToolbarToggle active={knowledgeBase} tone="amber" label={t('messageArea.knowledgeBase')} onClick={() => setKnowledgeBase(!knowledgeBase)}>
                 <Database size={13} />
-              </button>
+              </ToolbarToggle>
               <AgentReasoningSelect
                 value={reasoningEffort}
                 onChange={setReasoningEffort}

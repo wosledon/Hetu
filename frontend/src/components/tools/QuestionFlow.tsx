@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Check, ChevronLeft, ChevronRight, HelpCircle, Loader2, Send } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { InteractionQuestion } from '../../stores/interactionStore'
-import { Input } from '../ui'
+import { Input, SurfaceButton } from '../ui'
 
 interface QuestionFlowProps {
   questions: InteractionQuestion[]
@@ -70,7 +70,7 @@ export default function QuestionFlow({
             const answered = !!answers[qq.id]
             const isCurrent = i === idx
             return (
-              <button
+              <SurfaceButton
                 key={qq.id}
                 type="button"
                 onClick={() => onIndexChange(i)}
@@ -105,7 +105,7 @@ export default function QuestionFlow({
                 {q.options.map((opt, i) => {
                   const selected = currentAnswer === opt.label
                   return (
-                    <button
+                    <SurfaceButton
                       key={i}
                       onClick={() => {
                         onAnswer(q.id, opt.label)
@@ -137,7 +137,7 @@ export default function QuestionFlow({
                           </div>
                         )}
                       </div>
-                    </button>
+                    </SurfaceButton>
                   )
                 })}
               </div>
@@ -148,7 +148,7 @@ export default function QuestionFlow({
               {q.options.map((opt, i) => {
                 const selected = currentAnswer === opt.label
                 return (
-                  <button
+                  <SurfaceButton
                     key={i}
                     onClick={() => {
                       onAnswer(q.id, opt.label)
@@ -163,7 +163,7 @@ export default function QuestionFlow({
                   >
                     {selected && <Check size={12} />}
                     <span>{opt.label}</span>
-                  </button>
+                  </SurfaceButton>
                 )
               })}
             </div>
@@ -196,7 +196,7 @@ export default function QuestionFlow({
 
       {/* Footer */}
       <div className="sticky bottom-0 z-10 flex items-center justify-between border-t border-gray-200/70 bg-gray-50/95 px-3 py-2.5 dark:border-white/[0.06] dark:bg-gray-900/95">
-        <button
+        <SurfaceButton
           onClick={goPrev}
           disabled={isFirst}
           className={`flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium transition-colors ${
@@ -206,12 +206,12 @@ export default function QuestionFlow({
           }`}
         >
           <ChevronLeft size={14} /> {t('question.prev')}
-        </button>
+        </SurfaceButton>
         <span className="text-[10px] tabular-nums text-gray-400">
           {idx + 1} / {total}
         </span>
         {!isLast ? (
-          <button
+          <SurfaceButton
             onClick={goNext}
             disabled={!hasAnswer}
             className={`flex items-center gap-1 rounded-lg px-3.5 py-1.5 text-xs font-medium transition-all ${
@@ -221,9 +221,9 @@ export default function QuestionFlow({
             }`}
           >
             {t('question.next')} <ChevronRight size={14} />
-          </button>
+          </SurfaceButton>
         ) : (
-          <button
+          <SurfaceButton
             onClick={onSubmitAll}
             disabled={!allAnswered || submitting}
             className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-medium transition-all ${
@@ -233,7 +233,7 @@ export default function QuestionFlow({
             }`}
           >
             {submitting ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />} {t('question.submitAll')}
-          </button>
+          </SurfaceButton>
         )}
       </div>
     </div>

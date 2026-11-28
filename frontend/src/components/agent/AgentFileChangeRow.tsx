@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { FilePlus2, FileX2, FilePen } from 'lucide-react'
+import { SurfaceButton } from '../ui'
 
 const FILE_ACTION_META: Record<string, { labelKey: string; cls: string; Icon: typeof FilePen }> = {
   create: { labelKey: 'fileChange.create', cls: 'text-emerald-600 dark:text-emerald-400', Icon: FilePlus2 },
@@ -28,13 +29,13 @@ export default function AgentFileChangeRow({ path, action, onOpenPath }: AgentFi
       </span>
       <span className={`shrink-0 text-[11px] font-medium ${meta.cls}`}>{t(meta.labelKey)}</span>
       {onOpenPath ? (
-        <button
+        <SurfaceButton
           onClick={() => onOpenPath(path)}
           title={t('fileChange.openInEditor')}
           className="min-w-0 flex-1 truncate text-left font-mono text-[11px] text-gray-500 underline-offset-2 hover:text-blue-500 hover:underline dark:text-gray-400"
         >
           {path}
-        </button>
+        </SurfaceButton>
       ) : (
         <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-gray-500 dark:text-gray-400">{path}</span>
       )}

@@ -1,13 +1,13 @@
 import { useRef, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { FileText, Loader2, Pin, Plus, Star, Trash2, CornerLeftUp, X } from 'lucide-react'
+import { FileText, Pin, Plus, Star, Trash2, CornerLeftUp, X } from 'lucide-react'
 import { confirm } from './confirm'
 import { useUIStore } from '../stores/uiStore'
 import { useNoteSearch } from '../hooks/useNoteSearch'
 import { noteService } from '../services/noteService'
 import type { INote } from '../types'
-import { Button, Card, ContextMenu, IconButton, SearchInput, TreeRow } from './ui'
+import { Button, ContextMenu, IconButton, Input, SearchInput, Spinner, TreeRow, WorkbenchColumn } from './ui'
 import EmojiPicker from './EmojiPicker'
 import NoteSearchResults from './NoteSearchResults'
 
@@ -112,7 +112,8 @@ function NoteNode({
           />
         }
         label={isRenaming ? (
-          <input
+          <Input
+            variant="bare"
             autoFocus
             value={draftTitle}
             onChange={(e) => setDraftTitle(e.target.value)}
@@ -122,7 +123,7 @@ function NoteNode({
             }}
             onBlur={handleRename}
             onClick={(e) => e.stopPropagation()}
-            className="min-w-0 flex-1 rounded border border-blue-300 bg-white px-1 py-0.5 text-[13px] outline-none dark:bg-gray-800"
+            className="min-w-0 flex-1 rounded border border-blue-300 bg-white px-1 py-0.5 text-[13px] dark:bg-gray-800"
           />
         ) : (
           <>
@@ -263,19 +264,12 @@ export default function NotesTree({ selectedNoteId, onSelectNote, className, emb
   }
 
   return (
-    <Card
-      padded={false}
-      plain
-      className={`flex flex-col rounded-none ${
-        embedded
-          ? 'min-h-0 w-full flex-1'
-          : 'w-64 shrink-0'
-      } ${className ?? ''}`}
-    >
-      <div className="border-b border-gray-200/80 bg-white/35 p-3.5 dark:border-white/[0.07] dark:bg-slate-950/20">
-        <div className="mb-2.5 flex items-center justify-between">
-          <h2 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">{t('tree.label')}</h2>
-        </div>
+    <WorkbenchColumn
+      role="secondary"
+      embedded={embedded}
+      title={t('tree.label')}
+      className={className}
+      toolbar={
         <SearchInput tone="blue" size="sm" ref={searchInputRef}
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
@@ -283,59 +277,55 @@ export default function NotesTree({ selectedNoteId, onSelectNote, className, emb
           placeholder={t('tree.searchPlaceholder')}
           className="w-full"
           iconRight={searchInFlight
-            ? <Loader2 size={12} className="animate-spin" />
+            ? <Spinner size={12} />
             : searchActive
-              ? <button
-                  type="button"
+              ? <IconButton
+                  size="xs"
+                  variant="bare"
+                  label={t('search.clear')}
                   onClick={() => { setSearchTerm(''); searchInputRef.current?.focus() }}
-                  aria-label={t('search.clear')}
-                  title={t('search.clear')}
-                  className="flex h-4 w-4 items-center justify-center rounded text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/10 dark:hover:text-gray-300"
                 >
                   <X size={11} />
-                </button>
+                </IconButton>
               : undefined}
         />
-      </div>
-
-      {searchActive ? (
-        <div className="min-h-0 flex-1 overflow-y-auto p-2">
-          <NoteSearchResults
-            keyword={searchKeyword}
-            results={searchResults}
-            total={searchTotal}
-            ready={searchReady}
-            inFlight={searchInFlight}
-            activeIndex={activeSearchIndex}
-            selectedNoteId={selectedNoteId}
-            onHover={setSearchActiveIndex}
-            onOpen={(id) => void openSearchResult(id)}
-          />
+      }
+      beforeBody={searchActive ? undefined : (
+        <div className="shrink-0 px-2 pt-2">
+          <Button variant="link" tone="gray" className="mb-1 flex w-full items-center justify-center gap-1.5 rounded-xl border border-blue-200/70 bg-blue-50/70 px-3 py-2 text-[13px] font-medium text-blue-600 transition-colors hover:bg-blue-100 dark:border-blue-400/15 dark:bg-blue-500/10 dark:text-blue-300 dark:hover:bg-blue-500/15" onClick={() => createRootNote.mutate({ title: '', content: '' })}>
+            <Plus size={14} className="shrink-0" />
+            {t('tree.newNote')}
+          </Button>
         </div>
+      )}
+    >
+      {searchActive ? (
+        <NoteSearchResults
+          keyword={searchKeyword}
+          results={searchResults}
+          total={searchTotal}
+          ready={searchReady}
+          inFlight={searchInFlight}
+          activeIndex={activeSearchIndex}
+          selectedNoteId={selectedNoteId}
+          onHover={setSearchActiveIndex}
+          onOpen={(id) => void openSearchResult(id)}
+        />
       ) : (
         <>
-          <div className="shrink-0 px-2 pt-2">
-            <Button variant="link" tone="gray" className="mb-1 flex w-full items-center justify-center gap-1.5 rounded-xl border border-blue-200/70 bg-blue-50/70 px-3 py-2 text-[13px] font-medium text-blue-600 transition-colors hover:bg-blue-100 dark:border-blue-400/15 dark:bg-blue-500/10 dark:text-blue-300 dark:hover:bg-blue-500/15" onClick={() => createRootNote.mutate({ title: '', content: '' })}>
-              <Plus size={14} className="shrink-0" />
-              {t('tree.newNote')}
-            </Button>
-          </div>
-
-          <div className="flex-1 overflow-y-auto p-2">
-            {rootNotes.length === 0 && (
-              <p className="px-2 py-4 text-center text-[11px] text-gray-300 dark:text-gray-600">{t('tree.empty')}</p>
-            )}
-            {rootNotes.map((note) => (
-              <NoteNode
-                key={note.id}
-                note={note}
-                depth={0}
-                selectedNoteId={selectedNoteId}
-                onSelectNote={onSelectNote}
-                onOpenLeafMenu={handleOpenLeafMenu}
-              />
-            ))}
-          </div>
+          {rootNotes.length === 0 && (
+            <p className="px-2 py-4 text-center text-[11px] text-gray-300 dark:text-gray-600">{t('tree.empty')}</p>
+          )}
+          {rootNotes.map((note) => (
+            <NoteNode
+              key={note.id}
+              note={note}
+              depth={0}
+              selectedNoteId={selectedNoteId}
+              onSelectNote={onSelectNote}
+              onOpenLeafMenu={handleOpenLeafMenu}
+            />
+          ))}
         </>
       )}
 
@@ -377,6 +367,6 @@ export default function NotesTree({ selectedNoteId, onSelectNote, className, emb
           ]}
         />
       )}
-    </Card>
+    </WorkbenchColumn>
   )
 }

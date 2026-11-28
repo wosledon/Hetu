@@ -2,26 +2,14 @@ import { confirm } from '../components/confirm'
 import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  AlertCircle,
-  FolderOpen,
-  FolderSearch,
-  Loader2,
-  Pencil,
-  Plus,
-  RefreshCw,
-  Settings,
-  Terminal,
-  Trash2,
-  X,
-  Zap,
-} from 'lucide-react'
+  AlertCircle, FolderOpen, FolderSearch, Loader2, Pencil, Plus, RefreshCw, Settings, Terminal, Trash2, X, Zap, } from 'lucide-react'
 import { Trans, useTranslation } from 'react-i18next'
 import AppLayout from '../components/AppLayout'
 import FolderPickerDialog from '../components/FolderPickerDialog'
 import { skillService } from '../services/skillService'
 import type { ILocalSkill } from '../services/skillService'
 import type { ISkill } from '../types'
-import { Button, Card, Input, Modal, PageContainer, SearchInput, Textarea } from '../components/ui'
+import { Button, Card, Input, Modal, PageContainer, SearchInput, Textarea, SurfaceButton, Checkbox } from '../components/ui'
 
 const CATEGORY_COLORS: Record<string, string> = {
   通用: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
@@ -143,7 +131,8 @@ export default function SkillsPage() {
       <Card
         key={s.id}
         padded={false}
-        className={"group flex min-h-[168px] flex-col p-4 transition-all hover:-translate-y-0.5 hover:border-amber-200/70 hover:shadow-md dark:hover:border-amber-400/20 " + (s.isEnabled ? "" : "opacity-60")}
+        interactive
+        className={"group flex min-h-[168px] flex-col p-4 " + (s.isEnabled ? "" : "opacity-60")}
       >
         <div className="flex items-start gap-3">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-50 dark:bg-amber-500/10">
@@ -179,9 +168,9 @@ export default function SkillsPage() {
                 <Button variant="ghost" tone="gray" className="flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700" onClick={() => openEditForm(s as ISkill)}>
                   <Pencil size={11} /> {t('common:edit')}
                 </Button>
-                <button onClick={() => { confirm({ message: t('common:deleteConfirm'), onConfirm: () => deleteMutation.mutate(s.id) }) }} className="flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] text-red-400 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400">
+                <SurfaceButton onClick={() => { confirm({ message: t('common:deleteConfirm'), onConfirm: () => deleteMutation.mutate(s.id) }) }} className="flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] text-red-400 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400">
                   <Trash2 size={11} /> {t('common:delete')}
-                </button>
+                </SurfaceButton>
               </>
             )}
           </div>
@@ -220,24 +209,24 @@ export default function SkillsPage() {
       </div>
 
       {/* 工具栏：分类筛选 + 搜索 + 操作 */}
-      <div className="mb-5 flex flex-wrap items-center gap-2 rounded-2xl border border-gray-200/70 bg-white/45 p-2.5 dark:border-white/[0.07] dark:bg-white/[0.025]">
+      <div className="mb-5 flex flex-wrap items-center gap-2 rounded-2xl border border-gray-200/70 bg-white/70 glass glass-soft p-2.5 dark:border-white/[0.07] dark:bg-slate-900/35">
         <div className="flex flex-wrap items-center gap-1">
-          <button
+          <SurfaceButton
             onClick={() => setActiveCategory(null)}
             className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-medium transition-all ${filterPill(activeCategory === null)}`}
           >
             {t('common:all')}
             <span className="text-[11px] opacity-70">{skills.length}</span>
-          </button>
+          </SurfaceButton>
           {categories.map(([cat, count]) => (
-            <button
+            <SurfaceButton
               key={cat}
               onClick={() => setActiveCategory(activeCategory === cat ? null : cat)}
               className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-medium transition-all ${filterPill(activeCategory === cat)}`}
             >
               {cat}
               <span className="text-[11px] opacity-70">{count}</span>
-            </button>
+            </SurfaceButton>
           ))}
         </div>
         <div className="relative ml-auto min-w-[180px] max-w-xs flex-1">
@@ -257,13 +246,13 @@ export default function SkillsPage() {
           <RefreshCw size={14} />
           {t('common:refresh')}
         </Button>
-        <button
+        <SurfaceButton
           onClick={openCreateForm}
           className="flex shrink-0 items-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 px-3.5 py-1.5 text-[13px] font-medium text-white shadow-sm shadow-amber-500/20 transition-all hover:shadow-md active:scale-[0.97]"
         >
           <Plus size={16} />
           {t('skillsPage.newSkill')}
-        </button>
+        </SurfaceButton>
       </div>
 
       {/* 技能列表 */}
@@ -306,7 +295,7 @@ export default function SkillsPage() {
                   {editingId ? t('form.editSkill') : t('skillsPage.newSkill')}
                 </h3>
               </div>
-              <button onClick={closeForm} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700"><X size={18} /></button>
+              <SurfaceButton onClick={closeForm} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700"><X size={18} /></SurfaceButton>
             </div>
             <div className="space-y-4 px-5 py-4">
               <div className="grid grid-cols-2 gap-3">
@@ -329,7 +318,7 @@ export default function SkillsPage() {
               </div>
               {editingId && (
                 <label className="flex items-center gap-2 text-sm">
-                  <input type="checkbox" checked={form.isEnabled} onChange={(e) => setForm({ ...form, isEnabled: e.target.checked })} />
+                  <Checkbox checked={form.isEnabled} onChange={(e) => setForm({ ...form, isEnabled: e.target.checked })} />
                   {t('common:enable')}
                 </label>
               )}
@@ -356,7 +345,7 @@ export default function SkillsPage() {
                   <p className="text-xs text-gray-500">{t('dir.hint')}</p>
                 </div>
               </div>
-              <button onClick={() => setShowDirConfig(false)} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700"><X size={18} /></button>
+              <SurfaceButton onClick={() => setShowDirConfig(false)} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700"><X size={18} /></SurfaceButton>
             </div>
             <div className="space-y-3 px-5 py-4">
               <div className="flex gap-2">
@@ -385,7 +374,7 @@ export default function SkillsPage() {
                   directories.map(dir => (
                     <div key={dir} className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 px-3 py-2 dark:border-gray-700 dark:bg-gray-800">
                       <span className="truncate text-xs text-gray-700 dark:text-gray-300" title={dir}>{dir}</span>
-                      <button onClick={() => handleRemoveDir(dir)} className="ml-2 shrink-0 text-gray-400 hover:text-red-500"><Trash2 size={12} /></button>
+                      <SurfaceButton onClick={() => handleRemoveDir(dir)} className="ml-2 shrink-0 text-gray-400 hover:text-red-500"><Trash2 size={12} /></SurfaceButton>
                     </div>
                   ))
                 )}

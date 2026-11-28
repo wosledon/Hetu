@@ -7,11 +7,11 @@ import { memoryService } from '../services/memoryService'
 import i18n from '../i18n'
 import { formatDateTime } from '../utils/locale'
 import Select from './Select'
-import { Button, Card, Input } from './ui'
+import { Button, Card, Input, SurfaceButton } from './ui'
 
 function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void }) {
   return (
-    <button
+    <SurfaceButton
       type="button"
       onClick={onChange}
       className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors duration-200 ${
@@ -21,7 +21,7 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void 
       <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition duration-200 ${
         checked ? 'translate-x-5' : 'translate-x-0.5'
       }`} style={{ marginTop: '2px' }} />
-    </button>
+    </SurfaceButton>
   )
 }
 

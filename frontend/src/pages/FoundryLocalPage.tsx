@@ -2,11 +2,9 @@ import { useMemo, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import {
-  Boxes, Check, Copy, Cpu, Download, FolderOpen, HardDrive, Loader2, Play, RotateCcw,
-  Search, Square, Terminal, Trash2, TriangleAlert, X,
-} from 'lucide-react'
+  Boxes, Check, Copy, Cpu, Download, FolderOpen, HardDrive, Loader2, Play, RotateCcw, Search, Square, Terminal, Trash2, TriangleAlert, X, } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
-import { Button, Card, Input, PageContainer, SearchInput } from '../components/ui'
+import { Button, Card, Input, PageContainer, SearchInput, SurfaceButton } from '../components/ui'
 import Select from '../components/Select'
 import { confirm } from '../components/confirm'
 import {
@@ -213,9 +211,9 @@ export default function FoundryLocalPage() {
           {message && (
             <div className="mb-4 flex items-start gap-2 rounded-xl border border-cyan-200/70 bg-cyan-50/60 px-4 py-2.5 text-[12px] text-cyan-800 dark:border-cyan-500/20 dark:bg-cyan-950/20 dark:text-cyan-200">
               <span className="min-w-0 flex-1 break-words">{message}</span>
-              <button onClick={() => setMessage(null)} className="shrink-0 rounded p-0.5 opacity-60 hover:opacity-100">
+              <SurfaceButton onClick={() => setMessage(null)} className="shrink-0 rounded p-0.5 opacity-60 hover:opacity-100">
                 <X size={12} />
-              </button>
+              </SurfaceButton>
             </div>
           )}
 
@@ -225,7 +223,7 @@ export default function FoundryLocalPage() {
           ) : (
             <div className="space-y-5">
               {/* 运行状态 */}
-              <Card padded={false} className="flex flex-wrap items-center gap-x-6 gap-y-3 border-gray-200/70 bg-white/70 px-5 py-4 shadow-sm dark:border-white/[0.07] dark:bg-slate-900/35">
+              <Card padded={false} className="flex flex-wrap items-center gap-x-6 gap-y-3 px-5 py-4">
                 <StatusDot ok={status?.running === true} label={t('status.running')} offLabel={t('status.stopped')} />
                 <div className="min-w-0">
                   <div className="text-[11px] text-gray-400">{t('status.endpoint')}</div>
@@ -297,7 +295,7 @@ export default function FoundryLocalPage() {
 
               {/* 本机硬件 + 缓存路径 */}
               <div className="grid gap-5 lg:grid-cols-2">
-                <Card padded={false} className="border-gray-200/70 bg-white/70 px-5 py-4 shadow-sm dark:border-white/[0.07] dark:bg-slate-900/35">
+                <Card padded={false} className="px-5 py-4">
                   <h3 className="mb-2.5 flex items-center gap-1.5 text-[13px] font-medium text-gray-700 dark:text-gray-200">
                     <Cpu size={13} className="text-gray-400" /> {t('status.hardware')}
                   </h3>
@@ -333,19 +331,19 @@ export default function FoundryLocalPage() {
                   </dl>
                 </Card>
 
-                <Card padded={false} className="border-gray-200/70 bg-white/70 px-5 py-4 shadow-sm dark:border-white/[0.07] dark:bg-slate-900/35">
+                <Card padded={false} className="px-5 py-4">
                   <div className="mb-2.5 flex items-center justify-between gap-3">
                     <h3 className="flex items-center gap-1.5 text-[13px] font-medium text-gray-700 dark:text-gray-200">
                       <HardDrive size={13} className="text-gray-400" /> {t('cacheDir.label')}
                     </h3>
-                    <button
+                    <SurfaceButton
                       onClick={() => dirMutation.mutate(null)}
                       disabled={dirMutation.isPending}
                       title={t('cacheDir.reset')}
                       className="flex shrink-0 items-center gap-1 rounded-md px-1.5 py-1 text-[11px] text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 disabled:opacity-50 dark:hover:bg-white/[0.06] dark:hover:text-gray-300"
                     >
                       <RotateCcw size={11} /> {t('cacheDir.reset')}
-                    </button>
+                    </SurfaceButton>
                   </div>
                   <div className="flex items-center gap-2">
                     <Input
@@ -545,7 +543,7 @@ export default function FoundryLocalPage() {
                               </Button>
                             )}
                             {model.isCached && (
-                              <button
+                              <SurfaceButton
                                 onClick={() => {
                                   void confirm({
                                     title: t('action.remove'),
@@ -562,7 +560,7 @@ export default function FoundryLocalPage() {
                                 className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10"
                               >
                                 <Trash2 size={14} />
-                              </button>
+                              </SurfaceButton>
                             )}
                           </div>
                         </div>
@@ -616,7 +614,7 @@ function InstallGuide({
           <code className="min-w-0 flex-1 break-all font-mono text-[12px] text-gray-700 dark:text-gray-200">
             {INSTALL_COMMAND}
           </code>
-          <button
+          <SurfaceButton
             onClick={() => {
               void navigator.clipboard.writeText(INSTALL_COMMAND).then(() => onCopy())
             }}
@@ -625,7 +623,7 @@ function InstallGuide({
           >
             {copied ? <Check size={12} className="text-emerald-500" /> : <Copy size={12} />}
             {copied ? t('install.copied') : t('install.copy')}
-          </button>
+          </SurfaceButton>
         </div>
         <div className="flex items-center gap-3 text-[12px] text-gray-500 dark:text-gray-400">
           <span className="flex items-center gap-1.5">

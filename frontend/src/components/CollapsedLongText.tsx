@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ChevronDown, ChevronUp, FileText } from 'lucide-react'
 import { isLongText, longTextSummary } from '../utils/longText'
+import { SurfaceButton } from './ui'
 
 /**
  * 长文本折叠：折叠态只显示行数与字符数，需要看内容时再展开。
@@ -53,7 +54,7 @@ export function PastedLongTextBlock({ text, label, className = '' }: { text: str
 function CollapsedCard({ label, summary, onExpand, expanded = false, className = '' }: { label: string; summary: string; onExpand: () => void; expanded?: boolean; className?: string }) {
   const { t } = useTranslation()
   return (
-    <button
+    <SurfaceButton
       type="button"
       onClick={onExpand}
       title={expanded ? t('ui:collapsedText.collapseOriginal') : t('ui:collapsedText.expandHint')}
@@ -65,19 +66,19 @@ function CollapsedCard({ label, summary, onExpand, expanded = false, className =
       <span className="ml-auto flex shrink-0 items-center gap-0.5 text-xs underline">
         {expanded ? t('ui:collapsedText.collapse') : t('ui:collapsedText.expand')} {expanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
       </span>
-    </button>
+    </SurfaceButton>
   )
 }
 
 function RollupButton({ onClick }: { onClick: () => void }) {
   const { t } = useTranslation()
   return (
-    <button
+    <SurfaceButton
       type="button"
       onClick={onClick}
       className="mt-1.5 flex items-center gap-0.5 text-[11px] opacity-60 transition-opacity hover:opacity-100"
     >
       <ChevronUp size={11} /> {t('ui:collapsedText.collapse')}
-    </button>
+    </SurfaceButton>
   )
 }

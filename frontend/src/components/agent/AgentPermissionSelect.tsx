@@ -4,6 +4,7 @@ import { Check, ChevronDown, ClipboardList, Eye, MessagesSquare, Rocket, ShieldC
 import { useAgentPermissionModes } from '../../hooks/useAgentPermissionModes'
 import { POPOVER_PANEL_CLASS } from '../../utils/styles'
 import { AGENT_MODES, type AgentRunMode } from '../../utils/agentMode'
+import { SurfaceButton } from '../ui'
 
 export interface AgentPermissionSelectProps {
   value: string
@@ -102,7 +103,7 @@ export default function AgentPermissionSelect({ value, onChange, agentMode, onAg
         if (e.key === 'Escape') setOpen(false)
       }}
     >
-      <button
+      <SurfaceButton
         type="button"
         onClick={() => setOpen((v) => !v)}
         title={open ? undefined : t('permission.title', { label: current?.label ?? value })}
@@ -119,7 +120,7 @@ export default function AgentPermissionSelect({ value, onChange, agentMode, onAg
         )}
         <span className="truncate font-medium">{current?.label ?? value}</span>
         <ChevronDown size={11} className={`shrink-0 opacity-60 transition-transform ${open ? 'rotate-180' : ''}`} />
-      </button>
+      </SurfaceButton>
 
       {open && (
         <div
@@ -150,7 +151,7 @@ export default function AgentPermissionSelect({ value, onChange, agentMode, onAg
                   const active = mode.value === agentMode
                   const Icon = mode.value === 'autopilot' ? Rocket : MessagesSquare
                   return (
-                    <button
+                    <SurfaceButton
                       key={mode.value}
                       type="button"
                       role="radio"
@@ -165,7 +166,7 @@ export default function AgentPermissionSelect({ value, onChange, agentMode, onAg
                     >
                       <Icon size={12} className={mode.value === 'autopilot' ? 'text-emerald-500 dark:text-emerald-400' : 'text-sky-500 dark:text-sky-400'} />
                       {t(mode.labelKey)}
-                    </button>
+                    </SurfaceButton>
                   )
                 })}
               </div>
@@ -185,7 +186,7 @@ export default function AgentPermissionSelect({ value, onChange, agentMode, onAg
               const Icon = visual.Icon
               const active = opt.value === value
               return (
-                <button
+                <SurfaceButton
                   key={opt.value}
                   type="button"
                   role="menuitemradio"
@@ -223,7 +224,7 @@ export default function AgentPermissionSelect({ value, onChange, agentMode, onAg
                       <span className="h-1.5 w-1.5 rounded-full bg-gray-200 dark:bg-gray-700" />
                     )}
                   </span>
-                </button>
+                </SurfaceButton>
               )
             })}
 

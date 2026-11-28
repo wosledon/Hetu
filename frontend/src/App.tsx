@@ -13,6 +13,7 @@ import { sanitizeNavPaths } from './utils/navItems'
 import { TooltipProvider } from './components/ui'
 import DesktopTitlebar from './components/DesktopTitlebar'
 import { isTauri } from './utils/tauri'
+import { SurfaceButton } from './components/ui'
 
 function lazyRoute(load: () => Promise<{ default: ComponentType }>) {
   return lazy(async () => {
@@ -45,9 +46,9 @@ class RouteErrorBoundary extends Component<{ children: ReactNode; resetKey: stri
       return (
         <div className="flex h-full flex-col items-center justify-center gap-4 px-6 text-center">
           <p className="text-sm text-gray-600 dark:text-gray-300">{i18n.t('common:pageLoadFailed')}</p>
-          <button type="button" className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white" onClick={() => window.location.reload()}>
+          <SurfaceButton type="button" className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white" onClick={() => window.location.reload()}>
             {i18n.t('common:refresh')}
-          </button>
+          </SurfaceButton>
         </div>
       )
     }
@@ -81,6 +82,7 @@ const ProxyPage = lazyRoute(() => import('./pages/ProxyPage'))
 const UsagePage = lazyRoute(() => import('./pages/UsagePage'))
 const InboxPage = lazyRoute(() => import('./pages/InboxPage'))
 const ToolsPage = lazyRoute(() => import('./pages/ToolsPage'))
+const ComponentsPage = lazyRoute(() => import('./pages/ComponentsPage'))
 
 /** 路由级代码分割的加载占位：页面按需加载时避免白屏 */
 function RouteFallback() {
@@ -215,14 +217,14 @@ function App() {
         <div role="status" className={`animate-toast fixed right-4 ${desktop ? 'top-12' : 'top-4'} z-[100] max-w-sm rounded-xl border px-4 py-3 text-sm shadow-lg backdrop-blur ${TOAST_STYLES[toast.level]}`}>
           <div className="flex items-start gap-3">
             <span className="min-w-0 flex-1 break-words">{toast.text}</span>
-            <button
+            <SurfaceButton
               type="button"
               aria-label={t('close')}
               onClick={() => setToast(null)}
               className="shrink-0 rounded p-0.5 opacity-60 transition-opacity hover:opacity-100"
             >
               ✕
-            </button>
+            </SurfaceButton>
           </div>
         </div>
       )}
@@ -260,6 +262,7 @@ function App() {
         <Route path="/inbox" element={<InboxPage />} />
         <Route path="/tools" element={<ToolsPage />} />
         <Route path="/trash" element={<TrashPage />} />
+        <Route path="/components" element={<ComponentsPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/share/:shareCode" element={<SharedNotePage />} />
           </Routes>

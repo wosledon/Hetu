@@ -1,7 +1,7 @@
 import { Check, CircleCheckBig, ListChecks, Loader2, MessageSquare, Play, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { InteractionPlan } from '../../stores/interactionStore'
-import { Button } from '../ui'
+import { Button, Input } from '../ui'
 
 interface PlanFlowProps {
   plan: InteractionPlan
@@ -109,12 +109,13 @@ export default function PlanFlow({ plan, onFeedback, onDecide, submitting = fals
         <div className="sticky bottom-0 z-10 border-t border-gray-200/70 bg-gray-50/95 px-3 py-3 dark:border-white/[0.06] dark:bg-gray-900/95">
           <div className="mb-2.5 flex items-center gap-2 rounded-xl border border-gray-200/80 bg-white/75 px-3 py-2.5 transition-colors focus-within:border-teal-400 focus-within:ring-2 focus-within:ring-teal-500/10 dark:border-white/[0.08] dark:bg-gray-900/50">
             <MessageSquare size={12} className="shrink-0 text-gray-400" />
-            <input
+            <Input
+              variant="bare"
               type="text"
               value={plan.feedback}
               onChange={(e) => onFeedback(e.target.value)}
               placeholder={t('plan.feedbackPlaceholder')}
-              className="min-w-0 flex-1 bg-transparent text-xs outline-none placeholder:text-gray-400"
+              className="min-w-0 flex-1 text-xs placeholder:text-gray-400"
             />
           </div>
           <div className="flex items-center justify-end gap-2">

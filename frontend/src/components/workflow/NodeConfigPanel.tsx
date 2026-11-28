@@ -9,7 +9,7 @@ import type { IWorkflow } from '../../types/workflow'
 import { aiModelService } from '../../services/aiProviderService'
 import { mcpService } from '../../services/mcpService'
 import Select from '../Select'
-import { Card, IconButton, Input, Textarea } from '../ui'
+import { Card, IconButton, Input, Textarea, SurfaceButton } from '../ui'
 
 interface NodeConfigPanelProps {
   node: IWorkflowNode | null
@@ -93,12 +93,12 @@ export default function NodeConfigPanel({
             title={t('config.deleteNode')}>
             <Trash2 size={15} />
           </IconButton>
-          <button
+          <SurfaceButton
             onClick={onClose}
             className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 dark:hover:bg-white/[0.06]"
           >
             <X size={15} />
-          </button>
+          </SurfaceButton>
         </div>
       </div>
 
@@ -162,7 +162,7 @@ export default function NodeConfigPanel({
             <label className={labelClass}>{t('config.tools')}</label>
             <div className="flex flex-wrap gap-1.5">
               {availableTools.map((tool) => (
-                <button
+                <SurfaceButton
                   key={tool.name}
                   onClick={() => toggleTool(tool.name)}
                   className={`rounded-lg px-2.5 py-1 text-xs transition-colors ${
@@ -172,7 +172,7 @@ export default function NodeConfigPanel({
                   }`}
                 >
                   {tool.label}
-                </button>
+                </SurfaceButton>
               ))}
             </div>
           </div>
@@ -187,7 +187,7 @@ export default function NodeConfigPanel({
                 <span className="text-xs text-gray-400">{t('config.noMcpServers')}</span>
               )}
               {enabledMcpServers.map((s) => (
-                <button
+                <SurfaceButton
                   key={s.id}
                   onClick={() => toggleMcp(s.id)}
                   className={`rounded-lg px-2.5 py-1 text-xs transition-colors ${
@@ -197,7 +197,7 @@ export default function NodeConfigPanel({
                   }`}
                 >
                   {s.name}
-                </button>
+                </SurfaceButton>
               ))}
             </div>
           </div>

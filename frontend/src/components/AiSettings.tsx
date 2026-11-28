@@ -6,7 +6,7 @@ import { Plus, Trash2, Star, Bot, X, Download, Eye, EyeOff, Sparkles, Wrench, Br
 import { aiProviderService, aiModelService, aiModelCatalogService } from '../services/aiProviderService'
 import type { RemoteModelInfo, CatalogModelInfo, CatalogProviderInfo } from '../services/aiProviderService'
 import Select from './Select'
-import { Button, Card, IconButton, Input, Modal, SearchInput } from './ui'
+import { Button, Card, IconButton, Input, Modal, SearchInput, SurfaceButton, Checkbox } from './ui'
 
 /** 现代 LLM 常见的推理强度等级（models.dev reasoning_options: effort） */
 const DEFAULT_EFFORT_VALUES = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max']
@@ -226,7 +226,7 @@ export default function AiSettings() {
 
       {/* Provider Cards */}
       {providers.map((provider) => (
-        <Card key={provider.id} padded={false} className="shadow-sm dark:bg-white/[0.02]">
+        <Card key={provider.id} padded={false} className="">
           {/* Provider Header */}
           <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-white/[0.06]">
             <div className="flex items-center gap-3">
@@ -314,13 +314,13 @@ export default function AiSettings() {
                       )}
                     </div>
                     <div className="flex gap-1">
-                      <button
+                      <SurfaceButton
                         onClick={() => setDefaultModel.mutate(model.id)}
                         className={`rounded-md p-1.5 transition-colors ${model.isDefault ? 'text-amber-400' : 'text-gray-300 hover:text-amber-400 dark:text-gray-600'}`}
                         title={model.isDefault ? t('ai.defaultModel') : t('ai.setDefault')}
                       >
                         <Star size={14} className={model.isDefault ? 'fill-amber-400' : ''} />
-                      </button>
+                      </SurfaceButton>
                       <IconButton variant="ghost" tone="gray" className="rounded-md p-1.5 text-gray-300 transition-colors hover:text-blue-500 dark:text-gray-600 dark:hover:text-blue-400" label={t('ai.editModel')} onClick={() => {
                           setEditingModel(model)
                           setShowModelForm(true)
@@ -329,19 +329,19 @@ export default function AiSettings() {
                         title={t('ai.editModel')}>
                         <Pencil size={14} />
                       </IconButton>
-                      <button
+                      <SurfaceButton
                         onClick={() => toggleModelVisibility.mutate({ id: model.id, isVisible: !model.isVisible })}
                         className={`rounded-md p-1.5 transition-colors ${model.isVisible ? 'text-gray-300 hover:text-gray-500 dark:text-gray-600' : 'text-gray-300 hover:text-blue-400 dark:text-gray-600'}`}
                         title={model.isVisible ? t('ai.hideModel') : t('ai.showModel')}
                       >
                         {model.isVisible ? <Eye size={14} /> : <EyeOff size={14} />}
-                      </button>
-                      <button
+                      </SurfaceButton>
+                      <SurfaceButton
                         onClick={() => deleteModel.mutate(model.id)}
                         className="rounded-md p-1.5 text-gray-300 transition-colors hover:text-red-500 dark:text-gray-600 dark:hover:text-red-400"
                       >
                         <Trash2 size={14} />
-                      </button>
+                      </SurfaceButton>
                     </div>
                   </div>
                 ))}
@@ -469,7 +469,7 @@ function ProviderForm({
               {catalogLoading && <p className="px-3 py-2 text-[11px] text-gray-400">{t('ai.searchingProviders')}</p>}
               {!catalogLoading &&
                 catalogResults.map((p) => (
-                  <button
+                  <SurfaceButton
                     key={p.id}
                     type="button"
                     onClick={() => applyCatalogProvider(p)}
@@ -479,7 +479,7 @@ function ProviderForm({
                     <span className="ml-2 text-xs text-gray-400 dark:text-gray-500">{p.id}</span>
                     <span className="ml-2 text-[11px] text-gray-400 dark:text-gray-500">{t('ai.modelCount', { count: p.modelCount })}</span>
                     {p.api && <span className="ml-2 text-[11px] text-gray-400 dark:text-gray-500">{p.api}</span>}
-                  </button>
+                  </SurfaceButton>
                 ))}
             </div>
           )}
@@ -546,8 +546,7 @@ function ProviderForm({
         </div>
         {catalogProvider && (
           <label className="flex cursor-pointer items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
-            <input
-              type="checkbox"
+            <Checkbox
               checked={importModels}
               onChange={(e) => setImportModels(e.target.checked)}
               className="h-3.5 w-3.5 rounded border-gray-300 text-blue-500 focus:ring-blue-500/20"
@@ -701,12 +700,12 @@ function ModelForm({
         {/* Header */}
         <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4 dark:border-white/[0.06]">
           <h3 className="text-base font-semibold text-gray-900 dark:text-gray-50">{isEdit ? t('ai.editModel') : t('ai.addModel')}</h3>
-          <button
+          <SurfaceButton
             onClick={onCancel}
             className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06]"
           >
             <X size={16} />
-          </button>
+          </SurfaceButton>
         </div>
 
         <div className="space-y-5 px-6 py-5">
@@ -745,7 +744,7 @@ function ModelForm({
               {catalogActive && catalogResults.length > 0 && (
                 <div className="max-h-56 space-y-1 overflow-y-auto rounded-xl border border-gray-100 p-1.5 dark:border-white/[0.06]">
                   {catalogResults.map((m) => (
-                    <button
+                    <SurfaceButton
                       key={`${m.providerId}/${m.modelId}`}
                       type="button"
                       onClick={() => applyCatalogModel(m)}
@@ -770,7 +769,7 @@ function ModelForm({
                         )}
                         {m.contextWindow ? <span className="shrink-0">{t('ai.contextK', { k: (m.contextWindow / 1024).toLocaleString() })}</span> : null}
                       </div>
-                    </button>
+                    </SurfaceButton>
                   ))}
                 </div>
               )}
@@ -783,30 +782,30 @@ function ModelForm({
             <div className="space-y-1.5">
               <label className="block text-xs font-medium text-gray-500 dark:text-gray-400">{t('ai.purpose')}</label>
               <div className="grid grid-cols-2 gap-2">
-                <button
+                <SurfaceButton
                   type="button"
                   onClick={() => setPurpose('chat')}
-                  className={`flex items-center gap-2 rounded-xl border-2 px-4 py-3 text-sm font-medium transition-all ${
+                  className={`flex items-center gap-2 rounded-xl border px-4 py-3 text-sm font-medium transition-all ${
                     isChat
-                      ? 'border-blue-500 bg-blue-50/60 text-blue-700 shadow-sm dark:border-blue-400/60 dark:bg-blue-950/30 dark:text-blue-300'
+                      ? 'border-blue-500 bg-blue-50/60 text-blue-700 dark:border-blue-400/60 dark:bg-blue-950/30 dark:text-blue-300'
                       : 'border-gray-200 text-gray-600 hover:border-blue-200 hover:bg-blue-50/60 dark:border-white/[0.08] dark:text-gray-400 dark:hover:bg-white/[0.04]'
                   }`}
                 >
                   <Bot size={16} />
                   {t('ai.chatModel')}
-                </button>
-                <button
+                </SurfaceButton>
+                <SurfaceButton
                   type="button"
                   onClick={() => setPurpose('embedding')}
-                  className={`flex items-center gap-2 rounded-xl border-2 px-4 py-3 text-sm font-medium transition-all ${
+                  className={`flex items-center gap-2 rounded-xl border px-4 py-3 text-sm font-medium transition-all ${
                     isEmbedding
-                      ? 'border-violet-500 bg-violet-50/60 text-violet-700 shadow-sm dark:border-violet-400/60 dark:bg-violet-950/30 dark:text-violet-300'
+                      ? 'border-violet-500 bg-violet-50/60 text-violet-700 dark:border-violet-400/60 dark:bg-violet-950/30 dark:text-violet-300'
                       : 'border-gray-200 text-gray-600 hover:border-blue-200 hover:bg-blue-50/60 dark:border-white/[0.08] dark:text-gray-400 dark:hover:bg-white/[0.04]'
                   }`}
                 >
                   <Zap size={16} />
                   {t('ai.embeddingModel')}
-                </button>
+                </SurfaceButton>
               </div>
             </div>
             <div className="space-y-1.5">
@@ -909,30 +908,30 @@ function ModelForm({
               <div className="space-y-1.5">
                 <label className="block text-xs font-medium text-gray-500 dark:text-gray-400">{t('ai.capabilities')}</label>
                 <div className="grid grid-cols-3 gap-2">
-                  <label className={`flex cursor-pointer flex-col items-center gap-1.5 rounded-xl border-2 px-3 py-3 text-xs font-medium transition-all ${
+                  <label className={`flex cursor-pointer flex-col items-center gap-1.5 rounded-xl border px-3 py-3 text-xs font-medium transition-all ${
                     supportsVision
                       ? 'border-sky-400 bg-sky-50/60 text-sky-700 dark:border-sky-500/40 dark:bg-sky-950/20 dark:text-sky-300'
                       : 'border-gray-200 text-gray-500 hover:border-gray-300 dark:border-white/[0.08] dark:text-gray-400'
                   }`}>
-                    <input type="checkbox" checked={supportsVision} onChange={(e) => setSupportsVision(e.target.checked)} className="sr-only" />
+                    <Checkbox checked={supportsVision} onChange={(e) => setSupportsVision(e.target.checked)} className="sr-only" />
                     <Sparkles size={18} className={supportsVision ? 'text-sky-500' : 'text-gray-400'} />
                     {t('ai.vision')}
                   </label>
-                  <label className={`flex cursor-pointer flex-col items-center gap-1.5 rounded-xl border-2 px-3 py-3 text-xs font-medium transition-all ${
+                  <label className={`flex cursor-pointer flex-col items-center gap-1.5 rounded-xl border px-3 py-3 text-xs font-medium transition-all ${
                     supportsReasoning
                       ? 'border-amber-400 bg-amber-50/60 text-amber-700 dark:border-amber-500/40 dark:bg-amber-950/20 dark:text-amber-300'
                       : 'border-gray-200 text-gray-500 hover:border-gray-300 dark:border-white/[0.08] dark:text-gray-400'
                   }`}>
-                    <input type="checkbox" checked={supportsReasoning} onChange={(e) => setSupportsReasoning(e.target.checked)} className="sr-only" />
+                    <Checkbox checked={supportsReasoning} onChange={(e) => setSupportsReasoning(e.target.checked)} className="sr-only" />
                     <Brain size={18} className={supportsReasoning ? 'text-amber-500' : 'text-gray-400'} />
                     {t('ai.reasoning')}
                   </label>
-                  <label className={`flex cursor-pointer flex-col items-center gap-1.5 rounded-xl border-2 px-3 py-3 text-xs font-medium transition-all ${
+                  <label className={`flex cursor-pointer flex-col items-center gap-1.5 rounded-xl border px-3 py-3 text-xs font-medium transition-all ${
                     supportsTools
                       ? 'border-emerald-400 bg-emerald-50/60 text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-950/20 dark:text-emerald-300'
                       : 'border-gray-200 text-gray-500 hover:border-gray-300 dark:border-white/[0.08] dark:text-gray-400'
                   }`}>
-                    <input type="checkbox" checked={supportsTools} onChange={(e) => setSupportsTools(e.target.checked)} className="sr-only" />
+                    <Checkbox checked={supportsTools} onChange={(e) => setSupportsTools(e.target.checked)} className="sr-only" />
                     <Wrench size={18} className={supportsTools ? 'text-emerald-500' : 'text-gray-400'} />
                     {t('ai.tools')}
                   </label>
@@ -970,8 +969,7 @@ function ModelForm({
           {/* ── 通用设置 ── */}
           <section className="space-y-3 border-t border-gray-100 pt-4 dark:border-white/[0.06]">
             <label className="flex cursor-pointer items-center gap-2.5 rounded-lg px-1 py-1 text-sm text-gray-700 transition-colors hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/[0.03]">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={isDefault}
                 onChange={(e) => setIsDefault(e.target.checked)}
                 className="h-4 w-4 rounded border-gray-300 text-blue-500 focus:ring-blue-500/20"
@@ -979,8 +977,7 @@ function ModelForm({
               {t('ai.setDefaultModel', { purpose: isChat ? t('ai.purposeChat') : 'Embedding' })}
             </label>
             <label className="flex cursor-pointer items-center gap-2.5 rounded-lg px-1 py-1 text-sm text-gray-700 transition-colors hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/[0.03]">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={isVisible}
                 onChange={(e) => setIsVisible(e.target.checked)}
                 className="h-4 w-4 rounded border-gray-300 text-blue-500 focus:ring-blue-500/20"
@@ -1086,9 +1083,9 @@ function FetchModelsForm({
 
         <div className="mb-5 flex items-center justify-between">
           <h3 className="text-base font-semibold text-gray-900 dark:text-gray-50">{t('ai.fetchModels')}</h3>
-          <button onClick={onCancel} className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06]">
+          <SurfaceButton onClick={onCancel} className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06]">
             <X size={16} />
-          </button>
+          </SurfaceButton>
         </div>
 
         {/* 模型目录批量导入 */}
@@ -1122,8 +1119,7 @@ function FetchModelsForm({
                         key={key}
                         className={`flex cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 transition-colors ${checked ? 'bg-blue-50/60 dark:bg-blue-950/20' : 'hover:bg-gray-50 dark:hover:bg-white/[0.04]'}`}
                       >
-                        <input
-                          type="checkbox"
+                        <Checkbox
                           checked={checked}
                           onChange={() => toggleSelected(key)}
                           className="h-3.5 w-3.5 shrink-0 rounded border-gray-300 text-blue-500 focus:ring-blue-500/20"

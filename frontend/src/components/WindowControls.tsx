@@ -2,6 +2,7 @@ import { getCurrentWindow } from '@tauri-apps/api/window'
 import { useMemo } from 'react'
 import { Copy, Minus, Square, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { SurfaceButton } from './ui'
 
 export function WindowControls({ maximized, onMaximize }: { maximized: boolean; onMaximize: () => void }) {
   const { t } = useTranslation('nav')
@@ -13,15 +14,15 @@ export function WindowControls({ maximized, onMaximize }: { maximized: boolean; 
 
   return (
     <div className="flex h-9 shrink-0 items-center">
-      <button type="button" aria-label={t('minimize')} title={t('minimize')} className={buttonClass} onClick={minimize}>
+      <SurfaceButton type="button" aria-label={t('minimize')} title={t('minimize')} className={buttonClass} onClick={minimize}>
         <Minus size={14} />
-      </button>
-      <button type="button" aria-label={maximized ? t('restore') : t('maximize')} title={maximized ? t('restore') : t('maximize')} className={buttonClass} onClick={onMaximize}>
+      </SurfaceButton>
+      <SurfaceButton type="button" aria-label={maximized ? t('restore') : t('maximize')} title={maximized ? t('restore') : t('maximize')} className={buttonClass} onClick={onMaximize}>
         {maximized ? <Copy size={12} /> : <Square size={12} />}
-      </button>
-      <button type="button" aria-label={t('closeWindow')} title={t('closeWindow')} className={`${buttonClass} hover:bg-red-600 hover:text-white dark:hover:bg-red-600`} onClick={close}>
+      </SurfaceButton>
+      <SurfaceButton type="button" aria-label={t('closeWindow')} title={t('closeWindow')} className={`${buttonClass} hover:bg-red-600 hover:text-white dark:hover:bg-red-600`} onClick={close}>
         <X size={14} />
-      </button>
+      </SurfaceButton>
     </div>
   )
 }

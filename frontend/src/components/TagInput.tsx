@@ -5,7 +5,7 @@ import { Check, Plus, X } from 'lucide-react'
 import { tagService } from '../services/tagService'
 import { tagPalette, TAG_COLOR_HEX } from '../utils/tagColor'
 import type { ITag } from '../types'
-import { Button, Input } from './ui'
+import { Button, Input, SurfaceButton } from './ui'
 
 interface TagInputProps {
   noteId: string
@@ -93,13 +93,13 @@ export function TagInput({ noteId, tags: tagsProp }: TagInputProps) {
             style={{ background: palette.soft, color: palette.text }}
           >
             {tag.name}
-            <button
+            <SurfaceButton
               onClick={() => handleRemoveTag(tag.id)}
               className="opacity-60 hover:opacity-100"
               title={t('tagInput.remove')}
             >
               <X size={12} />
-            </button>
+            </SurfaceButton>
           </span>
         )
       })}
@@ -132,7 +132,7 @@ export function TagInput({ noteId, tags: tagsProp }: TagInputProps) {
               <div className="mt-2">
                 <div className="mb-1 px-1 text-[10px] text-gray-400">{t('tagInput.colorLabel')}</div>
                 <div className="flex flex-wrap items-center gap-1.5 px-1">
-                  <button
+                  <SurfaceButton
                     onClick={() => setSelectedColor('')}
                     className={`flex h-5 w-5 items-center justify-center rounded-full border-2 bg-gray-200 dark:bg-gray-600 ${
                       selectedColor === '' ? 'border-gray-700 dark:border-white' : 'border-gray-200 dark:border-gray-600'
@@ -140,9 +140,9 @@ export function TagInput({ noteId, tags: tagsProp }: TagInputProps) {
                     title={t('tagInput.noColor')}
                   >
                     {selectedColor === '' && <Check size={11} className="text-gray-700 dark:text-white" />}
-                  </button>
+                  </SurfaceButton>
                   {Object.entries(TAG_COLOR_HEX).map(([name, hex]) => (
-                    <button
+                    <SurfaceButton
                       key={name}
                       onClick={() => setSelectedColor(name)}
                       className={`h-5 w-5 rounded-full border-2 transition-transform hover:scale-110 ${
@@ -163,7 +163,7 @@ export function TagInput({ noteId, tags: tagsProp }: TagInputProps) {
                   availableTags.map((tag) => {
                     const palette = tagPalette(tag)
                     return (
-                      <button
+                      <SurfaceButton
                         key={tag.id}
                         onClick={() => handleAddTag(tag)}
                         className="flex w-full items-center gap-2 rounded px-2 py-1 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
@@ -173,7 +173,7 @@ export function TagInput({ noteId, tags: tagsProp }: TagInputProps) {
                           style={{ background: palette.dot }}
                         />
                         <span className="truncate">{tag.name}</span>
-                      </button>
+                      </SurfaceButton>
                     )
                   })
                 )}

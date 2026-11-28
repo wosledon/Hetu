@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import ChatToolCallRow from './ChatToolCallRow'
 import type { ToolCallEntry } from '../utils/toolRendering'
 import { TOOL_ICONS } from '../utils/toolIcons'
+import { SurfaceButton } from './ui'
 
 interface ToolCallGroupProps {
   items: ToolCallEntry[]
@@ -35,7 +36,7 @@ export default function ToolCallGroup({ items, streaming = false, renderItem }: 
 
   return (
     <div className="min-w-0 py-0.5">
-      <button
+      <SurfaceButton
         onClick={() => setOpen(!open)}
         aria-expanded={open}
         className="flex min-h-6 w-full items-center gap-1.5 rounded px-1 py-0.5 text-left transition-colors hover:bg-gray-50/80 dark:hover:bg-white/[0.025]"
@@ -63,7 +64,7 @@ export default function ToolCallGroup({ items, streaming = false, renderItem }: 
             <Loader2 size={12} className="animate-spin" />
           </span>
         )}
-      </button>
+      </SurfaceButton>
       {open && (
         <div className="ml-2 space-y-0.5 border-l border-gray-200/80 py-1 pl-3 dark:border-white/[0.08]">
           {items.map((item, i) => {

@@ -3,10 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  ArrowLeft, Bot, CalendarDays, CheckCircle2, CircleDot, FolderInput, Hash,
-  HelpCircle, Loader2, MessageSquare, Pencil, Play, Tag, Trash2, User,
-  Workflow as WorkflowIcon, Zap,
-} from 'lucide-react'
+  ArrowLeft, Bot, CalendarDays, CheckCircle2, CircleDot, FolderInput, Hash, HelpCircle, Loader2, MessageSquare, Pencil, Play, Tag, Trash2, User, Workflow as WorkflowIcon, Zap, } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
 import ThemedMarkdown from '../components/ThemedMarkdown'
 import { confirm } from '../components/confirm'
@@ -19,10 +16,8 @@ import { type AgentUsage } from '../utils/agentStream'
 import { formatDate, formatDateTime } from '../utils/locale'
 import type { TFunction } from 'i18next'
 import type {
-  IKanbanTask, IKanbanTaskComment, IKanbanTaskRun, IKanbanTaskRunStep,
-  KanbanTaskPriority, KanbanTaskStatus,
-} from '../types'
-import { Button, Card, PageContainer, Textarea } from '../components/ui'
+  IKanbanTask, IKanbanTaskComment, IKanbanTaskRun, IKanbanTaskRunStep, KanbanTaskPriority, KanbanTaskStatus, } from '../types'
+import { Button, Card, PageContainer, Textarea, SurfaceButton } from '../components/ui'
 
 const STATUS_META: Record<KanbanTaskStatus, { labelKey: string; cls: string }> = {
   Backlog: { labelKey: 'status.backlog', cls: 'bg-gray-100 text-gray-600 dark:bg-white/[0.06] dark:text-gray-300' },
@@ -301,7 +296,7 @@ export default function KanbanTaskDetailPage() {
                     <Button variant="ghost" tone="gray" size="sm" className="flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800" onClick={() => navigate('/kanban')}>
                       <Pencil size={13} />{t('detail.editInBoard')}
                     </Button>
-                    <button
+                    <SurfaceButton
                       onClick={() => confirm({
                         title: t('detail.deleteTitle'),
                         message: t('detail.deleteConfirm', { title: task.title }),
@@ -310,7 +305,7 @@ export default function KanbanTaskDetailPage() {
                       className="ml-auto flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10"
                     >
                       <Trash2 size={13} />{t('common:delete')}
-                    </button>
+                    </SurfaceButton>
                   </div>
                 </Card>
 

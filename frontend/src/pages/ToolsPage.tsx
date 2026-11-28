@@ -7,7 +7,7 @@ import { toolService, type IToolCatalogItem } from '../services/toolService'
 import { mcpService } from '../services/mcpService'
 import { renderToolGroup } from '../utils/toolRendering'
 import { ChevronDown, ChevronRight, Plug, Terminal, Wrench, ShieldCheck, ShieldAlert, Eye, Zap } from 'lucide-react'
-import { Button, Card, PageContainer, SearchInput } from '../components/ui'
+import { Button, Card, PageContainer, SearchInput, SurfaceButton } from '../components/ui'
 
 /** 人格（会话场景）标签：内置工具目录里标注每个工具可被哪些人格使用 */
 const PROFILE_META: Record<string, { labelKey: string; cls: string }> = {
@@ -44,7 +44,7 @@ function ToolCard({ tool }: { tool: IToolCatalogItem }) {
   }, [tool.parametersSchema])
 
   return (
-    <Card className="group flex min-h-[176px] flex-col border-gray-200/70 bg-white/70 p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-blue-200/70 hover:shadow-md dark:border-white/[0.07] dark:bg-slate-900/35 dark:hover:border-blue-400/20">
+    <Card interactive className="group flex min-h-[176px] flex-col p-4">
       <div className="flex items-start gap-3">
         <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-300">
           <Wrench size={16} />
@@ -161,24 +161,24 @@ export default function ToolsPage() {
       </div>
 
       <div className="mb-5 inline-flex items-center gap-1 rounded-xl border border-gray-200/70 bg-white/45 p-1 dark:border-white/[0.07] dark:bg-white/[0.025]">
-        <button
+        <SurfaceButton
           onClick={() => setTab('catalog')}
           className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-medium transition-all ${tab === 'catalog' ? 'bg-blue-50 text-blue-700 shadow-sm dark:bg-blue-500/10 dark:text-blue-200' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}
         >
           <Wrench size={13} /> {t('toolsPage.catalogTab')}
-        </button>
-        <button
+        </SurfaceButton>
+        <SurfaceButton
           onClick={() => setTab('mcp')}
           className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-medium transition-all ${tab === 'mcp' ? 'bg-blue-50 text-blue-700 shadow-sm dark:bg-blue-500/10 dark:text-blue-200' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}
         >
           <Plug size={13} /> {t('toolsPage.mcpTab')}
           {mcpServers.length > 0 && <span className="tabular-nums opacity-60">{mcpServers.length}</span>}
-        </button>
+        </SurfaceButton>
       </div>
 
       {tab === 'catalog' ? (
       <>
-      <div className="mb-5 flex flex-col gap-3 rounded-2xl border border-gray-200/70 bg-white/45 p-3 dark:border-white/[0.07] dark:bg-white/[0.025]">
+      <div className="mb-5 flex flex-col gap-3 rounded-2xl border border-gray-200/70 bg-white/70 glass glass-soft p-3 dark:border-white/[0.07] dark:bg-slate-900/35">
         <SearchInput tone="blue" size="sm"
           value={keyword}
           onChange={(e) => setKeyword(e.target.value)}
@@ -187,32 +187,32 @@ export default function ToolsPage() {
         />
 
         <div className="flex flex-wrap items-center gap-1.5">
-          <button
+          <SurfaceButton
             onClick={() => { setGroup(''); setProfile('') }}
             className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${!group && !profile ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-white/[0.06]'}`}
           >
             {t('common:all')} {tools.length}
-          </button>
+          </SurfaceButton>
           {(['knowledge', 'work', 'desktop', 'cowork'] as const).filter((p) => tools.some((t) => t.profiles.includes(p))).map((p) => (
-            <button
+            <SurfaceButton
               key={p}
               onClick={() => { setProfile(profile === p ? '' : p); setGroup('') }}
               className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${profile === p ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-white/[0.06]'}`}
             >
               {PROFILE_META[p] ? t(PROFILE_META[p].labelKey) : p}
-            </button>
+            </SurfaceButton>
           ))}
         </div>
 
         <div className="flex flex-wrap items-center gap-1.5">
           {groups.map((g) => (
-            <button
+            <SurfaceButton
               key={g}
               onClick={() => { setGroup(group === g ? '' : g); setProfile('') }}
               className={`rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors ${group === g ? 'bg-gray-800 text-white dark:bg-gray-200 dark:text-gray-900' : 'text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-white/[0.06]'}`}
             >
               {renderToolGroup(g)} {tools.filter((t) => t.group === g).length}
-            </button>
+            </SurfaceButton>
           ))}
         </div>
       </div>

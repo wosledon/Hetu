@@ -5,11 +5,11 @@ import { Loader2 } from 'lucide-react'
 import { settingService, type CompressionPipelineConfig } from '../services/settingService'
 import { aiModelService } from '../services/aiProviderService'
 import Select from './Select'
-import { Card, Input } from './ui'
+import { Card, Input, SurfaceButton } from './ui'
 
 function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void }) {
   return (
-    <button
+    <SurfaceButton
       type="button"
       onClick={onChange}
       className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors duration-200 ${
@@ -19,7 +19,7 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void 
       <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition duration-200 ${
         checked ? 'translate-x-5' : 'translate-x-0.5'
       }`} style={{ marginTop: '2px' }} />
-    </button>
+    </SurfaceButton>
   )
 }
 
@@ -81,7 +81,7 @@ export default function CompressionSettings() {
         <label className="mb-2 block text-xs font-medium text-gray-600 dark:text-gray-400">{t('compression.mode')}</label>
         <div className="grid grid-cols-3 gap-2">
           {Object.entries(MODE_OPTIONS).map(([key, { labelKey, descKey }]) => (
-            <button
+            <SurfaceButton
               key={key}
               onClick={() => saveNow({ ...draft, mode: key })}
               className={`rounded-lg border p-3 text-left transition-colors ${
@@ -92,7 +92,7 @@ export default function CompressionSettings() {
             >
               <div className={`text-xs font-semibold ${draft.mode === key ? 'text-violet-700 dark:text-violet-300' : 'text-gray-700 dark:text-gray-300'}`}>{t(labelKey)}</div>
               <div className="mt-0.5 text-[10px] text-gray-400">{t(descKey)}</div>
-            </button>
+            </SurfaceButton>
           ))}
         </div>
       </div>

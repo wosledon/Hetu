@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { useTranslation } from 'react-i18next'
 import { Maximize2, Minimize2, Minus, Plus, RotateCcw } from 'lucide-react'
 import { fitMermaidLabels } from '../utils/mermaidTheme'
+import { SurfaceButton } from './ui'
 
 const MIN_SCALE = 0.2
 const MAX_SCALE = 4
@@ -181,23 +182,23 @@ export default function MermaidDiagram({ svg }: MermaidDiagramProps) {
       {/* 工具条独立成行：不遮图表内容，全屏时随容器一起放大 */}
       <div className="mermaid-toolbar">
         <span className="mermaid-zoom-label tabular-nums">{Math.round(scale * 100)}%</span>
-        <button className={buttonClass} onClick={() => zoomBy(1 / ZOOM_STEP)} title={t('mermaid.zoomOut')} aria-label={t('mermaid.zoomOut')}>
+        <SurfaceButton className={buttonClass} onClick={() => zoomBy(1 / ZOOM_STEP)} title={t('mermaid.zoomOut')} aria-label={t('mermaid.zoomOut')}>
           <Minus size={13} />
-        </button>
-        <button className={buttonClass} onClick={() => zoomBy(ZOOM_STEP)} title={t('mermaid.zoomIn')} aria-label={t('mermaid.zoomIn')}>
+        </SurfaceButton>
+        <SurfaceButton className={buttonClass} onClick={() => zoomBy(ZOOM_STEP)} title={t('mermaid.zoomIn')} aria-label={t('mermaid.zoomIn')}>
           <Plus size={13} />
-        </button>
-        <button className={buttonClass} onClick={fitNow} title={t('mermaid.fitView')} aria-label={t('mermaid.fitView')}>
+        </SurfaceButton>
+        <SurfaceButton className={buttonClass} onClick={fitNow} title={t('mermaid.fitView')} aria-label={t('mermaid.fitView')}>
           <RotateCcw size={13} />
-        </button>
-        <button
+        </SurfaceButton>
+        <SurfaceButton
           className={buttonClass}
           onClick={toggleFullscreen}
           title={isFullscreen ? t('mermaid.exitFullscreenEsc') : t('mermaid.fullscreen')}
           aria-label={isFullscreen ? t('mermaid.exitFullscreen') : t('mermaid.fullscreen')}
         >
           {isFullscreen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
-        </button>
+        </SurfaceButton>
       </div>
 
       <div

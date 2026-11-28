@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { RefObject } from 'react'
 import { useTranslation } from 'react-i18next'
+import { SurfaceButton } from './ui'
 
 export interface ConversationRailItem {
   id: string
@@ -133,7 +134,7 @@ export default function ConversationRail({ items, scrollRef }: ConversationRailP
           ? `${t('messageArea.railJumpTo')}: ${snippet.slice(0, 24)}`
           : t('messageArea.railJumpTo')
         return (
-          <button
+          <SurfaceButton
             key={mark.id}
             type="button"
             aria-label={jumpLabel}
@@ -165,7 +166,7 @@ export default function ConversationRail({ items, scrollRef }: ConversationRailP
                 </p>
               </div>
             )}
-          </button>
+          </SurfaceButton>
         )
       })}
     </nav>

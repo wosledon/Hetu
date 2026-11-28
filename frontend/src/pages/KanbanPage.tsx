@@ -3,9 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  SquareKanban, Plus, X, Pencil, Trash2, RefreshCw, Zap, CheckCircle2,
-  AlertTriangle, Archive, ChevronLeft, ChevronRight, User, CalendarDays, Loader2, MessageSquare,
-} from 'lucide-react'
+  SquareKanban, Plus, X, Pencil, Trash2, RefreshCw, Zap, CheckCircle2, AlertTriangle, Archive, ChevronLeft, ChevronRight, User, CalendarDays, Loader2, MessageSquare, } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
 import Select from '../components/Select'
 import DatePicker from '../components/DatePicker'
@@ -17,10 +15,8 @@ import { workflowService } from '../services/workflowService'
 import { workProjectService } from '../services/workService'
 import { formatDate } from '../utils/locale'
 import type {
-  IKanbanBoard, IKanbanTask, IKanbanTaskForm, IKanbanTaskSubmit, IKanbanTaskMove,
-  KanbanTaskStatus, KanbanTaskPriority,
-} from '../types'
-import { Button, Card, IconButton, Input, Modal, PageContainer, PillTabs, Textarea } from '../components/ui'
+  IKanbanBoard, IKanbanTask, IKanbanTaskForm, IKanbanTaskSubmit, IKanbanTaskMove, KanbanTaskStatus, KanbanTaskPriority, } from '../types'
+import { Button, Card, IconButton, Input, Modal, PageContainer, PillTabs, Textarea, SurfaceButton } from '../components/ui'
 
 /* ─── 列与流转配置（与后端 KanbanTaskTransitions 保持一致） ─── */
 
@@ -357,13 +353,13 @@ export default function KanbanPage() {
 
             <div className="ml-auto flex items-center gap-2">
               {/* 预留：自动化规则（定时流转、到期提醒、自动归档）稍后实现 */}
-              <button
+              <SurfaceButton
                 disabled
                 title={t('board.automationTooltip')}
                 className="flex cursor-not-allowed items-center gap-1.5 rounded-lg border border-dashed border-gray-200 px-3 py-2 text-xs text-gray-400 dark:border-gray-700 dark:text-gray-500"
               >
                 <Zap size={14} />{t('board.automation')}
-              </button>
+              </SurfaceButton>
               <IconButton variant="ghost" tone="gray" className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800" label={t('common:refresh')} onClick={() => invalidate()}
                 
                 title={t('common:refresh')}>
@@ -432,7 +428,7 @@ export default function KanbanPage() {
                     onDragOver={(e) => { e.preventDefault(); if (canDrop) setDragOverColumn(col.status) }}
                     onDragLeave={() => setDragOverColumn((c) => (c === col.status ? null : c))}
                     onDrop={() => handleDrop(col.status, null)}
-                    className={`flex h-full w-72 shrink-0 flex-col border-gray-200/70 bg-white/45 shadow-sm transition-colors dark:border-white/[0.07] dark:bg-slate-900/25 ${
+                    className={`flex h-full w-72 shrink-0 flex-col transition-colors ${
                       dragOverColumn === col.status
                         ? 'border-indigo-300 ring-2 ring-indigo-300/70 dark:border-indigo-500/40 dark:ring-indigo-500/40'
                         : ''
@@ -495,9 +491,9 @@ export default function KanbanPage() {
                       {editingId ? t('board.editTitle') : t('board.newTask')}
                     </h3>
                   </div>
-                  <button onClick={closeForm} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700">
+                  <SurfaceButton onClick={closeForm} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700">
                     <X size={18} />
-                  </button>
+                  </SurfaceButton>
                 </div>
                 <div className="space-y-4 px-5 py-4">
                   <div>
@@ -659,9 +655,9 @@ export default function KanbanPage() {
                   </div>
                   <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">{t('board.markBlocked')}</h3>
                 </div>
-                <button onClick={() => setBlockingTask(null)} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700">
+                <SurfaceButton onClick={() => setBlockingTask(null)} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700">
                   <X size={18} />
-                </button>
+                </SurfaceButton>
               </div>
               <div className="px-5 py-4">
                 <label className="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">{t('board.blockedReason')}</label>
@@ -708,6 +704,7 @@ function TaskCard({ task, isDragging, onEdit, onDelete, onOpenDetail, onDragStar
 
   return (
     <Card
+      variant="tile"
       draggable
       onClick={onOpenDetail}
       onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; onDragStart() }}
@@ -720,9 +717,9 @@ function TaskCard({ task, isDragging, onEdit, onDelete, onOpenDetail, onDragStar
       }}
       onDragLeave={() => setDropAbove(false)}
       onDrop={(e) => { e.preventDefault(); e.stopPropagation(); setDropAbove(false); onDropBefore() }}
-      className={`group cursor-pointer border-gray-200/70 bg-white/75 p-3 shadow-sm transition-colors active:cursor-grabbing dark:border-white/[0.07] dark:bg-slate-900/35 ${
+      className={`group cursor-pointer transition-colors active:cursor-grabbing ${
         isDragging ? 'opacity-40' : ''
-      } ${dropAbove ? 'border-indigo-400' : 'hover:border-white/40 dark:hover:border-white/10'} ${task.priority === 'Urgent' ? 'ring-1 ring-red-200 dark:ring-red-500/30' : ''}`}
+      } ${dropAbove ? 'border-indigo-400' : 'hover:border-gray-300 dark:hover:border-white/15'} ${task.priority === 'Urgent' ? 'ring-1 ring-red-200 dark:ring-red-500/30' : ''}`}
     >
       {/* 任务执行中：卡片外沿绕行的流光，与「处理中」徽标一起给出正反馈 */}
       {running && <span className="running-ring" aria-hidden />}
@@ -794,7 +791,7 @@ function TaskCard({ task, isDragging, onEdit, onDelete, onOpenDetail, onDragStar
       {/* 操作区常驻显示：未悬停时保持弱化，避免卡片显得空荡 */}
       <div className="mt-2.5 flex items-center gap-1 border-t border-gray-50 pt-2 dark:border-gray-700/50">
         {targets.map((status) => (
-          <button
+          <SurfaceButton
             key={status}
             onClick={(e) => { e.stopPropagation(); onMove(status) }}
             title={t('board.transitionTo', { status: t(STATUS_KEYS[status]) })}
@@ -804,7 +801,7 @@ function TaskCard({ task, isDragging, onEdit, onDelete, onOpenDetail, onDragStar
           >
             {status === 'Blocked' ? <AlertTriangle size={11} /> : <ChevronRight size={11} />}
             {t(STATUS_KEYS[status])}
-          </button>
+          </SurfaceButton>
         ))}
         <div className="ml-auto flex items-center gap-0.5 text-gray-300 transition-colors dark:text-gray-600">
           <IconButton variant="ghost" tone="gray" className="rounded-md p-1 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200" label={t('common:edit')} onClick={onEdit} title={t('common:edit')}>

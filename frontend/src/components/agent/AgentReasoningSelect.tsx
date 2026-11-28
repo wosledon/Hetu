@@ -2,6 +2,7 @@ import { Brain } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import AgentToolbarSelect from './AgentToolbarSelect'
 import { reasoningEffortLabel, reasoningEffortOptions } from '../../utils/agentReasoning'
+import { SurfaceButton } from '../ui'
 
 export interface AgentReasoningSelectProps {
   /** '' 表示未指定（用模型默认） */
@@ -37,7 +38,7 @@ export default function AgentReasoningSelect({
 
   if (reasoningMode === 'tag') {
     return (
-      <button
+      <SurfaceButton
         onClick={() => onEnabledChange?.(!enabled)}
         title={t('reasoning.toggle')}
         className={`flex h-[26px] shrink-0 items-center gap-1 rounded-md px-1.5 text-[11px] font-medium transition-colors ${
@@ -48,7 +49,7 @@ export default function AgentReasoningSelect({
       >
         <Brain size={13} />
         {t('reasoning.toggle')}
-      </button>
+      </SurfaceButton>
     )
   }
 

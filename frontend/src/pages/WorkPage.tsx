@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react'
-import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
@@ -10,7 +9,7 @@ import WorkSessionArea from '../components/work/WorkSessionArea'
 import { workProjectService, workSessionService } from '../services/workService'
 import { onUiAction } from '../services/signalrService'
 import type { IWorkProject, IWorkSession } from '../types/work'
-import { ContextMenu, PageContainer, SearchInput } from '../components/ui'
+import { ContextMenu, IconButton, PageContainer, SearchInput, SurfaceButton, WorkbenchColumn } from '../components/ui'
 import { useUIStore } from '../stores/uiStore'
 import type { ProjectGroupBy, ProjectSortBy } from '../stores/uiStore'
 
@@ -82,7 +81,7 @@ function ProjectViewMenu({ search, onSearchChange }: { search: string; onSearchC
 
   return (
     <>
-      <button
+      <SurfaceButton
         ref={triggerRef}
         onClick={() => (anchor ? close() : openPanel())}
         title={t('page.projectView')}
@@ -93,7 +92,7 @@ function ProjectViewMenu({ search, onSearchChange }: { search: string; onSearchC
         }`}
       >
         <SlidersHorizontal size={15} />
-      </button>
+      </SurfaceButton>
       <ContextMenu
         anchor={anchor}
         onClose={close}
@@ -139,44 +138,7 @@ function ProjectViewMenu({ search, onSearchChange }: { search: string; onSearchC
   )
 }
 
-/** 左栏顶部工具条：项目标题 + 数量 + 视图菜单（搜索/分组/排序）+ 新建项目 */
-function SectionHeader({
-  icon: Icon,
-  title,
-  count,
-  onAdd,
-  addTitle,
-  trailing,
-}: {
-  icon: React.ComponentType<{ size?: number; className?: string }>
-  title: string
-  count?: number
-  onAdd: () => void
-  addTitle: string
-  /** 项目节的视图菜单：搜索 + 分组 + 排序收在一处 */
-  trailing?: ReactNode
-}) {
-  const iconBtn = 'shrink-0 rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06] dark:hover:text-gray-300'
-  return (
-    <div className="shrink-0 border-b border-gray-200/80 dark:border-white/[0.07]">
-      <div className="flex h-14 items-center gap-1 px-3">
-        <div className="flex min-w-0 flex-1 items-center gap-2 px-1.5 py-1.5">
-          <Icon size={16} className="shrink-0 text-gray-500 dark:text-gray-400" />
-          <span className="min-w-0 flex-1 truncate text-sm font-semibold text-gray-700 dark:text-gray-200">{title}</span>
-          {count !== undefined && count > 0 && (
-            <span className="shrink-0 rounded-full bg-gray-100 glass px-1.5 text-[10px] font-medium leading-4 text-gray-500 dark:bg-white/[0.06] dark:text-gray-400">
-              {count}
-            </span>
-          )}
-        </div>
-        {trailing}
-        <button onClick={onAdd} title={addTitle} aria-label={addTitle} className={iconBtn}>
-          <Plus size={15} />
-        </button>
-      </div>
-    </div>
-  )
-}
+/** 左栏顶部工具条已并入 WorkbenchColumn 的统一列头（图标 / 标题 / 计数 / 操作）。 */
 
 export default function WorkPage() {
   const { t } = useTranslation('work')
@@ -363,39 +325,45 @@ export default function WorkPage() {
       showSidebar={false}
       mainContent={
         <PageContainer variant="fill">
-          {/* 左栏：项目树（项目下挂会话），左栏工具条负责搜索 / 分组 / 新建 */}
-          <div className="flex w-64 shrink-0 flex-col border-r border-gray-200/80 bg-white/35 dark:border-white/[0.07] dark:bg-slate-950/20">
-            <SectionHeader
-              icon={FolderInput}
-              title={t('page.projectSection')}
-              count={projects.length}
-              onAdd={() => workSidebarRef.current?.startCreateProject()}
-              addTitle={t('page.newProject')}
-              trailing={<ProjectViewMenu search={projectSearch} onSearchChange={setProjectSearch} />}
+          {/* 左栏：项目树（项目下挂会话），统一工作台骨架（次级栏 256px） */}
+          <WorkbenchColumn
+            role="secondary"
+            title={t('page.projectSection')}
+            icon={<FolderInput size={14} className="shrink-0 text-gray-400 dark:text-gray-500" />}
+            count={projects.length}
+            actions={
+              <>
+                <ProjectViewMenu search={projectSearch} onSearchChange={setProjectSearch} />
+                <IconButton
+                  label={t('page.newProject')}
+                  onClick={() => workSidebarRef.current?.startCreateProject()}
+                >
+                  <Plus size={15} />
+                </IconButton>
+              </>
+            }
+          >
+            <WorkSidebar
+              ref={workSidebarRef}
+              embedded
+              search={projectSearch}
+              selectedProjectId={selectedProject?.id}
+              selectedSessionId={selectedSession?.id}
+              onSelectProject={handleSelectProject}
+              onSelectSession={handleSelectSession}
+              onStartDraftSession={handleStartDraftSession}
+              onProjectDeleted={(projectId) => {
+                if (preferredProject?.id === projectId) setPreferredProject(null)
+                if (selectedSession?.projectId === projectId) setSelectedSession(null)
+              }}
+              onSessionDeleted={(sessionId) => {
+                if (selectedSession?.id === sessionId) {
+                  setSelectedSession(null)
+                  syncSelectionToUrl(undefined, undefined)
+                }
+              }}
             />
-            <div className="flex min-h-0 flex-1 flex-col">
-              <WorkSidebar
-                ref={workSidebarRef}
-                embedded
-                search={projectSearch}
-                selectedProjectId={selectedProject?.id}
-                selectedSessionId={selectedSession?.id}
-                onSelectProject={handleSelectProject}
-                onSelectSession={handleSelectSession}
-                onStartDraftSession={handleStartDraftSession}
-                onProjectDeleted={(projectId) => {
-                  if (preferredProject?.id === projectId) setPreferredProject(null)
-                  if (selectedSession?.projectId === projectId) setSelectedSession(null)
-                }}
-                onSessionDeleted={(sessionId) => {
-                  if (selectedSession?.id === sessionId) {
-                    setSelectedSession(null)
-                    syncSelectionToUrl(undefined, undefined)
-                  }
-                }}
-              />
-            </div>
-          </div>
+          </WorkbenchColumn>
 
           <WorkSessionArea
             key={selectedSession?.id || selectedSession?.projectId || 'no-session'}

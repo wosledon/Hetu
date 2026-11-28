@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { Plus, Trash2, Edit2, Check, X } from 'lucide-react'
 import { skillService } from '../services/skillService'
 import type { ISkill } from '../types'
-import { Button, Input, Textarea } from './ui'
+import { Button, Input, Textarea, SurfaceButton, Checkbox } from './ui'
 
 const defaultConfig = JSON.stringify(
   {
@@ -152,8 +152,7 @@ export default function SkillManager() {
           />
           {editingId && (
             <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={form.isEnabled}
                 onChange={(e) => setForm({ ...form, isEnabled: e.target.checked })}
               />
@@ -165,7 +164,7 @@ export default function SkillManager() {
               <Check size={14} />
               {t('common:save')}
             </Button>
-            <button
+            <SurfaceButton
               onClick={() => {
                 setIsCreating(false)
                 setEditingId(null)
@@ -175,7 +174,7 @@ export default function SkillManager() {
             >
               <X size={14} />
               {t('common:cancel')}
-            </button>
+            </SurfaceButton>
           </div>
         </div>
       )}

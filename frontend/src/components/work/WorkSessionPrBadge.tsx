@@ -4,6 +4,7 @@ import { GitPullRequest, GitMerge } from 'lucide-react'
 import { workGitService } from '../../services/workService'
 import { openExternal } from '../../utils/tauri'
 import type { IWorkSession } from '../../types/work'
+import { SurfaceButton } from '../ui'
 
 /** PR 状态色：草稿/合并/关闭/进行中 */
 function chipClass(state: string, isDraft: boolean): string {
@@ -33,7 +34,7 @@ export default function WorkSessionPrBadge({ session, className = '' }: { sessio
   if (!pr) return null
 
   return (
-    <button
+    <SurfaceButton
       onClick={() => pr.url && openExternal(pr.url)}
       title={t('pr.badgeTitle', { number: pr.number, title: pr.title })}
       className={`inline-flex max-w-[16rem] shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium transition-colors ${chipClass(pr.state, pr.isDraft)} ${className}`}
@@ -43,6 +44,6 @@ export default function WorkSessionPrBadge({ session, className = '' }: { sessio
       <span className="min-w-0 truncate font-normal opacity-80">
         {pr.isDraft ? t('pr.draft') : pr.state.toUpperCase()}
       </span>
-    </button>
+    </SurfaceButton>
   )
 }

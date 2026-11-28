@@ -1,6 +1,7 @@
 import { Home } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { IMainChat } from '../types'
+import { SurfaceButton } from './ui'
 
 interface MainChatEntryProps {
   mainChat?: IMainChat
@@ -20,7 +21,7 @@ export default function MainChatEntry({ mainChat, selected, onSelect, variant = 
 
   if (variant === 'row') {
     return (
-      <button
+      <SurfaceButton
         onClick={onSelect}
         className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-colors ${
           selected
@@ -37,7 +38,7 @@ export default function MainChatEntry({ mainChat, selected, onSelect, variant = 
         }`}>
           {t('mainEntry.global')}
         </span>
-      </button>
+      </SurfaceButton>
     )
   }
 

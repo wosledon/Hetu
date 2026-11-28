@@ -9,6 +9,7 @@ import AgentFileChangeRow from './AgentFileChangeRow'
 import AgentCheckpointRow from './AgentCheckpointRow'
 import AgentSubAgentPanel from './AgentSubAgentPanel'
 import { splitAgentSegments, type AgentTimelineItem } from '../../utils/agentTimeline'
+import { SurfaceButton } from '../ui'
 
 export interface AgentChatTimelineProps {
   items: AgentTimelineItem[]
@@ -126,7 +127,7 @@ function ProcessGroup({
 
   return (
     <div className="mb-1 min-w-0">
-      <button
+      <SurfaceButton
         type="button"
         aria-expanded={open}
         onClick={() => {
@@ -164,7 +165,7 @@ function ProcessGroup({
         {thoughtSummary
           ? <span className="min-w-0 flex-1 truncate text-[11px] text-gray-400 dark:text-gray-500" title={thoughtSummary}>{thoughtSummary}</span>
           : <span className="flex-1" />}
-      </button>
+      </SurfaceButton>
       {open && (
         <div
           ref={bodyRef}

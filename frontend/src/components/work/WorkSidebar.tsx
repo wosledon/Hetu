@@ -5,7 +5,7 @@ import { Plus, Trash2, Folder, FolderOpen, MessageSquare, Pencil, Check, X, Chev
 import { workProjectService, workSessionService, workSshService, workBrowseService } from '../../services/workService'
 import { useConfirm } from '../../components/confirm'
 import Select from '../Select'
-import { Button, Card, ContextMenu, IconButton, Input, Modal, PillTabs, TreeRow } from '../ui'
+import { Button, Card, ContextMenu, IconButton, Input, Modal, PillTabs, TreeRow, SurfaceButton } from '../ui'
 import { useUIStore } from '../../stores/uiStore'
 import { workStreamRuns } from '../../utils/workStreamRuns'
 import RunningIndicator from './RunningIndicator'
@@ -88,7 +88,7 @@ function DirBrowser({
           </div>
         )}
         {data?.entries.filter((e) => e.isDirectory).map((entry) => (
-          <button
+          <SurfaceButton
             key={entry.name}
             onClick={() => setPath(joinDirPath(data.current, entry.name))}
             className="flex w-full items-center gap-1.5 px-2.5 py-1.5 text-left text-[12px] text-gray-700 hover:bg-blue-50 dark:text-gray-300 dark:hover:bg-blue-950/30"
@@ -96,7 +96,7 @@ function DirBrowser({
             <Folder size={12} className="shrink-0 text-blue-400" />
             <span className="truncate">{entry.name}</span>
             <ChevronRight size={11} className="ml-auto shrink-0 text-gray-300" />
-          </button>
+          </SurfaceButton>
         ))}
         {data && data.entries.filter((e) => e.isDirectory).length === 0 && !listing.isLoading && (
           <div className="px-2.5 py-3 text-[12px] text-gray-400">{t('sidebar.noSubDirs')}</div>
@@ -185,7 +185,7 @@ function CreateProjectDialog({ onClose, onCreated }: { onClose: () => void; onCr
 
         <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-800">
           <h3 className="text-base font-semibold text-gray-800 dark:text-gray-100">{t('sidebar.newProjectTitle')}</h3>
-          <button onClick={onClose} className="rounded-md p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"><X size={16} /></button>
+          <SurfaceButton onClick={onClose} className="rounded-md p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"><X size={16} /></SurfaceButton>
         </div>
         <div className="space-y-4 px-5 py-4">
           {/* 模式切换 */}
@@ -349,13 +349,13 @@ function CreateProjectDialog({ onClose, onCreated }: { onClose: () => void; onCr
         </div>
         <div className="flex justify-end gap-2 border-t border-gray-100 px-5 py-4 dark:border-gray-800">
           <Button variant="ghost" tone="gray" className="rounded-lg px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800" onClick={onClose}>{t('common:cancel')}</Button>
-          <button
+          <SurfaceButton
             onClick={handleCreate}
             disabled={create.isPending}
             className="rounded-lg bg-gradient-to-r from-blue-500 to-indigo-600 px-5 py-2 text-sm font-medium text-white shadow-sm shadow-blue-500/20 transition-all hover:shadow-md active:scale-[0.97] disabled:opacity-50"
           >
             {create.isPending ? t('sidebar.creating') : t('sidebar.create')}
-          </button>
+          </SurfaceButton>
         </div>
 </Modal>
   )
@@ -732,7 +732,7 @@ function ProjectNode({
             className="min-w-0 flex-1 rounded border border-blue-300 bg-white px-1.5 py-0.5 text-[12px] outline-none dark:bg-gray-800"
           />
           <Button variant="link" tone="emerald" className="p-0.5 text-emerald-500" onClick={() => { if (name.trim()) onRenameProject({ ...project, name: name.trim() }); setRenaming(false) }}><Check size={12} /></Button>
-          <button onClick={() => setRenaming(false)} className="p-0.5 text-gray-400"><X size={12} /></button>
+          <SurfaceButton onClick={() => setRenaming(false)} className="p-0.5 text-gray-400"><X size={12} /></SurfaceButton>
         </div>
       )}
 
@@ -900,7 +900,7 @@ const WorkSidebar = forwardRef<WorkSidebarHandle, WorkSidebarProps>(function Wor
 
   const runningFilter = (runningOnly || runningSessionIds.size > 0) && (
     <div className="shrink-0 border-b border-gray-100 px-2 py-2 dark:border-white/[0.06]">
-      <button
+      <SurfaceButton
         type="button"
         aria-pressed={runningFilterActive}
         aria-label={t('sidebar.runningOnly')}
@@ -917,7 +917,7 @@ const WorkSidebar = forwardRef<WorkSidebarHandle, WorkSidebarProps>(function Wor
         <span className="shrink-0 rounded-full bg-white/80 px-1.5 py-0.5 text-[10px] tabular-nums dark:bg-white/10">
           {runningSessionIds.size}
         </span>
-      </button>
+      </SurfaceButton>
     </div>
   )
 

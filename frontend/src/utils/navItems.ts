@@ -1,6 +1,6 @@
 import {
   Atom, BookOpen, BookText, Bot, Boxes, CalendarClock, Code, Cpu, Database, FolderInput,
-  GitBranch, ListTodo, MessageSquare, Network, PenTool, SquareKanban, Tag, Wrench, Zap,
+  GitBranch, LayoutGrid, ListTodo, MessageSquare, Network, PenTool, SquareKanban, Tag, Wrench, Zap,
 } from 'lucide-react'
 
 export interface NavItem {
@@ -37,6 +37,7 @@ export const NAV_ITEMS: NavItem[] = [
   { path: '/models', labelKey: 'nav:models', icon: Cpu },
   { path: '/foundry-local', labelKey: 'nav:foundryLocal', icon: Boxes, badgeKey: 'nav:beta' },
   { path: '/workflows', labelKey: 'nav:workflows', icon: GitBranch },
+  { path: '/components', labelKey: 'nav:components', icon: LayoutGrid },
 ]
 
 /** 固定区默认成员（改版前的硬编码集合） */

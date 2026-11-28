@@ -2,13 +2,12 @@ import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  Waypoints, Copy, Check, Route as RouteIcon, Zap, Plus, Trash2, Globe, Braces,
-} from 'lucide-react'
+  Waypoints, Copy, Check, Route as RouteIcon, Zap, Plus, Trash2, Globe, Braces, } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
 import Select from '../components/Select'
 import { proxyService, type IProxyConfig } from '../services/proxyService'
 import { aiProviderService } from '../services/aiProviderService'
-import { Button, Card, IconButton, PageContainer, PillTabs } from '../components/ui'
+import { Button, Card, IconButton, Input, PageContainer, PillTabs, SurfaceButton } from '../components/ui'
 
 const CATEGORIES = [
   { value: 'simple', labelKey: 'proxy.categories.simple' },
@@ -34,7 +33,7 @@ function CopyBtn({ text, label }: { text: string; label?: string }) {
     setTimeout(() => setCopied(false), 1500)
   }
   return (
-    <button
+    <SurfaceButton
       onClick={copy}
       className={`flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
         copied
@@ -44,7 +43,7 @@ function CopyBtn({ text, label }: { text: string; label?: string }) {
     >
       {copied ? <Check size={12} /> : <Copy size={12} />}
       {copied ? t('common:copied') : label ?? t('common:copy')}
-    </button>
+    </SurfaceButton>
   )
 }
 
@@ -132,11 +131,12 @@ function ProxyCard({
         </div>
         <div className="flex items-center gap-2 rounded-xl border border-gray-200/70 bg-white/65 dark:border-white/[0.07] dark:bg-slate-900/35 px-3.5 py-2.5 transition-all focus-within:border-blue-400 dark:border-gray-800 dark:bg-white/[0.03]">
           <Braces size={14} className="shrink-0 text-gray-400" />
-          <input
+          <Input
+            variant="bare"
             value={form.modelKey}
             onChange={(e) => patch({ modelKey: e.target.value })}
             spellCheck={false}
-            className="min-w-0 flex-1 bg-transparent font-mono text-sm text-gray-800 outline-none dark:text-gray-100"
+            className="min-w-0 flex-1 font-mono text-sm text-gray-800 dark:text-gray-100"
           />
           <CopyBtn text={form.modelKey} />
         </div>
@@ -222,13 +222,13 @@ function ProxyCard({
       {/* 保存栏 */}
       <div className="flex items-center justify-between border-t border-gray-100 pt-4 dark:border-gray-800">
         <span className="text-[11px] text-gray-400 dark:text-gray-500">{statusText}</span>
-        <button
+        <SurfaceButton
           onClick={() => saveMut.mutate(form)}
           disabled={!canSave}
           className="rounded-full bg-gradient-to-r from-blue-500 to-cyan-600 px-5 py-2 text-sm font-medium text-white shadow-sm shadow-blue-500/20 transition-all hover:shadow-md active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
         >
           {saveMut.isPending ? t('proxy.saving') : t('proxy.saveConfig')}
-        </button>
+        </SurfaceButton>
       </div>
     </div>
   )

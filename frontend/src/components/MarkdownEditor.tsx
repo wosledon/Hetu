@@ -5,45 +5,7 @@ import { formatDistanceToNow } from 'date-fns'
 import { enUS, zhCN } from 'date-fns/locale'
 import { uiLocale, formatDateTime } from '../utils/locale'
 import {
-  Check,
-  ChevronDown,
-  Columns2,
-  Copy,
-  Edit3,
-  Eye,
-  History,
-  RotateCcw,
-  Share2,
-  Sparkles,
-  X,
-  Calendar,
-  Clock,
-  FileText,
-  Bot,
-  PenLine,
-  Send,
-  Database,
-  RefreshCw,
-  Loader2,
-  Network,
-  AlertCircle,
-  Heading2,
-  Heading3,
-  Bold,
-  Italic,
-  Strikethrough,
-  Code2,
-  Quote,
-  List,
-  ListOrdered,
-  ListTodo,
-  SquareCode,
-  Link2,
-  Table2,
-  Minus,
-  Workflow,
-  Square,
-} from 'lucide-react'
+  Check, ChevronDown, Columns2, Copy, Edit3, Eye, History, RotateCcw, Share2, Sparkles, X, Calendar, Clock, FileText, Bot, PenLine, Send, Database, RefreshCw, Loader2, Network, AlertCircle, Heading2, Heading3, Bold, Italic, Strikethrough, Code2, Quote, List, ListOrdered, ListTodo, SquareCode, Link2, Table2, Minus, Workflow, Square, } from 'lucide-react'
 import i18n from '../i18n'
 import { TagInput } from './TagInput'
 import ThemedMarkdown from './ThemedMarkdown'
@@ -60,7 +22,7 @@ import { graphService } from '../services/graphService'
 import { taskService } from '../services/taskService'
 import { aiModelService } from '../services/aiProviderService'
 import type { INote, INoteVersion, IShareLink } from '../types'
-import { Button, Card, IconButton, Input, PageContainer, PillTabs, Textarea } from './ui'
+import { Button, Card, IconButton, Input, PageContainer, PillTabs, Textarea, SurfaceButton } from './ui'
 
 /** AI 动作的提示词预设：快捷按钮点击后预填到输入框，用户可改完再执行 */
 const AI_PRESET_ACTIONS = ['polish', 'translate', 'condense', 'expand', 'explain']
@@ -714,30 +676,30 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
             )}
           </span>
           {tocItems.length > 0 && tocGutterWide && (
-            <button
+            <SurfaceButton
               onClick={() => setTocVisible((v) => !v)}
               className={`rounded-lg p-2 text-gray-400 transition-all hover:bg-gray-100 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-white/[0.06] dark:hover:text-gray-300 ${tocVisible ? 'bg-blue-50 text-blue-600 dark:bg-blue-950/30 dark:text-blue-300' : ''}`}
               title={t('editor.toc')}
             >
               <List size={15} />
-            </button>
+            </SurfaceButton>
           )}
-          <button
+          <SurfaceButton
             onClick={() => setShowVersions(!showVersions)}
             className={`rounded-lg p-2 text-gray-400 transition-all hover:bg-gray-100 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-white/[0.06] dark:hover:text-gray-300 ${showVersions ? 'bg-blue-50 text-blue-600 dark:bg-blue-950/30 dark:text-blue-300' : ''}`}
             title={t('editor.versions')}
           >
             <History size={15} />
-          </button>
-          <button
+          </SurfaceButton>
+          <SurfaceButton
             onClick={() => setShowShareDialog(true)}
             className={`rounded-lg p-2 text-gray-400 transition-all hover:bg-gray-100 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-white/[0.06] dark:hover:text-gray-300 ${showShareDialog ? 'bg-blue-50 text-blue-600 dark:bg-blue-950/30 dark:text-blue-300' : ''}`}
             title={t('editor.exportShare')}
           >
             <Share2 size={15} />
-          </button>
+          </SurfaceButton>
           <div className="mx-1 h-4 w-px bg-gray-200 dark:bg-gray-700" />
-          <button
+          <SurfaceButton
             onClick={toggleAssistant}
             disabled={assistantLoading}
             className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-white shadow-sm shadow-indigo-500/20 transition-all hover:shadow-md hover:shadow-indigo-500/30 hover:brightness-110 active:scale-[0.97] disabled:opacity-50 ${
@@ -749,7 +711,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
           >
             <Sparkles size={13} />
             {t('editor.aiAssistant')}
-          </button>
+          </SurfaceButton>
         </div>
       </div>
 
@@ -765,12 +727,13 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
               ? <span className="text-[26px] leading-none">{note!.icon}</span>
               : <FileText size={24} className="shrink-0 text-gray-300 dark:text-gray-600" />}
           </EmojiPicker>
-          <input
+          <Input
+            variant="bare"
             type="text"
             value={isUntitled ? '' : title}
             onChange={(e) => handleTitleChange(e.target.value)}
             placeholder={t('note.untitled')}
-            className="min-w-0 flex-1 border-none bg-transparent text-[28px] font-bold leading-snug text-gray-800 outline-none placeholder:text-gray-300 dark:text-gray-100 dark:placeholder:text-gray-600"
+            className="min-w-0 flex-1 border-none text-[28px] font-bold leading-snug text-gray-800 placeholder:text-gray-300 dark:text-gray-100 dark:placeholder:text-gray-600"
           />
         </div>
         <div className="mx-auto mt-2 flex max-w-3xl flex-wrap items-center gap-4 text-[11px] text-gray-400 dark:text-gray-500">
@@ -858,12 +821,12 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
         <div className="animate-fade-in border-b border-gray-100 bg-gradient-to-r from-blue-50/50 to-indigo-50/30 p-4 dark:border-gray-800/50 dark:from-blue-900/10 dark:to-indigo-900/5">
           <div className="mb-3 flex items-center justify-between">
             <h3 className="text-sm font-medium text-gray-800 dark:text-gray-100">{t('share.title')}</h3>
-            <button
+            <SurfaceButton
               onClick={() => setShowShareDialog(false)}
               className="rounded-lg p-1 text-gray-400 transition-colors hover:bg-white/50 hover:text-gray-600"
             >
               <X size={14} />
-            </button>
+            </SurfaceButton>
           </div>
           <div className="mb-3 flex flex-wrap gap-2">
             {[
@@ -871,7 +834,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
               { label: t('share.hours24'), hours: 24, primary: false },
               { label: t('share.days3'), hours: 72, primary: false },
             ].map(({ label, hours, primary }) => (
-              <button
+              <SurfaceButton
                 key={label}
                 onClick={() => createShareLink.mutate(hours)}
                 disabled={createShareLink.isPending}
@@ -882,7 +845,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
                 }`}
               >
                 {label}
-              </button>
+              </SurfaceButton>
             ))}
           </div>
           {shareLinks.length > 0 && (
@@ -984,12 +947,12 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
                       {aiSelection.length > 0 ? t('editor.selectionChars', { n: aiSelection.length }) : t('editor.fullText')}
                     </span>
                   </div>
-                  <button
+                  <SurfaceButton
                     onClick={closeInlineAi}
                     className="rounded p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06]"
                   >
                     <X size={13} />
-                  </button>
+                  </SurfaceButton>
                 </div>
 
                 <div className="px-3 py-2">
@@ -1002,7 +965,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
                         { key: 'expand', label: t('editor.ai.expand') },
                         { key: 'explain', label: t('editor.ai.explain') },
                       ].map((a) => (
-                        <button
+                        <SurfaceButton
                           key={a.key}
                       onClick={() => {
                         setInlineAiAction(a.key as typeof inlineAiAction)
@@ -1017,7 +980,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
                           }`}
                         >
                           {a.label}
-                        </button>
+                        </SurfaceButton>
                       ))}
                     </div>
                   )}
@@ -1090,14 +1053,14 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
                       </>
                     )}
                     {!inlineAiResult && (
-                      <button
+                      <SurfaceButton
                         onClick={() => handleAiExecuteFor(inlineAiAction, inlineCustomPrompt, 'inline')}
                         disabled={inlineAiLoading}
                         className="flex items-center gap-1 rounded-md bg-gradient-to-r from-blue-500 to-indigo-600 px-2.5 py-1 text-[11px] font-medium text-white transition-all hover:from-blue-600 hover:to-indigo-700 disabled:opacity-50"
                       >
                         <Send size={11} />
                         {inlineAiLoading ? t('editor.generating') : t('editor.execute')}
-                      </button>
+                      </SurfaceButton>
                     )}
                     {inlineAiLoading && (
                       <Button variant="ghost" tone="red" className="flex items-center gap-1 rounded-md px-2.5 py-1 text-[11px] font-medium text-red-500 transition-colors hover:bg-red-50 dark:hover:bg-red-950/30" onClick={() => handleStopAi('inline')}>
@@ -1134,12 +1097,12 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
                 <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200">{t('editor.aiAssistant')}</h3>
                 <span className="rounded bg-indigo-50 px-1.5 py-0.5 text-[10px] text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-300">{t('editor.fullText')}</span>
               </div>
-              <button
+              <SurfaceButton
                 onClick={() => { setShowAssistant(false); setAssistantResult(''); setAssistantCustomPrompt(''); }}
                 className="rounded-lg p-1.5 text-gray-400 transition-all hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06] dark:hover:text-gray-300"
               >
                 <X size={15} />
-              </button>
+              </SurfaceButton>
             </div>
 
             <div className="flex-1 overflow-y-auto p-3">
@@ -1153,7 +1116,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
                     { key: 'expand', label: t('editor.ai.expand') },
                     { key: 'explain', label: t('editor.ai.explain') },
                   ].map((a) => (
-                    <button
+                    <SurfaceButton
                       key={a.key}
                       onClick={() => {
                         setAssistantAction(a.key as typeof assistantAction)
@@ -1167,7 +1130,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
                       }`}
                     >
                       {a.label}
-                    </button>
+                    </SurfaceButton>
                   ))}
                 </div>
               )}
@@ -1234,14 +1197,14 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
                     </>
                   )}
                   {!assistantResult && (
-                    <button
+                    <SurfaceButton
                       onClick={() => handleAiExecuteFor(assistantAction, assistantCustomPrompt, 'assistant')}
                       disabled={assistantLoading}
                       className="flex items-center gap-1 rounded-md bg-gradient-to-r from-blue-500 to-indigo-600 px-3 py-1.5 text-[11px] font-medium text-white transition-all hover:from-blue-600 hover:to-indigo-700 disabled:opacity-50"
                     >
                       <Send size={11} />
                       {assistantLoading ? t('editor.generating') : t('editor.execute')}
-                    </button>
+                    </SurfaceButton>
                   )}
                   {assistantLoading && (
                     <Button variant="ghost" tone="red" className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium text-red-500 transition-colors hover:bg-red-50 dark:hover:bg-red-950/30" onClick={() => handleStopAi('assistant')}>
@@ -1264,7 +1227,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
                 </div>
                 <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200">{t('editor.versions')}</h3>
               </div>
-              <button
+              <SurfaceButton
                 onClick={() => {
                   setShowVersions(false)
                   setPreviewVersion(null)
@@ -1272,7 +1235,7 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
                 className="rounded-lg p-1.5 text-gray-400 transition-all hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06] dark:hover:text-gray-300"
               >
                 <X size={15} />
-              </button>
+              </SurfaceButton>
             </div>
 
             <div className="flex-1 space-y-1 overflow-y-auto p-3">
@@ -1319,14 +1282,14 @@ export default function MarkdownEditor({ note }: MarkdownEditorProps) {
                     <ThemedMarkdown source={previewVersion.content.slice(0, 500)} />
                   </div>
                 )}
-                <button
+                <SurfaceButton
                   onClick={() => restoreVersion.mutate({ noteId: note!.id, versionId: previewVersion.id, content: previewVersion.content })}
                   disabled={restoreVersion.isPending}
                   className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 px-3 py-2.5 text-[13px] font-medium text-white shadow-sm shadow-emerald-500/20 transition-all hover:shadow-md hover:shadow-emerald-500/25 hover:brightness-110 active:scale-[0.98] disabled:opacity-50"
                 >
                   <RotateCcw size={14} />
                   {t('editor.restoreVersion')}
-                </button>
+                </SurfaceButton>
               </div>
             )}
           </Card>

@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { useTranslation } from 'react-i18next'
-import { AlertTriangle, FileText, Send, Square, X } from 'lucide-react'
+import { FileText, Send, Square, X } from 'lucide-react'
 import InputCommandMenu, { type InputCommandItem } from '../InputCommandMenu'
 import { extractMentionQuery, extractSlashQuery } from '../../utils/inputQuery'
 import { countTextLines, isLongText } from '../../utils/longText'
-import { Button, IconButton } from '../ui'
+import { Button, Chip, IconButton, Textarea } from '../ui'
 
 /** 输入框上方的上下文 tag（引用文件 / 笔记 / 标签 / 技能 / 图片 等） */
 export interface AgentInputChip {
@@ -82,16 +82,7 @@ export interface AgentInputBoxProps {
   hint?: string
 }
 
-const CHIP_TONES: Record<string, string> = {
-  blue: 'border-blue-200/80 bg-blue-50/80 text-blue-700 dark:border-blue-400/20 dark:bg-blue-500/10 dark:text-blue-300',
-  sky: 'border-sky-200/80 bg-sky-50/80 text-sky-700 dark:border-sky-400/20 dark:bg-sky-500/10 dark:text-sky-300',
-  cyan: 'border-cyan-200/80 bg-cyan-50/80 text-cyan-700 dark:border-cyan-400/20 dark:bg-cyan-500/10 dark:text-cyan-300',
-  amber: 'border-amber-200/80 bg-amber-50/80 text-amber-700 dark:border-amber-400/20 dark:bg-amber-500/10 dark:text-amber-300',
-  violet: 'border-violet-200/80 bg-violet-50/80 text-violet-700 dark:border-violet-400/20 dark:bg-violet-500/10 dark:text-violet-300',
-  emerald: 'border-emerald-200/80 bg-emerald-50/80 text-emerald-700 dark:border-emerald-400/20 dark:bg-emerald-500/10 dark:text-emerald-300',
-  indigo: 'border-indigo-200/80 bg-indigo-50/80 text-indigo-700 dark:border-indigo-400/20 dark:bg-indigo-500/10 dark:text-indigo-300',
-  rose: 'border-rose-200/80 bg-rose-50/80 text-rose-700 dark:border-rose-400/20 dark:bg-rose-500/10 dark:text-rose-300',
-}
+
 
 /** 从输入与光标探测当前应显示的浮层类型；输入框与调用方共用 */
 function detectInputMenu(value: string, cursor: number): AgentInputMenuState | null {
@@ -278,32 +269,18 @@ export default function AgentInputBox({
           {chips.length > 0 && (
             <div className="flex flex-wrap items-center gap-1.5 px-3 pt-2.5">
               {chips.map((chip) => (
-                <span
+                <Chip
                   key={chip.id}
+                  tone={chip.tone ?? 'blue'}
+                  struck={chip.struck}
+                  imageUrl={chip.imageUrl}
+                  icon={chip.icon}
                   title={chip.title ?? chip.label}
-                  className={`flex max-w-[260px] items-center gap-1 rounded-md border px-1 py-0.5 text-[11px] leading-4 ${CHIP_TONES[chip.struck ? 'amber' : chip.tone ?? 'blue']}`}
+                  onRemove={chip.onRemove}
+                  removeLabel={t('input.removeChip', { label: chip.label })}
                 >
-                  {chip.struck ? (
-                    <AlertTriangle size={12} className="shrink-0" />
-                  ) : chip.imageUrl ? (
-                    <img
-                      src={chip.imageUrl}
-                      alt=""
-                      draggable={false}
-                      className="h-4 w-4 shrink-0 rounded-[3px] object-cover"
-                    />
-                  ) : chip.icon}
-                  <span className={`truncate ${chip.struck ? 'line-through' : ''}`}>{chip.label}</span>
-                  <button
-                    type="button"
-                    onClick={chip.onRemove}
-                    aria-label={t('input.removeChip', { label: chip.label })}
-                    title={t('input.removeChip', { label: chip.label })}
-                    className="flex h-4 w-4 shrink-0 items-center justify-center rounded text-current opacity-55 transition-opacity hover:bg-black/5 hover:opacity-100 dark:hover:bg-white/10"
-                  >
-                    <X size={9} />
-                  </button>
-                </span>
+                  {chip.label}
+                </Chip>
               ))}
             </div>
           )}
@@ -334,7 +311,8 @@ export default function AgentInputBox({
             </div>
           )}
 
-          <textarea
+          <Textarea
+            variant="bare"
             ref={inputRef}
             value={value}
             onChange={(e) => handleChange(e.target.value, e.target.selectionStart ?? e.target.value.length)}
@@ -342,7 +320,7 @@ export default function AgentInputBox({
             onPaste={handlePaste}
             placeholder={placeholderText}
             rows={rows}
-            className="w-full resize-none bg-transparent px-4 pb-3 pt-4 text-[14px] leading-6 text-gray-800 outline-none placeholder:text-gray-400 dark:text-gray-100 dark:placeholder:text-gray-500"
+            className="w-full resize-none px-4 pb-3 pt-4 text-[14px] leading-6 text-gray-800 placeholder:text-gray-400 dark:text-gray-100 dark:placeholder:text-gray-500"
           />
 
           <div className={`flex flex-wrap items-center gap-1 px-2 ${forehead ? 'pb-2 pt-1' : 'rounded-b-[15px] border-t border-gray-100/90 bg-gray-50/60 py-2 dark:border-white/[0.06] dark:bg-white/[0.025]'}`}>

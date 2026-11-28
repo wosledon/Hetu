@@ -56,6 +56,7 @@ docs/                                          # PRD 与 screenshots（README �
 ```bash
 dotnet build src/Hetu.Api/Hetu.Api.csproj -c Release -v q   # 期望 0 告警 0 错误
 cd frontend && npx eslint . && npx tsc -b                    # 期望 0 problem / 通过
+node scripts/audit-ui.mjs                                    # 组件边界：原生控件/第三方 import 只降不升
 # 后端手动起一遍并冒烟（vite 5174 / api 5000）：
 dotnet run --project src/Hetu.Api --urls "http://localhost:5000"
 curl.exe -s "http://localhost:5000/api/notes?page=1&pageSize=2"
@@ -171,6 +172,27 @@ EF Core 的 SQLite provider **不支持在 SQL 中排序或聚合 `DateTimeOffse
 - 每个组件一个文件；**组件文件只导出组件**（工具函数放 `utils/`，否则 `react-refresh/only-export-components` 报错）。
 - 自定义 Hook 放 `hooks/`，纯函数放 `utils/`。
 
+### 组件化与样式来源（硬性准则）
+
+- **交互控件禁止直接用原生标签**：`<button>`、`<input>`、`<textarea>`、`<select>` 等一律来自 `components/ui`
+  （Button / IconButton / ToolbarToggle / Input / Textarea / SearchInput / Select / MultiSelect / Modal / TreeRow …）
+  或已封装的业务组件；原生 `div` / `span` 只用于布局，不承载控件语义与视觉表面。
+- **第三方库只允许出现在包装层**：ECharts、Milkdown、xterm、Markdown 渲染器等先包装成项目组件（收口主题、事件、空态与错误态），
+  页面与业务组件不得从第三方包直接 import。
+- **差异一律通过 props / 插槽表达**：variant / tone / size / pill / plain / padded，children、icon / iconRight、
+  toolbar / toolbarTrailing / footerLeading / forehead / aboveInput、renderItem 等；
+  需要新外观时扩展共享组件的静态变体表（如 `ui/tones.ts`、`ui/Input.tsx` 的 SIZES、`ui/ToolbarToggle.tsx` 的 tone 表），
+  不在调用处拼 className 造样式。
+- **页面不写一次性视觉样式**：边框、背景、圆角、阴影、悬停 / 聚焦 / 激活态等表面样式只能来自共享组件与
+  `utils/styles.ts` 的公共类；页面 className 仅用于布局（flex / grid / gap / 尺寸 / 溢出）。颜色走 tone / 主题变量，不写死色值。
+- **新增控件先查 `ui/`**：没有对应封装就先在 `ui/` 封装（含无障碍 label、dark 变体、禁用 / 激活态），再在页面使用；
+  新增或调整共享组件、变体时，同步在 `/components` 组件页补一个真实示例（禁止用仿制品替代）。
+- 存量代码不做无边界重写：改动到哪收敛到哪；**新增代码必须 100% 遵守本准则**。
+- 边界由 `node scripts/audit-ui.mjs` 审计（基线 `scripts/ui-audit-baseline.json`）：原生控件与包装层外第三方 import
+  **只降不升**；每个收敛批次完成后执行 `--update` 下调基线。
+- 边界已固化到 ESLint：`no-restricted-syntax` 禁止在页面/业务组件写原生交互控件，`no-restricted-imports`
+  禁止包装层外引入第三方 UI 库，不得用 eslint-disable 绕过。
+
 ### TypeScript
 
 - `strict: true`；不用 `any`（用 `unknown` + 收窄或具体类型）；接口在 `types/` 统一导出。
@@ -193,7 +215,8 @@ EF Core 的 SQLite provider **不支持在 SQL 中排序或聚合 `DateTimeOffse
 ### 国际化与样式
 
 - 所有可见文案走 `t('namespace:key')`，zh / en 同步添加。
-- 样式优先 Tailwind 工具类，深色模式写 `dark:` 变体；颜色/间距用默认主题。
+- 样式分两层：**表面样式**（描边 / 底色 / 圆角 / 阴影 / 悬停 / 聚焦 / 激活态）只能来自共享组件；
+  **布局样式**用 Tailwind 工具类（flex / grid / 间距 / 尺寸），深色模式差异由组件自带 `dark:` 变体。
 
 ### 路由
 

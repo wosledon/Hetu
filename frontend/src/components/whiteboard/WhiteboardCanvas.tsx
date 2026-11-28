@@ -10,6 +10,7 @@ import {
   elementText, findAttachTarget, fitTextElement, hitTest, isShapeElement, newId, rectFromPoints, refreshConnectors,
   resolveConnectorEnds, snapValue, translateElement, wrapText,
 } from '../../utils/whiteboard'
+import { Input, Textarea } from '../ui'
 
 type HandleId = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w'
 
@@ -970,7 +971,8 @@ export default function WhiteboardCanvas({
 
   const editingOverlay = editingField
     ? (
-      <textarea
+      <Textarea
+        variant="bare"
         ref={textareaRef}
         value={editingText}
         onChange={(event) => updateEditingText(event.target.value)}
@@ -982,7 +984,7 @@ export default function WhiteboardCanvas({
             cancelEditing()
           }
         }}
-        className="absolute z-10 resize-none rounded border border-blue-400 bg-white/95 p-1 text-gray-800 outline-none dark:bg-gray-800/95 dark:text-gray-100"
+        className="absolute z-10 resize-none rounded border border-blue-400 bg-white/95 p-1 text-gray-800 dark:bg-gray-800/95 dark:text-gray-100"
         style={{
           left: editingField.x * viewport.zoom + viewport.x,
           top: editingField.y * viewport.zoom + viewport.y,
@@ -999,7 +1001,8 @@ export default function WhiteboardCanvas({
   const labelMidY = editingElement?.type === 'connector' ? (editingElement.from.y + editingElement.to.y) / 2 : 0
   const labelOverlay = editingElement?.type === 'connector'
     ? (
-      <input
+      <Input
+        variant="bare"
         ref={labelInputRef}
         defaultValue={editingElement.label}
         onBlur={(event) => closeEditing(event.target.value)}
@@ -1013,7 +1016,7 @@ export default function WhiteboardCanvas({
             cancelEditing()
           }
         }}
-        className="absolute z-10 rounded border border-blue-400 bg-white/95 px-1 text-gray-800 outline-none dark:bg-gray-800/95 dark:text-gray-100"
+        className="absolute z-10 rounded border border-blue-400 bg-white/95 px-1 text-gray-800 dark:bg-gray-800/95 dark:text-gray-100"
         style={{
           left: labelMidX * viewport.zoom + viewport.x - 60,
           top: labelMidY * viewport.zoom + viewport.y - 16,

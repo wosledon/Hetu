@@ -8,7 +8,7 @@ import { skillService } from '../../services/skillService'
 import { useConfirm } from '../../components/confirm'
 import Select from '../Select'
 import type { IWorkProject } from '../../types/work'
-import { Button, IconButton, Input, Modal } from '../ui'
+import { Button, IconButton, Input, Modal, SurfaceButton, Checkbox } from '../ui'
 
 interface WorkProjectSettingsProps {
   project: IWorkProject
@@ -123,9 +123,9 @@ export default function WorkProjectSettings({ project, onClose }: WorkProjectSet
 
         <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-4 py-3 dark:border-gray-800">
           <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">{t('projectSettings.title', { name: project.name })}</h3>
-          <button onClick={onClose} className="rounded p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800">
+          <SurfaceButton onClick={onClose} className="rounded p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800">
             <X size={14} />
-          </button>
+          </SurfaceButton>
         </div>
 
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-3">
@@ -155,8 +155,7 @@ export default function WorkProjectSettings({ project, onClose }: WorkProjectSet
               {mcpServers.length === 0 && <p className="px-2 py-3 text-center text-[11px] text-gray-400">{t('projectSettings.noMcpServers')}</p>}
               {mcpServers.map((s) => (
                 <label key={s.id} className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 hover:bg-gray-50 dark:hover:bg-white/[0.04]">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={mcpIds.includes(s.id)}
                     onChange={() => toggle(mcpIds, setMcpIds, s.id)}
                     className="h-3.5 w-3.5"
@@ -176,8 +175,7 @@ export default function WorkProjectSettings({ project, onClose }: WorkProjectSet
               {skills.length === 0 && <p className="px-2 py-3 text-center text-[11px] text-gray-400">{t('projectSettings.noLocalSkills')}</p>}
               {skills.map((s) => (
                 <label key={s.id} className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 hover:bg-gray-50 dark:hover:bg-white/[0.04]">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={skillIds.includes(s.id)}
                     onChange={() => toggle(skillIds, setSkillIds, s.id)}
                     className="h-3.5 w-3.5"

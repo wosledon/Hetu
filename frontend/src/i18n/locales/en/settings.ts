@@ -268,6 +268,7 @@ export default {
     serviceAddress: 'Service address',
     privacy: 'Local-first: notes, chats, memories, and vector indexes all live in your local database; API keys are stored encrypted on this machine only and are never uploaded to any third-party server.',
     viewSource: 'View source on GitHub',
+    components: 'Component library',
   },
   database: {
     title: 'Database storage',

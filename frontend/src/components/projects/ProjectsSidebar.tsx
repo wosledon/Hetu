@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { Folder, FolderOpen, Inbox, LayoutGrid, Pin, Settings2, Tag, X } from 'lucide-react'
 import type { IProjectGroup, IManagedProject, IProjectFilter } from '../../types/project'
-import { IconButton } from '../ui'
+import { IconButton, SurfaceButton, WorkbenchColumn } from '../ui'
 
 interface ProjectsSidebarProps {
   groups: IProjectGroup[]
@@ -49,113 +49,22 @@ export default function ProjectsSidebar({
     }`
 
   return (
-    <aside className="flex h-full w-52 shrink-0 flex-col border-r border-gray-200/80 bg-white/30 dark:border-white/[0.07] dark:bg-slate-950/15">
-      <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
-        <button
-          onClick={() => onFilterChange(ALL_FILTER)}
-          className={navItemClass(isSameFilter(filter, ALL_FILTER))}
-        >
-          <LayoutGrid size={14} className="shrink-0" />
-          <span className="min-w-0 flex-1 truncate">{t('sidebar.allProjects')}</span>
-          <span className="shrink-0 text-[11px] text-gray-400">{projects.length}</span>
-        </button>
-
-        {/* 分组 */}
-        <div className="mt-5 flex items-center justify-between px-2.5">
-          <span className="text-[11px] font-medium uppercase tracking-wider text-gray-400">{t('sidebar.groups')}</span>
-          <IconButton variant="ghost" tone="gray" className="rounded p-0.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800" label={t('sidebar.manageGroups')} onClick={onManageGroups}
-            title={t('sidebar.manageGroups')}
-            aria-label={t('sidebar.manageGroups')}>
-            <Settings2 size={12} />
-          </IconButton>
-        </div>
-        <div className="mt-1 space-y-0.5">
-          <button
-            onClick={() => onFilterChange({ type: 'ungrouped' })}
-            className={navItemClass(filter.type === 'ungrouped')}
+    <WorkbenchColumn
+      role="secondary"
+      title={t('page.title')}
+      beforeBody={(
+        <div className="shrink-0 px-2 pt-2">
+          <SurfaceButton
+            onClick={() => onFilterChange(ALL_FILTER)}
+            className={navItemClass(isSameFilter(filter, ALL_FILTER))}
           >
-            <Inbox size={14} className="shrink-0" />
-            <span className="min-w-0 flex-1 truncate">{t('sidebar.ungrouped')}</span>
-            <span className="shrink-0 text-[11px] text-gray-400">{ungroupedCount}</span>
-          </button>
-          {groups.map((group) => (
-            <button
-              key={group.id}
-              onClick={() => onFilterChange({ type: 'group', id: group.id })}
-              onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('bg-blue-50', 'dark:bg-blue-950/40') }}
-              onDragLeave={(e) => e.currentTarget.classList.remove('bg-blue-50', 'dark:bg-blue-950/40')}
-              onDrop={(e) => {
-                e.preventDefault()
-                e.currentTarget.classList.remove('bg-blue-50', 'dark:bg-blue-950/40')
-                const projectId = e.dataTransfer.getData('application/x-project-id')
-                if (projectId) onMoveToGroup(projectId, group.id)
-              }}
-              className={navItemClass(filter.type === 'group' && filter.id === group.id)}
-            >
-              <Folder size={14} className="shrink-0 text-amber-400" />
-              <span className="min-w-0 flex-1 truncate" title={group.name}>{group.name}</span>
-              <span className="shrink-0 text-[11px] text-gray-400">{group.projectCount}</span>
-            </button>
-          ))}
-          {groups.length === 0 && (
-            <p className="px-2.5 py-1 text-[11px] leading-relaxed text-gray-400">{t('sidebar.noGroups')}</p>
-          )}
+            <LayoutGrid size={14} className="shrink-0" />
+            <span className="min-w-0 flex-1 truncate">{t('sidebar.allProjects')}</span>
+            <span className="shrink-0 text-[11px] text-gray-400">{projects.length}</span>
+          </SurfaceButton>
         </div>
-
-        {/* 分类 */}
-        {categories.length > 0 && (
-          <>
-            <div className="mt-5 px-2.5">
-              <span className="text-[11px] font-medium uppercase tracking-wider text-gray-400">{t('sidebar.categories')}</span>
-            </div>
-            <div className="mt-1 space-y-0.5">
-              {categories.map(([name, count]) => (
-                <button
-                  key={name}
-                  onClick={() => onFilterChange({ type: 'category', id: name })}
-                  className={navItemClass(filter.type === 'category' && filter.id === name)}
-                >
-                  <FolderOpen size={14} className="shrink-0 text-emerald-400" />
-                  <span className="min-w-0 flex-1 truncate" title={name}>{name}</span>
-                  <span className="shrink-0 text-[11px] text-gray-400">{count}</span>
-                </button>
-              ))}
-            </div>
-          </>
-        )}
-
-        {/* 标签 */}
-        {tags.length > 0 && (
-          <>
-            <div className="mt-5 px-2.5">
-              <span className="text-[11px] font-medium uppercase tracking-wider text-gray-400">{t('sidebar.tags')}</span>
-            </div>
-            <div className="mt-1 flex flex-wrap gap-1 px-1.5">
-              {tags.map(([name, count]) => {
-                const active = filter.type === 'tag' && filter.id === name
-                return (
-                  <button
-                    key={name}
-                    onClick={() => onFilterChange({ type: 'tag', id: name })}
-                    className={`flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] transition-colors ${
-                      active
-                        ? 'border-blue-300 bg-blue-50 text-blue-600 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-300'
-                        : 'border-transparent text-gray-500 hover:bg-white/70 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/[0.05]'
-                    }`}
-                  >
-                    <Tag size={9} />
-                    {name}
-                    <span className="text-gray-400">{count}</span>
-                  </button>
-                )
-              })}
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* 当前筛选提示 */}
-      {filter.type !== 'all' && (
+      )}
+      footer={filter.type !== 'all' ? (
         <div className="shrink-0 border-t border-gray-100 px-3 py-2 dark:border-gray-800">
           <div className="flex items-center gap-1.5 text-[11px] text-gray-500 dark:text-gray-400">
             <Pin size={10} className="shrink-0" />
@@ -172,7 +81,100 @@ export default function ProjectsSidebar({
             </IconButton>
           </div>
         </div>
+      ) : undefined}
+    >
+      {/* 分组 */}
+      <div className="mt-2 flex items-center justify-between px-1.5">
+        <span className="text-[11px] font-medium uppercase tracking-wider text-gray-400">{t('sidebar.groups')}</span>
+        <IconButton variant="ghost" tone="gray" className="rounded p-0.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800" label={t('sidebar.manageGroups')} onClick={onManageGroups}
+          title={t('sidebar.manageGroups')}
+          aria-label={t('sidebar.manageGroups')}>
+          <Settings2 size={12} />
+        </IconButton>
+      </div>
+      <div className="mt-1 space-y-0.5">
+        <SurfaceButton
+          onClick={() => onFilterChange({ type: 'ungrouped' })}
+          className={navItemClass(filter.type === 'ungrouped')}
+        >
+          <Inbox size={14} className="shrink-0" />
+          <span className="min-w-0 flex-1 truncate">{t('sidebar.ungrouped')}</span>
+          <span className="shrink-0 text-[11px] text-gray-400">{ungroupedCount}</span>
+        </SurfaceButton>
+        {groups.map((group) => (
+          <SurfaceButton
+            key={group.id}
+            onClick={() => onFilterChange({ type: 'group', id: group.id })}
+            onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('bg-blue-50', 'dark:bg-blue-950/40') }}
+            onDragLeave={(e) => e.currentTarget.classList.remove('bg-blue-50', 'dark:bg-blue-950/40')}
+            onDrop={(e) => {
+              e.preventDefault()
+              e.currentTarget.classList.remove('bg-blue-50', 'dark:bg-blue-950/40')
+              const projectId = e.dataTransfer.getData('application/x-project-id')
+              if (projectId) onMoveToGroup(projectId, group.id)
+            }}
+            className={navItemClass(filter.type === 'group' && filter.id === group.id)}
+          >
+            <Folder size={14} className="shrink-0 text-amber-400" />
+            <span className="min-w-0 flex-1 truncate" title={group.name}>{group.name}</span>
+            <span className="shrink-0 text-[11px] text-gray-400">{group.projectCount}</span>
+          </SurfaceButton>
+        ))}
+        {groups.length === 0 && (
+          <p className="px-2.5 py-1 text-[11px] leading-relaxed text-gray-400">{t('sidebar.noGroups')}</p>
+        )}
+      </div>
+
+      {/* 分类 */}
+      {categories.length > 0 && (
+        <>
+          <div className="mt-5 px-1.5">
+            <span className="text-[11px] font-medium uppercase tracking-wider text-gray-400">{t('sidebar.categories')}</span>
+          </div>
+          <div className="mt-1 space-y-0.5">
+            {categories.map(([name, count]) => (
+              <SurfaceButton
+                key={name}
+                onClick={() => onFilterChange({ type: 'category', id: name })}
+                className={navItemClass(filter.type === 'category' && filter.id === name)}
+              >
+                <FolderOpen size={14} className="shrink-0 text-emerald-400" />
+                <span className="min-w-0 flex-1 truncate" title={name}>{name}</span>
+                <span className="shrink-0 text-[11px] text-gray-400">{count}</span>
+              </SurfaceButton>
+            ))}
+          </div>
+        </>
       )}
-    </aside>
+
+      {/* 标签 */}
+      {tags.length > 0 && (
+        <>
+          <div className="mt-5 px-1.5">
+            <span className="text-[11px] font-medium uppercase tracking-wider text-gray-400">{t('sidebar.tags')}</span>
+          </div>
+          <div className="mt-1 flex flex-wrap gap-1 px-1">
+            {tags.map(([name, count]) => {
+              const active = filter.type === 'tag' && filter.id === name
+              return (
+                <SurfaceButton
+                  key={name}
+                  onClick={() => onFilterChange({ type: 'tag', id: name })}
+                  className={`flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] transition-colors ${
+                    active
+                      ? 'border-blue-300 bg-blue-50 text-blue-600 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-300'
+                      : 'border-transparent text-gray-500 hover:bg-white/70 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/[0.05]'
+                  }`}
+                >
+                  <Tag size={9} />
+                  {name}
+                  <span className="text-gray-400">{count}</span>
+                </SurfaceButton>
+              )
+            })}
+          </div>
+        </>
+      )}
+    </WorkbenchColumn>
   )
 }

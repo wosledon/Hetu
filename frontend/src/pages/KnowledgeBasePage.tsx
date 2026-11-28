@@ -4,29 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import {
-  Database,
-  FileText,
-  CheckCircle2,
-  AlertCircle,
-  Search,
-  RefreshCw,
-  Loader2,
-  Zap,
-  BarChart3,
-  Play,
-  ChevronDown,
-  Layers,
-  X,
-  Brain,
-  Clock,
-  Hash,
-  Upload,
-  Globe,
-  Plus,
-  Trash2,
-  BookText,
-  AlertTriangle,
-} from 'lucide-react'
+  Database, FileText, CheckCircle2, AlertCircle, Search, RefreshCw, Loader2, Zap, BarChart3, Play, ChevronDown, Layers, X, Brain, Clock, Hash, Upload, Globe, Plus, Trash2, BookText, AlertTriangle, } from 'lucide-react'
 import { formatDistanceToNow, isValid } from 'date-fns'
 import { enUS, zhCN } from 'date-fns/locale'
 import i18n from '../i18n'
@@ -42,14 +20,10 @@ import AppLayout from '../components/AppLayout'
 import HighlightText from '../components/HighlightText'
 import Select from '../components/Select'
 import {
-  knowledgeBaseService,
-  knowledgeItemService,
-} from '../services/knowledgeBaseService'
+  knowledgeBaseService, knowledgeItemService, } from '../services/knowledgeBaseService'
 import type {
-  IKnowledgeBaseStatus,
-  INoteChunk,
-} from '../services/knowledgeBaseService'
-import { Button, Card, Input, Modal, PageContainer, Pagination, PillTabs, SearchInput } from '../components/ui'
+  IKnowledgeBaseStatus, INoteChunk, } from '../services/knowledgeBaseService'
+import { Button, Card, Input, Modal, PageContainer, Pagination, PillTabs, SearchInput, SurfaceButton, FileInput } from '../components/ui'
 
 type TabKey = 'overview' | 'manage' | 'search'
 type ManageFilter = 'all' | 'note' | 'file' | 'url' | 'wiki'
@@ -310,7 +284,7 @@ export default function KnowledgeBasePage() {
           {activeTab === 'overview' && (
             <div className="space-y-4">
               {/* 索引驾驶舱：进度环 + 关键指标 + 批量操作 */}
-              <Card padded="lg" className="border-gray-200/70 bg-white/70 shadow-sm dark:border-white/[0.07] dark:bg-slate-900/35">
+              <Card padded="lg" className="">
                 <div className="flex flex-wrap items-center gap-8">
                   {/* 进度环 */}
                   <div className="relative h-24 w-24 shrink-0">
@@ -354,7 +328,7 @@ export default function KnowledgeBasePage() {
 
                   {/* 批量操作 */}
                   {status && status.unindexedItems > 0 ? (
-                    <button
+                    <SurfaceButton
                       onClick={() => batchMutation.mutate()}
                       disabled={batchMutation.isPending || !status.hasEmbeddingProvider || status.runningTaskCount > 0}
                       className="flex shrink-0 items-center gap-2 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm shadow-blue-500/20 transition-all hover:shadow-md active:scale-[0.97] disabled:opacity-50"
@@ -365,7 +339,7 @@ export default function KnowledgeBasePage() {
                         <Zap size={16} />
                       )}
                       {batchMutation.isPending ? t('kb.batchQueued') : status.runningTaskCount > 0 ? t('kb.batchRunning') : t('kb.batchGenerate', { n: status.unindexedItems })}
-                    </button>
+                    </SurfaceButton>
                   ) : (
                     <div className="flex shrink-0 items-center gap-1.5 rounded-full bg-emerald-50 px-4 py-2 text-xs font-medium text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400">
                       <CheckCircle2 size={14} />
@@ -442,7 +416,7 @@ export default function KnowledgeBasePage() {
                     const counts = status ? row.counts(status) : { total: 0, indexed: 0 }
                     const percent = counts.total > 0 ? Math.min(100, Math.round((counts.indexed / counts.total) * 100)) : 0
                     return (
-                      <button
+                      <SurfaceButton
                         key={row.key}
                         onClick={() => { setActiveTab('manage'); setManageFilter(row.key); setManagePage(1) }}
                         className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left transition-colors hover:bg-gray-50 dark:hover:bg-white/[0.03]"
@@ -458,7 +432,7 @@ export default function KnowledgeBasePage() {
                           {counts.indexed} / {counts.total}
                         </span>
                         <span className="w-9 shrink-0 text-right text-[11px] font-semibold tabular-nums text-gray-700 dark:text-gray-200">{percent}%</span>
-                      </button>
+                      </SurfaceButton>
                     )
                   })}
                 </div>
@@ -511,9 +485,8 @@ export default function KnowledgeBasePage() {
                   })}
                 />
                 <div className="flex items-center gap-2">
-                  <input
+                  <FileInput
                     ref={fileInputRef}
-                    type="file"
                     className="hidden"
                     onChange={handleFileUpload}
                   />
@@ -590,13 +563,13 @@ export default function KnowledgeBasePage() {
                         <div className="flex items-center gap-2">
                           {getTypeBadge(item.type)}
                           {item.wikiDocumentId ? (
-                            <button
+                            <SurfaceButton
                               onClick={() => navigate(`/wiki?doc=${item.wikiDocumentId}`)}
                               className="min-w-0 truncate text-left text-sm font-medium text-gray-900 transition-colors hover:text-emerald-600 dark:text-gray-100 dark:hover:text-emerald-400"
                               title={t('kb.openWikiPage')}
                             >
                               {item.title || t('kb.untitled')}
-                            </button>
+                            </SurfaceButton>
                           ) : (
                             <p className="min-w-0 truncate text-sm font-medium text-gray-900 dark:text-gray-100">
                               {item.title || t('kb.untitled')}
@@ -646,14 +619,14 @@ export default function KnowledgeBasePage() {
                         )}
 
                         {item.chunkCount > 0 && (
-                          <button
+                          <SurfaceButton
                             onClick={() => openChunkDetail(item.id, item.title)}
                             className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-medium text-blue-700 transition-colors hover:bg-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:hover:bg-blue-900/50"
                             title={t('kb.chunkCountTitle')}
                           >
                             <Layers size={10} />
                             {t('kb.chunkCount', { n: item.chunkCount })}
-                          </button>
+                          </SurfaceButton>
                         )}
                       </div>
 
@@ -669,7 +642,7 @@ export default function KnowledgeBasePage() {
                           {item.hasRunningTask ? t('kb.actionIndexing') : item.hasEmbedding ? t('kb.actionReindex') : t('kb.actionIndex')}
                         </Button>
                         {item.type !== 'note' && (
-                          <button
+                          <SurfaceButton
                             onClick={() => {
                               confirm({ message: t('kb.deleteItemConfirm'), onConfirm: () => deleteMutation.mutate(item.id) })
                             }}
@@ -677,7 +650,7 @@ export default function KnowledgeBasePage() {
                             title={t('kb.deleteItemTitle')}
                           >
                             <Trash2 size={12} />
-                          </button>
+                          </SurfaceButton>
                         )}
                       </div>
                     </Card>
@@ -725,7 +698,7 @@ export default function KnowledgeBasePage() {
                       ]}
                     />
                   </div>
-                  <button
+                  <SurfaceButton
                     onClick={handleSearch}
                     disabled={isSearching || !searchQuery.trim()}
                     className="flex items-center gap-2 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm shadow-blue-500/20 transition-all hover:shadow-md active:scale-[0.97] disabled:opacity-50"
@@ -736,7 +709,7 @@ export default function KnowledgeBasePage() {
                       <Play size={16} />
                     )}
                     {t('common:search')}
-                  </button>
+                  </SurfaceButton>
                 </div>
               </Card>
 
@@ -843,12 +816,12 @@ function ChunkDetailModal({
             <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
               {t('kb.chunkCount', { n: chunks.length })}
             </span>
-            <button
+            <SurfaceButton
               onClick={onClose}
               className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06]"
             >
               <X size={16} />
-            </button>
+            </SurfaceButton>
           </div>
         </div>
 
@@ -874,7 +847,7 @@ function ChunkDetailModal({
                     padded={false}
                     className="transition-all"
                   >
-                    <button
+                    <SurfaceButton
                       onClick={() => setExpandedChunkId(isExpanded ? null : chunk.id)}
                       className="flex w-full items-center gap-3 px-4 py-3 text-left"
                     >
@@ -905,7 +878,7 @@ function ChunkDetailModal({
                         )}
                         <ChevronDown size={14} className={`text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
                       </div>
-                    </button>
+                    </SurfaceButton>
 
                     {isExpanded && (
                       <div className="border-t border-gray-100 px-4 py-3 dark:border-white/[0.06]">

@@ -6,6 +6,7 @@ import { FileText, Loader2, SearchX } from 'lucide-react'
 import type { INoteSearchResult } from '../types'
 import { uiLocale } from '../utils/locale'
 import { highlightSearchMatches, plainSearchSnippet } from '../utils/searchHighlight'
+import { SurfaceButton } from './ui'
 
 /**
  * 笔记搜索的结果列表（笔记页树/列表、回收站共用）：
@@ -80,19 +81,13 @@ export default function NoteSearchResults({
           const isSelected = r.id === selectedNoteId
           const snippet = r.contentSnippet ? plainSearchSnippet(r.contentSnippet) : ''
           return (
-            <button
+            <SurfaceButton
               key={r.id}
               ref={(el) => { itemRefs.current[index] = el }}
-              type="button"
+              variant="row"
+              selected={isActive || isSelected}
               onClick={() => onOpen(r.id)}
               onMouseEnter={() => onHover(index)}
-              className={`w-full rounded-xl border px-2.5 py-2 text-left transition-colors ${
-                isActive
-                  ? 'border-blue-100/80 bg-blue-50/70 dark:border-blue-400/10 dark:bg-blue-500/[0.08]'
-                  : isSelected
-                    ? 'border-transparent bg-gray-50 dark:bg-white/[0.05]'
-                    : 'border-transparent hover:bg-gray-50/80 dark:hover:bg-white/[0.04]'
-              }`}
             >
               <div className="flex items-center gap-1.5">
                 <FileText size={12} className="shrink-0 text-gray-400 dark:text-gray-500" />
@@ -108,7 +103,7 @@ export default function NoteSearchResults({
                   {highlightSearchMatches(snippet, keyword)}
                 </p>
               )}
-            </button>
+            </SurfaceButton>
           )
         })}
       </div>

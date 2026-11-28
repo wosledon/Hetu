@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Brain, ChevronDown, ChevronRight, Database, Globe2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { SurfaceButton } from './ui'
 
 export type RetrievalResultKind = 'web' | 'knowledge' | 'memory'
 
@@ -51,7 +52,7 @@ export default function RetrievalResultCard({ kind, results }: RetrievalResultCa
 
   return (
     <div className="mt-1 min-w-0">
-      <button
+      <SurfaceButton
         type="button"
         onClick={() => setOpen(!open)}
         aria-expanded={open}
@@ -67,7 +68,7 @@ export default function RetrievalResultCard({ kind, results }: RetrievalResultCa
           {t(config.label)} · {results.length}
         </span>
         {preview && <span className="min-w-0 flex-1 truncate text-[11px] text-gray-400 dark:text-gray-500" title={preview}>{preview}</span>}
-      </button>
+      </SurfaceButton>
       {open && (
         <div className="ml-5 max-h-56 space-y-1 overflow-y-auto border-l border-gray-200/80 py-1 pl-3 dark:border-white/[0.08]">
           {results.map((result, index) => {

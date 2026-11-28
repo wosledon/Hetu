@@ -10,7 +10,7 @@ import type { IWorkflow } from '../types/workflow'
 import type { IPromptPreset } from '../types'
 import WorkflowEditor from '../components/workflow/WorkflowEditor'
 import RunDialog from '../components/workflow/RunDialog'
-import { Button, Card, IconButton, PageContainer } from '../components/ui'
+import { Button, Card, IconButton, PageContainer, SurfaceButton } from '../components/ui'
 
 const AVAILABLE_TOOLS = [
   'search_notes',
@@ -193,13 +193,14 @@ export default function WorkflowsPage() {
                 {workflows.map((wf) => (
                   <Card
                     key={wf.id}
-                    className="group flex min-h-[190px] flex-col border-gray-200/70 bg-white/70 p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-blue-200/70 hover:shadow-md dark:border-white/[0.07] dark:bg-slate-900/35 dark:hover:border-blue-400/20"
+                    interactive
+                    className="group flex min-h-[190px] flex-col p-4"
                   >
                     <div className="mb-2 flex items-start justify-between">
                       <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 dark:bg-blue-500/10">
                         <WorkflowIcon size={18} className="text-blue-500" />
                       </div>
-                      <button
+                      <SurfaceButton
                         onClick={(e) => { e.stopPropagation(); toggleMut.mutate(wf) }}
                         disabled={toggleMut.isPending}
                         title={wf.isEnabled ? t('page.clickToDisable') : t('page.clickToEnable')}
@@ -207,7 +208,7 @@ export default function WorkflowsPage() {
                       >
                         <span className={`h-1.5 w-1.5 rounded-full ${wf.isEnabled ? 'bg-green-500' : 'bg-gray-400'}`} />
                         {wf.isEnabled ? t('common:enable') : t('common:disable')}
-                      </button>
+                      </SurfaceButton>
                     </div>
                     <h3 className="truncate text-sm font-semibold text-gray-800 dark:text-gray-100">{wf.name}</h3>
                     <p className="mt-1.5 line-clamp-2 min-h-10 text-xs leading-5 text-gray-600 dark:text-gray-300">{wf.description || t('page.noDescription')}</p>

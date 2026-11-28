@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { CornerDownRight, ListEnd, X } from 'lucide-react'
-import { IconButton } from '../ui'
+import { IconButton, SurfaceButton } from '../ui'
 
 /** 队列里的一条待发送消息 */
 export interface PendingMessage {
@@ -43,7 +43,7 @@ export default function AgentQueueBar({ items, steeringId, onSteer, onRemove }: 
             className="flex items-center gap-2 rounded-xl border border-sky-100/70 bg-white/65 px-2.5 py-2 text-[12px] text-gray-700 dark:border-sky-400/10 dark:bg-gray-900/40 dark:text-gray-200"
           >
             <span className="min-w-0 flex-1 truncate" title={item.content}>{item.content}</span>
-            <button
+            <SurfaceButton
               onClick={() => onSteer(item)}
               disabled={steeringId === item.id}
               title={t('queue.steerHint')}
@@ -51,7 +51,7 @@ export default function AgentQueueBar({ items, steeringId, onSteer, onRemove }: 
             >
               <CornerDownRight size={11} />
               {t('queue.steer')}
-            </button>
+            </SurfaceButton>
             <IconButton variant="ghost" tone="gray" className="shrink-0 rounded-md p-0.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06]" label={t('queue.remove')} onClick={() => onRemove(item)}
               title={t('queue.remove')}
               aria-label={t('queue.remove')}>

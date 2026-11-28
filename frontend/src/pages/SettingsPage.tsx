@@ -23,7 +23,7 @@ import { applyLanguage } from '../i18n'
 import { DEFAULT_DYNAMIC_NAV_ITEMS, DEFAULT_FIXED_NAV_ITEMS, reorderNavPaths, resolveNavItems, sanitizeNavPaths, type NavItem } from '../utils/navItems'
 import { recoverableQueryOptions } from '../utils/queryClient'
 import type { IAppSettingsSnapshot } from '../types'
-import { Button, Card, Input, PageContainer, Textarea } from '../components/ui'
+import { Button, Card, Input, PageContainer, Switch, Textarea, SurfaceButton } from '../components/ui'
 
 type Theme = 'light' | 'dark' | 'system'
 type SettingsSection = 'app' | 'appearance' | 'navigation' | 'models' | 'ai' | 'database' | 'trash' | 'workspace' | 'cost' | 'memory' | 'about'
@@ -320,19 +320,19 @@ export default function SettingsPage() {
           </div>
 
           <div className="flex flex-col gap-5 lg:flex-row lg:gap-6">
-            <aside className="hidden w-60 shrink-0 lg:block">
-              <Card plain padded={false} className="sticky top-8 border-gray-200 bg-white shadow-sm dark:border-white/10 dark:bg-gray-900">
+            <aside className="hidden w-64 shrink-0 lg:block">
+              <Card padded={false} className="sticky top-8">
               <SlidingPill
                 value={activeSection}
                 orientation="vertical"
-                className="flex-col rounded-2xl p-1.5"
-                pillClassName="rounded-xl bg-blue-50/80 shadow-sm shadow-blue-500/5 dark:bg-blue-950/30 dark:shadow-blue-500/10"
+                className="flex-col p-1.5"
+                pillClassName="bg-blue-50/80 dark:bg-blue-950/30"
               >
                 {settingsSections.map((item) => {
                   const Icon = item.icon
                   const isActive = activeSection === item.key
                   return (
-                    <button
+                    <SurfaceButton
                       key={item.key}
                       type="button"
                       data-pill-key={item.key}
@@ -366,7 +366,7 @@ export default function SettingsPage() {
                         </div>
                       </div>
                       {isActive && <ChevronRight size={14} className="text-blue-400 dark:text-blue-300" />}
-                    </button>
+                    </SurfaceButton>
                   )
                 })}
               </SlidingPill>
@@ -375,7 +375,7 @@ export default function SettingsPage() {
 
             {/* Content Area */}
             <div className="min-w-0 flex-1">
-              <Card key={activeSection} plain className="animate-section border-gray-200 bg-white p-5 shadow-sm sm:p-7 dark:border-white/10 dark:bg-gray-900">
+              <Card key={activeSection} className="animate-section p-5 sm:p-7">
                 {activeSection === 'app' && <AppSettingsSection
                   appName={appName}
                   assistantName={assistantName}
@@ -571,7 +571,7 @@ function AppSettingsSection({
           {languageOptions.map((opt) => {
             const isActive = language === opt.key
             return (
-              <button
+              <SurfaceButton
                 key={opt.key}
                 type="button"
                 aria-pressed={isActive}
@@ -596,7 +596,7 @@ function AppSettingsSection({
                   <div className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{t(opt.descKey)}</div>
                 </div>
                 {isActive && <span className="shrink-0 text-xs font-medium text-blue-600 dark:text-blue-300">{t('app.current')}</span>}
-              </button>
+              </SurfaceButton>
             )
           })}
         </div>
@@ -616,20 +616,11 @@ function AppSettingsSection({
               {t('app.closeToTrayHint')}
             </p>
           </div>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={snapshot?.closeToTray !== 'false'}
-            aria-label={t('app.closeToTray')}
-            onClick={() => onSettingChange('CloseToTray', snapshot?.closeToTray === 'false' ? 'true' : 'false')}
-            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:ring-offset-2 dark:focus:ring-offset-gray-900 ${
-              snapshot?.closeToTray !== 'false' ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-700'
-            }`}
-          >
-            <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition duration-200 ${
-              snapshot?.closeToTray !== 'false' ? 'translate-x-5' : 'translate-x-0.5'
-            }`} style={{ marginTop: '2px' }} />
-          </button>
+          <Switch
+            checked={snapshot?.closeToTray !== 'false'}
+            onChange={(value) => onSettingChange('CloseToTray', value ? 'true' : 'false')}
+            label={t('app.closeToTray')}
+          />
         </div>
       </div>
     </div>
@@ -691,12 +682,12 @@ function AppearanceSettingsSection({
             const Icon = opt.icon
             const isActive = theme === opt.key
             return (
-              <button
+              <SurfaceButton
                 key={opt.key}
                 onClick={() => onThemeChange(opt.key)}
-                className={`group relative flex flex-col items-center gap-2 rounded-xl border-2 px-4 py-4 transition-all duration-200 ${
+                className={`group relative flex flex-col items-center gap-2 rounded-xl border px-4 py-4 transition-all duration-200 ${
                   isActive
-                    ? 'border-blue-500 bg-blue-50/60 shadow-sm shadow-blue-500/10 dark:border-blue-400/60 dark:bg-blue-950/30'
+                    ? 'border-blue-500 bg-blue-50/60  dark:border-blue-400/60 dark:bg-blue-950/30'
                     : 'border-gray-200/80 hover:border-blue-200 hover:bg-blue-50/60 dark:border-white/[0.08] dark:hover:border-blue-500/30 dark:hover:bg-blue-950/20'
                 }`}
               >
@@ -718,7 +709,7 @@ function AppearanceSettingsSection({
                     {t('app.current')}
                   </div>
                 )}
-              </button>
+              </SurfaceButton>
             )
           })}
         </div>
@@ -734,12 +725,12 @@ function AppearanceSettingsSection({
           {ACCENT_PRESETS.map((preset) => {
             const isActive = accent === preset.key
             return (
-              <button
+              <SurfaceButton
                 key={preset.key}
                 onClick={() => onAccentChange(preset.key)}
-                className={`group flex flex-col items-center gap-2 rounded-xl border-2 px-3 py-3.5 transition-all duration-200 ${
+                className={`group flex flex-col items-center gap-2 rounded-xl border px-3 py-3.5 transition-all duration-200 ${
                   isActive
-                    ? 'border-blue-500 bg-blue-50/60 shadow-sm shadow-blue-500/10 dark:border-blue-400/60 dark:bg-blue-950/30'
+                    ? 'border-blue-500 bg-blue-50/60  dark:border-blue-400/60 dark:bg-blue-950/30'
                     : 'border-gray-200/80 hover:border-blue-200 hover:bg-blue-50/60 dark:border-white/[0.08] dark:hover:border-blue-500/30 dark:hover:bg-blue-950/20'
                 }`}
               >
@@ -750,7 +741,7 @@ function AppearanceSettingsSection({
                 <span className={`text-xs font-medium ${isActive ? 'text-blue-700 dark:text-blue-200' : 'text-gray-600 dark:text-gray-300'}`}>
                   {t(`appearance.accent.${preset.key}`)}
                 </span>
-              </button>
+              </SurfaceButton>
             )
           })}
         </div>
@@ -766,12 +757,12 @@ function AppearanceSettingsSection({
           {BACKGROUND_PRESETS.map((preset) => {
             const isActive = background === preset.key
             return (
-              <button
+              <SurfaceButton
                 key={preset.key}
                 onClick={() => onBackgroundChange(preset.key)}
-                className={`group flex flex-col items-center gap-2 rounded-xl border-2 p-1.5 transition-all duration-200 ${
+                className={`group flex flex-col items-center gap-2 rounded-xl border p-1.5 transition-all duration-200 ${
                   isActive
-                    ? 'border-blue-500 shadow-sm shadow-blue-500/10 dark:border-blue-400/60'
+                    ? 'border-blue-500  dark:border-blue-400/60'
                     : 'border-gray-200/80 hover:border-gray-300 dark:border-white/[0.08] dark:hover:border-white/10'
                 }`}
               >
@@ -782,7 +773,7 @@ function AppearanceSettingsSection({
                 <span className={`text-xs font-medium ${isActive ? 'text-blue-700 dark:text-blue-200' : 'text-gray-600 dark:text-gray-300'}`}>
                   {t(`appearance.background.${preset.key}`)}
                 </span>
-              </button>
+              </SurfaceButton>
             )
           })}
         </div>
@@ -800,7 +791,7 @@ function AppearanceSettingsSection({
             <label className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('appearance.glassLabel')}</label>
             <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">{t('appearance.glassHint')}</p>
           </div>
-          <button
+          <SurfaceButton
             onClick={() => onGlassChange(!glass)}
             className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:ring-offset-2 dark:focus:ring-offset-gray-900 ${
               glass ? 'bg-blue-500' : 'bg-gray-300 dark:bg-gray-600'
@@ -809,7 +800,7 @@ function AppearanceSettingsSection({
             <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition duration-200 ${
               glass ? 'translate-x-5' : 'translate-x-0.5'
             }`} style={{ marginTop: '2px' }} />
-          </button>
+          </SurfaceButton>
         </div>
       </div>
 
@@ -823,12 +814,12 @@ function AppearanceSettingsSection({
           {tooltipStyleOptions.map((opt) => {
             const isActive = tooltipStyle === opt.key
             return (
-              <button
+              <SurfaceButton
                 key={opt.key}
                 onClick={() => setTooltipStyle(opt.key)}
-                className={`group flex flex-col items-center gap-2 rounded-xl border-2 px-3 py-3.5 transition-all duration-200 ${
+                className={`group flex flex-col items-center gap-2 rounded-xl border px-3 py-3.5 transition-all duration-200 ${
                   isActive
-                    ? 'border-blue-500 bg-blue-50/60 shadow-sm shadow-blue-500/10 dark:border-blue-400/60 dark:bg-blue-950/30'
+                    ? 'border-blue-500 bg-blue-50/60  dark:border-blue-400/60 dark:bg-blue-950/30'
                     : 'border-gray-200/80 hover:border-blue-200 hover:bg-blue-50/60 dark:border-white/[0.08] dark:hover:border-blue-500/30 dark:hover:bg-blue-950/20'
                 }`}
               >
@@ -839,7 +830,7 @@ function AppearanceSettingsSection({
                   {t(opt.labelKey)}
                 </span>
                 <span className="text-center text-[11px] text-gray-400 dark:text-gray-500">{t(opt.descKey)}</span>
-              </button>
+              </SurfaceButton>
             )
           })}
         </div>
@@ -849,7 +840,7 @@ function AppearanceSettingsSection({
             const Icon = opt.icon
             const isActive = tooltipSide === opt.key
             return (
-              <button
+              <SurfaceButton
                 key={opt.key}
                 onClick={() => setTooltipSide(opt.key)}
                 className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs transition-all ${
@@ -860,7 +851,7 @@ function AppearanceSettingsSection({
               >
                 <Icon size={12} />
                 {t(opt.labelKey)}
-              </button>
+              </SurfaceButton>
             )
           })}
         </div>
@@ -877,12 +868,12 @@ function AppearanceSettingsSection({
           {FONT_FAMILY_PRESETS.map((preset) => {
             const isActive = fontFamily === preset.key
             return (
-              <button
+              <SurfaceButton
                 key={preset.key}
                 onClick={() => onFontFamilyChange(preset.key)}
-                className={`group flex flex-col items-center gap-2 rounded-xl border-2 px-3 py-4 transition-all duration-200 ${
+                className={`group flex flex-col items-center gap-2 rounded-xl border px-3 py-4 transition-all duration-200 ${
                   isActive
-                    ? 'border-blue-500 bg-blue-50/60 shadow-sm shadow-blue-500/10 dark:border-blue-400/60 dark:bg-blue-950/30'
+                    ? 'border-blue-500 bg-blue-50/60  dark:border-blue-400/60 dark:bg-blue-950/30'
                     : 'border-gray-200/80 hover:border-blue-200 hover:bg-blue-50/60 dark:border-white/[0.08] dark:hover:border-blue-500/30 dark:hover:bg-blue-950/20'
                 }`}
               >
@@ -896,7 +887,7 @@ function AppearanceSettingsSection({
                   {t(`appearance.fontFamily.${preset.key}`)}
                 </span>
                 <span className="text-[11px] text-gray-400 dark:text-gray-500">{t(`appearance.fontFamilyDesc.${preset.key}`)}</span>
-              </button>
+              </SurfaceButton>
             )
           })}
         </div>
@@ -913,12 +904,12 @@ function AppearanceSettingsSection({
           {FONT_SIZE_PRESETS.map((size) => {
             const isActive = fontSize === size
             return (
-              <button
+              <SurfaceButton
                 key={size}
                 onClick={() => onFontSizeChange(size)}
-                className={`group flex flex-col items-center gap-1.5 rounded-xl border-2 px-3 py-4 transition-all duration-200 ${
+                className={`group flex flex-col items-center gap-1.5 rounded-xl border px-3 py-4 transition-all duration-200 ${
                   isActive
-                    ? 'border-blue-500 bg-blue-50/60 shadow-sm shadow-blue-500/10 dark:border-blue-400/60 dark:bg-blue-950/30'
+                    ? 'border-blue-500 bg-blue-50/60  dark:border-blue-400/60 dark:bg-blue-950/30'
                     : 'border-gray-200/80 hover:border-blue-200 hover:bg-blue-50/60 dark:border-white/[0.08] dark:hover:border-blue-500/30 dark:hover:bg-blue-950/20'
                 }`}
               >
@@ -928,7 +919,7 @@ function AppearanceSettingsSection({
                 <span className={`text-xs font-medium ${isActive ? 'text-blue-700 dark:text-blue-200' : 'text-gray-600 dark:text-gray-300'}`}>
                   {t(`appearance.fontSize.${fontSizeLabels[size]}`)}
                 </span>
-              </button>
+              </SurfaceButton>
             )
           })}
         </div>
@@ -945,12 +936,12 @@ function AppearanceSettingsSection({
           {UI_ZOOM_PRESETS.map((zoom) => {
             const isActive = uiZoom === zoom
             return (
-              <button
+              <SurfaceButton
                 key={zoom}
                 onClick={() => onUiZoomChange(zoom)}
-                className={`flex flex-col items-center gap-1.5 rounded-xl border-2 px-3 py-4 transition-all duration-200 ${
+                className={`flex flex-col items-center gap-1.5 rounded-xl border px-3 py-4 transition-all duration-200 ${
                   isActive
-                    ? 'border-blue-500 bg-blue-50/60 shadow-sm shadow-blue-500/10 dark:border-blue-400/60 dark:bg-blue-950/30'
+                    ? 'border-blue-500 bg-blue-50/60  dark:border-blue-400/60 dark:bg-blue-950/30'
                     : 'border-gray-200/80 hover:border-blue-200 hover:bg-blue-50/60 dark:border-white/[0.08] dark:hover:border-blue-500/30 dark:hover:bg-blue-950/20'
                 }`}
               >
@@ -960,7 +951,7 @@ function AppearanceSettingsSection({
                 {zoom === 100 && (
                   <span className="text-[11px] text-gray-400 dark:text-gray-500">{t('appearance.zoomDefault')}</span>
                 )}
-              </button>
+              </SurfaceButton>
             )
           })}
         </div>
@@ -1085,12 +1076,12 @@ function NavigationSettingsSection({
             const Icon = opt.icon
             const isActive = navStyle === opt.key
             return (
-              <button
+              <SurfaceButton
                 key={opt.key}
                 onClick={() => onNavStyleChange(opt.key)}
-                className={`group relative flex items-center gap-3 rounded-xl border-2 px-4 py-3.5 transition-all duration-200 ${
+                className={`group relative flex items-center gap-3 rounded-xl border px-4 py-3.5 transition-all duration-200 ${
                   isActive
-                    ? 'border-blue-500 bg-blue-50/60 shadow-sm shadow-blue-500/10 dark:border-blue-400/60 dark:bg-blue-950/30'
+                    ? 'border-blue-500 bg-blue-50/60  dark:border-blue-400/60 dark:bg-blue-950/30'
                     : 'border-gray-200/80 hover:border-blue-200 hover:bg-blue-50/60 dark:border-white/[0.08] dark:hover:border-blue-500/30 dark:hover:bg-blue-950/20'
                 }`}
               >
@@ -1112,7 +1103,7 @@ function NavigationSettingsSection({
                     {t('app.current')}
                   </div>
                 )}
-              </button>
+              </SurfaceButton>
             )
           })}
         </div>
@@ -1127,12 +1118,12 @@ function NavigationSettingsSection({
             const Icon = opt.icon
             const isActive = secondaryMenuStyle === opt.key
             return (
-              <button
+              <SurfaceButton
                 key={opt.key}
                 onClick={() => onMenuStyleChange(opt.key)}
-                className={`group relative flex items-center gap-3 rounded-xl border-2 px-4 py-3.5 transition-all duration-200 ${
+                className={`group relative flex items-center gap-3 rounded-xl border px-4 py-3.5 transition-all duration-200 ${
                   isActive
-                    ? 'border-blue-500 bg-blue-50/60 shadow-sm shadow-blue-500/10 dark:border-blue-400/60 dark:bg-blue-950/30'
+                    ? 'border-blue-500 bg-blue-50/60  dark:border-blue-400/60 dark:bg-blue-950/30'
                     : 'border-gray-200/80 hover:border-blue-200 hover:bg-blue-50/60 dark:border-white/[0.08] dark:hover:border-blue-500/30 dark:hover:bg-blue-950/20'
                 }`}
               >
@@ -1154,7 +1145,7 @@ function NavigationSettingsSection({
                     {t('app.current')}
                   </div>
                 )}
-              </button>
+              </SurfaceButton>
             )
           })}
         </div>
@@ -1316,16 +1307,16 @@ function NavZoneRow({
       <span className="min-w-0 flex-1 truncate text-sm text-gray-700 dark:text-gray-300">{t(item.labelKey)}</span>
 
       {/* 跨区移动的键盘/点击替代：不依赖拖拽也能调整归属 */}
-      <button
+      <SurfaceButton
         onClick={() => onMove(item.path, zone)}
         title={t(zone === 'fixed' ? 'navigation.moveToDynamic' : 'navigation.moveToFixed')}
         className="rounded p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-blue-600 dark:hover:bg-white/[0.06] dark:hover:text-blue-400"
       >
         {zone === 'fixed' ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
-      </button>
+      </SurfaceButton>
 
       {zone === 'dynamic' && onToggle && (
-        <button
+        <SurfaceButton
           onClick={() => onToggle(item.path)}
           className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:ring-offset-2 dark:focus:ring-offset-gray-900 ${
             isPinned ? 'bg-blue-500' : 'bg-gray-300 glass dark:bg-gray-600'
@@ -1337,7 +1328,7 @@ function NavZoneRow({
             }`}
             style={{ marginTop: '2px' }}
           />
-        </button>
+        </SurfaceButton>
       )}
     </div>
   )
@@ -1433,7 +1424,7 @@ function DefaultModelsSection({
               {t('models.graphAutoExtractHint')}
             </p>
           </div>
-          <button
+          <SurfaceButton
             onClick={() => onSettingChange('GraphAutoExtract', snapshot?.graphAutoExtract === 'true' ? 'false' : 'true')}
             className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:ring-offset-2 dark:focus:ring-offset-gray-900 ${
               snapshot?.graphAutoExtract === 'true' ? 'bg-blue-500' : 'bg-gray-300 glass dark:bg-gray-600'
@@ -1442,7 +1433,7 @@ function DefaultModelsSection({
             <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition duration-200 ${
               snapshot?.graphAutoExtract === 'true' ? 'translate-x-5' : 'translate-x-0.5'
             }`} style={{ marginTop: '2px' }} />
-          </button>
+          </SurfaceButton>
         </div>
         <p className="mt-3 text-xs text-gray-400 dark:text-gray-500">
           {t('models.graphManualPrefix')}{' '}
@@ -1466,7 +1457,7 @@ function DefaultModelsSection({
               {t('models.autoEmbeddingHint')}
             </p>
           </div>
-          <button
+          <SurfaceButton
             onClick={() => onSettingChange('AutoEmbedding', snapshot?.autoEmbedding === 'true' ? 'false' : 'true')}
             className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:ring-offset-2 dark:focus:ring-offset-gray-900 ${
               snapshot?.autoEmbedding === 'true' ? 'bg-blue-500' : 'bg-gray-300 glass dark:bg-gray-600'
@@ -1475,7 +1466,7 @@ function DefaultModelsSection({
             <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition duration-200 ${
               snapshot?.autoEmbedding === 'true' ? 'translate-x-5' : 'translate-x-0.5'
             }`} style={{ marginTop: '2px' }} />
-          </button>
+          </SurfaceButton>
         </div>
       </div>
 

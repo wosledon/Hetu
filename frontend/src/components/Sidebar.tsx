@@ -21,15 +21,15 @@ export default function Sidebar() {
   const totalNotes = notesPaged?.totalCount ?? 0
 
   return (
-    <aside className="flex h-full min-h-0 w-full flex-col">
+    <aside className="flex h-full min-h-0 w-64 shrink-0 flex-col bg-white/35 dark:bg-slate-950/20">
       <div className="flex min-h-0 flex-1 flex-col">
         <NotesTree
           embedded
           onSelectNote={(note) => setSelectedNoteId(note.id)}
         />
       </div>
-      <div className="shrink-0 border-t border-gray-100 px-4 py-2.5 dark:border-gray-800/50">
-        <div className="flex items-center gap-2 text-[11px] text-gray-400 dark:text-gray-500">
+      <div className="shrink-0 border-t border-gray-200/80 px-3.5 py-2 text-[11px] text-gray-400 dark:border-white/[0.07] dark:text-gray-500">
+        <div className="flex items-center gap-2">
           <span className="flex items-center gap-1">
             <FileText size={11} />
             {t('sidebar.notesCount', { n: totalNotes })}

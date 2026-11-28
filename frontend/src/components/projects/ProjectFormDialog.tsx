@@ -2,11 +2,10 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import {
-  AlertCircle, Check, ChevronRight, CornerLeftUp, Folder, FolderOpen, HardDrive, Loader2, Server, Wifi, X,
-} from 'lucide-react'
+  AlertCircle, Check, ChevronRight, CornerLeftUp, Folder, FolderOpen, HardDrive, Loader2, Server, Wifi, X, } from 'lucide-react'
 import { workSshService, workBrowseService } from '../../services/workService'
 import Select from '../Select'
-import { Button, IconButton, Input, Modal, PillTabs } from '../ui'
+import { Button, IconButton, Input, Modal, PillTabs, SurfaceButton } from '../ui'
 import type { IDirListing } from '../../services/workService'
 import type { IManagedProject, IProjectGroup, ICreateProjectRequest, IUpdateProjectRequest } from '../../types/project'
 
@@ -81,7 +80,7 @@ function DirBrowser({
           <div className="px-2.5 py-3 text-[12px] text-red-500">{(listing.error as Error)?.message || t('browser.readFailed')}</div>
         )}
         {data?.entries.filter((e) => e.isDirectory).map((entry) => (
-          <button
+          <SurfaceButton
             key={entry.name}
             onClick={() => setPath(joinDirPath(data.current, entry.name))}
             className="flex w-full items-center gap-1.5 px-2.5 py-1.5 text-left text-[12px] text-gray-700 hover:bg-blue-50 dark:text-gray-300 dark:hover:bg-blue-950/30"
@@ -89,7 +88,7 @@ function DirBrowser({
             <Folder size={12} className="shrink-0 text-blue-400" />
             <span className="truncate">{entry.name}</span>
             <ChevronRight size={11} className="ml-auto shrink-0 text-gray-400" />
-          </button>
+          </SurfaceButton>
         ))}
         {data && data.entries.filter((e) => e.isDirectory).length === 0 && !listing.isLoading && (
           <div className="px-2.5 py-3 text-[12px] text-gray-400">{t('browser.empty')}</div>
@@ -197,7 +196,7 @@ export default function ProjectFormDialog({
 
         <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4 dark:border-gray-800">
           <h3 className="text-base font-semibold text-gray-800 dark:text-gray-100">{isEdit ? t('form.editTitle') : t('form.createTitle')}</h3>
-          <button onClick={onClose} className="rounded-md p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"><X size={16} /></button>
+          <SurfaceButton onClick={onClose} className="rounded-md p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"><X size={16} /></SurfaceButton>
         </div>
         <div className="space-y-4 px-5 py-4">
           {/* 类型切换 */}
@@ -449,13 +448,13 @@ export default function ProjectFormDialog({
         </div>
         <div className="flex justify-end gap-2 border-t border-gray-100 px-5 py-4 dark:border-gray-800">
           <Button variant="ghost" tone="gray" className="rounded-lg px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800" onClick={onClose}>{t('common:cancel')}</Button>
-          <button
+          <SurfaceButton
             onClick={handleSubmit}
             disabled={pending}
             className="rounded-lg bg-gradient-to-r from-blue-500 to-indigo-600 px-5 py-2 text-sm font-medium text-white shadow-sm shadow-blue-500/20 transition-all hover:shadow-md active:scale-[0.97] disabled:opacity-50"
           >
             {pending ? t('form.saving') : isEdit ? t('common:save') : t('common:create')}
-          </button>
+          </SurfaceButton>
         </div>
 </Modal>
   )

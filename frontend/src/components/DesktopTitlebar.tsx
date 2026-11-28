@@ -4,6 +4,7 @@ import { PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useUIStore } from '../stores/uiStore'
 import { WindowControls } from './WindowControls'
+import { SurfaceButton } from './ui'
 
 export default function DesktopTitlebar() {
   const { t } = useTranslation()
@@ -26,7 +27,7 @@ export default function DesktopTitlebar() {
     <header className="desktop-titlebar flex h-9 shrink-0 select-none items-center border-b border-gray-200/70 bg-white/80 dark:border-white/[0.07] dark:bg-gray-900/80">
       <div className="flex h-full shrink-0 items-center px-2">
         {navStyle === 'verticalList' && (
-          <button
+          <SurfaceButton
             type="button"
             aria-label={t(navCollapsed ? 'nav:expandNav' : 'nav:collapseNav')}
             title={t(navCollapsed ? 'nav:expandNav' : 'nav:collapseNav')}
@@ -34,7 +35,7 @@ export default function DesktopTitlebar() {
             onClick={toggleNav}
           >
             {navCollapsed ? <PanelLeftOpen size={15} /> : <PanelLeftClose size={15} />}
-          </button>
+          </SurfaceButton>
         )}
       </div>
       <div

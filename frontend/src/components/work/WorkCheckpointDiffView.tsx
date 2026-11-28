@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { FilePlus, FileX, PenLine, FileCode, TriangleAlert } from 'lucide-react'
 import type { IWorkCheckpointDiff, IWorkFileChange } from '../../types/work'
 import WorkDiffView from './WorkDiffView'
+import { SurfaceButton } from '../ui'
 
 interface WorkCheckpointDiffViewProps {
   diff: IWorkCheckpointDiff
@@ -40,7 +41,7 @@ export default function WorkCheckpointDiffView({ diff, onRevertFile, actionPendi
 
   return (
     <div className="flex h-full min-h-0">
-      <div className="flex w-56 shrink-0 flex-col border-r border-gray-100 dark:border-gray-800">
+      <div className="flex w-64 shrink-0 flex-col border-r border-gray-100 dark:border-gray-800">
         <div className="shrink-0 border-b border-gray-100 px-2 py-1.5 text-[11px] text-gray-500 dark:border-gray-800">
           <div className="truncate font-medium text-gray-700 dark:text-gray-200">{diff.label}</div>
           <div className="text-[10px] text-gray-400">
@@ -53,7 +54,7 @@ export default function WorkCheckpointDiffView({ diff, onRevertFile, actionPendi
           {diff.files.map((f, i) => {
             const meta = ACTION_META[f.action] ?? ACTION_META.write
             return (
-              <button
+              <SurfaceButton
                 key={f.path}
                 onClick={() => setSelected(i)}
                 title={f.note}
@@ -62,7 +63,7 @@ export default function WorkCheckpointDiffView({ diff, onRevertFile, actionPendi
                 {meta.icon}
                 <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-gray-700 dark:text-gray-200">{f.path}</span>
                 <span className={`shrink-0 text-[10px] ${meta.text}`}>{t(meta.labelKey)}</span>
-              </button>
+              </SurfaceButton>
             )
           })}
         </div>

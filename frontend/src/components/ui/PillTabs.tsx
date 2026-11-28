@@ -23,7 +23,11 @@ export interface PillTabsProps {
 
 /** 标准胶囊按钮（全站唯一）：紧凑防挤压的 flex 项，纵向补满宽左对齐 */
 const ITEM_BASE =
-  'relative flex shrink-0 items-center gap-1.5 rounded-full px-4 py-1.5 text-[13px] font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed'
+  'relative flex shrink-0 items-center gap-1.5 px-4 py-1.5 text-[13px] font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed'
+const ITEM_RADIUS = {
+  horizontal: 'rounded-full',
+  vertical: 'rounded-xl',
+} as const
 const ITEM_ACTIVE = 'text-gray-800 dark:text-gray-100'
 const ITEM_IDLE = 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
 const ITEM_VERTICAL = 'w-full justify-start'
@@ -40,7 +44,7 @@ const PillTabs = ({
   className,
   trackId,
 }: PillTabsProps) => (
-  <SlidingPill value={value} orientation={orientation} className={className} trackId={trackId}>
+  <SlidingPill value={value} orientation={orientation} className={`${orientation === 'vertical' ? 'flex-col items-stretch' : ''} ${className ?? ''}`} trackId={trackId}>
     {items.map((item) => (
       <button
         key={item.key}
@@ -49,7 +53,7 @@ const PillTabs = ({
         title={item.title}
         disabled={item.disabled}
         onClick={() => onSelect(item.key)}
-        className={`${ITEM_BASE} ${orientation === 'vertical' ? ITEM_VERTICAL : ''} ${
+        className={`${ITEM_BASE} ${ITEM_RADIUS[orientation]} ${orientation === 'vertical' ? ITEM_VERTICAL : ''} ${
           value === item.key ? ITEM_ACTIVE : ITEM_IDLE
         }`}
       >

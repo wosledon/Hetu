@@ -13,7 +13,7 @@ import { useUIStore } from '../stores/uiStore'
 import i18n from '../i18n'
 import { formatDate, formatDateTime } from '../utils/locale'
 import type { IMemory, MemoryScope } from '../types'
-import { Button, Card, IconButton, Input, Modal, PageContainer, SearchInput, Textarea } from '../components/ui'
+import { Button, Card, IconButton, Input, Modal, PageContainer, SearchInput, Textarea, SurfaceButton, Slider } from '../components/ui'
 
 /** 作用域元数据：模拟记忆归属层级——全局公共 / 会话私有 / 项目内 */
 const SCOPE_META: Record<MemoryScope, { icon: typeof Globe; badge: string }> = {
@@ -209,8 +209,8 @@ function ringFor(stateKey: 'fresh' | 'fading' | 'dying', pal: SkyPalette): strin
 /** 生命周期状态 → 描边色由调色板给出（ringFor），此处不再单列常量 */
 
 /** 夜空底部筛选条的作用域按钮（选中态/待选态分别成串，避免灰字与彩色底同串出现） */
-const SKY_SCOPE_ACTIVE = 'flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-medium text-white transition-colors'
-const SKY_SCOPE_IDLE = 'flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-medium text-slate-500 transition-colors hover:bg-slate-900/[0.05] hover:text-slate-700 dark:text-slate-400 dark:hover:bg-white/[0.06] dark:hover:text-slate-200'
+const SKY_SCOPE_ACTIVE = 'flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[12px] font-medium text-white transition-colors'
+const SKY_SCOPE_IDLE = 'flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[12px] font-medium text-slate-500 transition-colors hover:bg-slate-900/[0.05] hover:text-slate-700 dark:text-slate-400 dark:hover:bg-white/[0.06] dark:hover:text-slate-200'
 
 interface SkyStar {
   memory: IMemory
@@ -895,48 +895,48 @@ export default function MemoriesPage() {
             {/* 右上：视图切换 + Dream 巩固 */}
             <div className="absolute right-6 top-6 flex flex-col items-end gap-2">
               <div className="flex items-center gap-2">
-                <SlidingPill value={view} className={`gap-0.5 rounded-lg p-0.5 ${pal.chipBox}`} pillClassName={`rounded-md ${pal.chipOnBg}`}>
-                  <button
+                <SlidingPill value={view} className={`gap-0.5 p-0.5 ${pal.chipBox}`} pillClassName={pal.chipOnBg}>
+                  <SurfaceButton
                     data-pill-key="sky"
                     onClick={() => setView('sky')}
-                    className={`relative flex items-center gap-1 rounded-md px-2.5 py-1.5 text-[12px] font-medium transition-colors ${pal.chipOn}`}
+                    className={`relative flex items-center gap-1 rounded-full px-2.5 py-1.5 text-[12px] font-medium transition-colors ${pal.chipOn}`}
                   >
                     <Sparkles size={12} />{t('memories.starMap')}
-                  </button>
-                  <button
+                  </SurfaceButton>
+                  <SurfaceButton
                     data-pill-key="list"
                     onClick={() => setView('list')}
-                    className={`relative flex items-center gap-1 rounded-md px-2.5 py-1.5 text-[12px] font-medium transition-colors ${pal.chipOff}`}
+                    className={`relative flex items-center gap-1 rounded-full px-2.5 py-1.5 text-[12px] font-medium transition-colors ${pal.chipOff}`}
                   >
                     <List size={12} />{t('memories.listView')}
-                  </button>
+                  </SurfaceButton>
                 </SlidingPill>
-                <SlidingPill value={animate ? 'drift' : 'static'} className={`gap-0.5 rounded-lg p-0.5 ${pal.chipBox}`} pillClassName="rounded-lg bg-teal-500/90">
-                  <button
+                <SlidingPill value={animate ? 'drift' : 'static'} className={`gap-0.5 p-0.5 ${pal.chipBox}`} pillClassName="bg-teal-500/90">
+                  <SurfaceButton
                     data-pill-key="drift"
                     onClick={() => setAnimate(true)}
                     className={`relative ${animate ? SKY_SCOPE_ACTIVE : SKY_SCOPE_IDLE}`}
                     title={t('memories.driftTitle')}
                   >
                     <Activity size={12} />{t('memories.drift')}
-                  </button>
-                  <button
+                  </SurfaceButton>
+                  <SurfaceButton
                     data-pill-key="static"
                     onClick={() => setAnimate(false)}
                     className={`relative ${animate ? SKY_SCOPE_IDLE : SKY_SCOPE_ACTIVE}`}
                     title={t('memories.staticTitle')}
                   >
                     <Pause size={12} />{t('memories.static')}
-                  </button>
+                  </SurfaceButton>
                 </SlidingPill>
-                <button
+                <SurfaceButton
                   onClick={() => skyRef.current?.fit()}
                   title={t('memories.fitTitle')}
                   className={`flex items-center gap-1 rounded-lg px-2.5 py-2 text-[12px] font-medium transition-opacity hover:opacity-80 ${pal.chipBox} ${pal.label}`}
                 >
                   <Crosshair size={13} />{t('memories.fit')}
-                </button>
-                <button
+                </SurfaceButton>
+                <SurfaceButton
                   onClick={() => dreamMutation.mutate()}
                   disabled={dreamMutation.isPending}
                   title={t('memories.dreamTitle')}
@@ -944,7 +944,7 @@ export default function MemoriesPage() {
                 >
                   {dreamMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <Moon size={14} />}
                   {dreamMutation.isPending ? t('memories.dreamRunning') : t('memories.dream')}
-                </button>
+                </SurfaceButton>
               </div>
               <p className={`text-[11px] ${pal.quiet}`}>
                 {dreamConfig?.enabled
@@ -958,14 +958,14 @@ export default function MemoriesPage() {
             {/* 底部浮动：作用域筛选 + 语义搜索。控件各自带亚克力材质（胶囊轨道 + 玻璃输入框），
                 不再外面套一层卡片——星空上多一个描边方块很违和 */}
             <div className="absolute bottom-5 left-1/2 flex max-w-[min(94%,46rem)] -translate-x-1/2 flex-wrap items-center justify-center gap-1.5">
-              <SlidingPill value={scopeFilter} className="gap-1.5" pillClassName="rounded-lg bg-teal-500/90">
+              <SlidingPill value={scopeFilter} className="gap-1.5" pillClassName="bg-teal-500/90">
                 {([
                   { key: 'all' as const, label: 'memories.scopeAll', count: allMemories.length },
                   { key: 'Global' as const, label: 'memories.scopeGlobal', count: scopeCounts.Global },
                   { key: 'Session' as const, label: 'memories.scopeSession', count: scopeCounts.Session },
                   { key: 'Project' as const, label: 'memories.scopeProject', count: scopeCounts.Project },
                 ]).map((tab) => (
-                  <button
+                  <SurfaceButton
                     key={tab.key}
                     data-pill-key={tab.key}
                     onClick={() => { setScopeFilter(tab.key); setActiveCategory(null) }}
@@ -976,7 +976,7 @@ export default function MemoriesPage() {
                     )}
                     {t(tab.label)}
                     <span className="text-[10px] opacity-70">{tab.count}</span>
-                  </button>
+                  </SurfaceButton>
                 ))}
               </SlidingPill>
               <div className="relative mx-1 w-56">
@@ -1061,7 +1061,7 @@ export default function MemoriesPage() {
               ]).map((tab) => {
                 const Icon = tab.icon
                 return (
-                  <button
+                  <SurfaceButton
                     key={tab.key}
                     onClick={() => { setScopeFilter(tab.key); setActiveCategory(null) }}
                     className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-medium transition-all ${filterPill(scopeFilter === tab.key)}`}
@@ -1069,31 +1069,31 @@ export default function MemoriesPage() {
                     <Icon size={13} />
                     {t(tab.label)}
                     <span className="text-[11px] opacity-70">{tab.count}</span>
-                  </button>
+                  </SurfaceButton>
                 )
               })}
             </div>
           </div>
 
           {/* 工具栏：分类筛选 + 排序 + 搜索 + 新建 */}
-          <div className="mb-6 flex flex-wrap items-center gap-3 rounded-2xl border border-gray-200/70 bg-white/45 p-2.5 dark:border-white/[0.07] dark:bg-white/[0.025]">
+          <div className="mb-6 flex flex-wrap items-center gap-3 rounded-2xl border border-gray-200/70 bg-white/70 glass glass-soft p-2.5 dark:border-white/[0.07] dark:bg-slate-900/35">
             <div className="flex flex-wrap items-center gap-1.5">
-              <button
+              <SurfaceButton
                 onClick={() => setActiveCategory(null)}
                 className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-medium transition-all ${filterPill(activeCategory === null)}`}
               >
                 {t('memories.scopeAll')}
                 <span className="text-[11px] opacity-70">{pagedData?.totalCount ?? 0}</span>
-              </button>
+              </SurfaceButton>
               {categories.map(([cat, count]) => (
-                <button
+                <SurfaceButton
                   key={cat}
                   onClick={() => setActiveCategory(activeCategory === cat ? null : cat)}
                   className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-medium transition-all ${filterPill(activeCategory === cat)}`}
                 >
                   {cat}
                   <span className="text-[11px] opacity-70">{count}</span>
-                </button>
+                </SurfaceButton>
               ))}
             </div>
             <div className="relative min-w-[180px] max-w-xs flex-1">
@@ -1119,13 +1119,13 @@ export default function MemoriesPage() {
                 />
               </div>
             )}
-            <button
+            <SurfaceButton
               onClick={() => setIsCreating(true)}
               className="flex shrink-0 items-center gap-1.5 rounded-full bg-gradient-to-r from-teal-500 to-cyan-600 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-teal-500/20 transition-all hover:shadow-md active:scale-[0.97]"
             >
               <Plus size={16} />
               {t('memories.newMemory')}
-            </button>
+            </SurfaceButton>
           </div>
 
           {/* 记忆列表（列表视图：高效操作模式） */}
@@ -1219,8 +1219,7 @@ export default function MemoriesPage() {
                         </div>
                         <div className="w-40">
                           <label className="mb-1 block text-xs text-gray-500 dark:text-gray-400">{t('memories.importance', { value: editImportance.toFixed(1) })}</label>
-                          <input
-                            type="range"
+                          <Slider
                             min={0.1}
                             max={1}
                             step={0.1}
@@ -1234,13 +1233,13 @@ export default function MemoriesPage() {
                         <Button variant="ghost" tone="gray" className="rounded-xl px-3 py-1.5 text-sm text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700" onClick={() => setEditingId(null)}>
                           {t('common:cancel')}
                         </Button>
-                        <button
+                        <SurfaceButton
                           onClick={() => handleUpdate(memory.id)}
                           className="flex items-center gap-1 rounded-xl bg-gradient-to-r from-teal-500 to-cyan-600 px-4 py-1.5 text-sm font-medium text-white shadow-sm shadow-teal-500/20 transition-all hover:shadow-md"
                         >
                           <Save size={14} />
                           {t('common:save')}
-                        </button>
+                        </SurfaceButton>
                       </div>
                     </div>
                   ) : (
@@ -1308,9 +1307,9 @@ export default function MemoriesPage() {
                 <Atom size={18} className="text-teal-500" />
                 <h3 className="text-base font-semibold text-gray-800 dark:text-gray-100">{t('memories.newMemory')}</h3>
               </div>
-              <button onClick={() => setIsCreating(false)} className="rounded-md p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800">
+              <SurfaceButton onClick={() => setIsCreating(false)} className="rounded-md p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800">
                 <X size={16} />
-              </button>
+              </SurfaceButton>
             </div>
             <div className="space-y-4 px-5 py-4">
               <div>
@@ -1367,8 +1366,7 @@ export default function MemoriesPage() {
                 <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
                   {t('memories.importance', { value: newImportance.toFixed(1) })}
                 </label>
-                <input
-                  type="range"
+                <Slider
                   min={0.1}
                   max={1}
                   step={0.1}
@@ -1382,13 +1380,13 @@ export default function MemoriesPage() {
               <Button variant="ghost" tone="gray" className="rounded-md p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800" onClick={() => setIsCreating(false)}>
                 {t('common:cancel')}
               </Button>
-              <button
+              <SurfaceButton
                 onClick={handleCreate}
                 disabled={!newContent.trim() || createMutation.isPending || (newScope === 'Project' && !newProjectId)}
                 className="rounded-lg bg-gradient-to-r from-teal-500 to-cyan-600 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-teal-500/20 transition-all hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {createMutation.isPending ? t('memories.saving') : t('common:save')}
-              </button>
+              </SurfaceButton>
             </div>
 </Modal>
       )}

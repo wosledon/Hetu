@@ -2,14 +2,12 @@ import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  BookOpen, Brain, Check, Edit2, FolderOpen, GitBranch, GitPullRequest, Globe,
-  ListChecks, Loader2, Play, Plus, RefreshCw, Trash2, Wrench, X,
-} from 'lucide-react'
+  BookOpen, Brain, Check, Edit2, FolderOpen, GitBranch, GitPullRequest, Globe, ListChecks, Loader2, Play, Plus, RefreshCw, Trash2, Wrench, X, } from 'lucide-react'
 import { mcpService } from '../services/mcpService'
 import { MCP_PRESETS, type McpPreset } from '../utils/mcpPresets'
 import Select from './Select'
 import type { IMcpServer, IMcpTool } from '../types'
-import { Button, Card, IconButton, Input, Textarea } from './ui'
+import { Button, Card, IconButton, Input, Textarea, SurfaceButton, Checkbox } from './ui'
 
 const defaultConfig = JSON.stringify(
   {
@@ -177,7 +175,7 @@ export default function McpServerManager({ embedded = false }: { embedded?: bool
     <section className="space-y-6">
       {/* Header / toolbar */}
       {embedded ? (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-200/70 bg-white/45 p-2.5 dark:border-white/[0.07] dark:bg-white/[0.025]">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-200/70 bg-white/70 glass glass-soft p-2.5 dark:border-white/[0.07] dark:bg-slate-900/35">
           <p className="text-[11px] text-gray-500 dark:text-gray-400">
             {t('mcp.configuredCount', { count: servers.length })}
           </p>
@@ -244,8 +242,7 @@ export default function McpServerManager({ embedded = false }: { embedded?: bool
             )}
             {editingId && (
               <label className="flex cursor-pointer items-center gap-2.5 rounded-lg px-1 py-1 text-sm text-gray-700 transition-colors hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/[0.03]">
-                <input
-                  type="checkbox"
+                <Checkbox
                   checked={form.isEnabled}
                   onChange={(e) => setForm({ ...form, isEnabled: e.target.checked })}
                   className="h-4 w-4 rounded border-gray-300 text-blue-500 focus:ring-blue-500/20"
@@ -369,18 +366,18 @@ export default function McpServerManager({ embedded = false }: { embedded?: bool
                   title={t('mcp.discoverTools')}>
                   <RefreshCw size={14} />
                 </IconButton>
-                <button
+                <SurfaceButton
                   onClick={() => startEdit(server)}
                   className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-indigo-600 dark:hover:bg-white/[0.06] dark:hover:text-indigo-400"
                 >
                   <Edit2 size={14} />
-                </button>
-                <button
+                </SurfaceButton>
+                <SurfaceButton
                   onClick={() => deleteMutation.mutate(server.id)}
                   className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10 dark:hover:text-red-400"
                 >
                   <Trash2 size={14} />
-                </button>
+                </SurfaceButton>
               </div>
             </div>
           </Card>

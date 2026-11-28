@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { ChevronDown, Check, X } from 'lucide-react'
-import { SearchInput } from './ui'
+import { SearchInput, SurfaceButton } from './ui'
 
 export interface MultiSelectOption {
   value: string
@@ -141,7 +141,7 @@ export default function MultiSelect({
 
   return (
     <div className="relative">
-      <button
+      <SurfaceButton
         ref={triggerRef}
         type="button"
         onClick={() => (open ? close() : setOpen(true))}
@@ -178,7 +178,7 @@ export default function MultiSelect({
           size={14}
           className={`ml-auto shrink-0 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`}
         />
-      </button>
+      </SurfaceButton>
 
       {open && createPortal(
         <div
@@ -196,12 +196,12 @@ export default function MultiSelect({
               placeholder={searchHint}
               className="w-full dark:text-gray-200"
             />
-            <button
+            <SurfaceButton
               onClick={() => setGroup(filtered, !allSelected)}
               className="shrink-0 text-[11px] text-gray-400 hover:text-rose-500"
             >
               {allSelected ? t('ui:clearAll') : t('ui:selectAll')}
-            </button>
+            </SurfaceButton>
           </div>
           <div className="max-h-56 overflow-y-auto py-1">
             {filtered.length === 0 && (
@@ -212,7 +212,7 @@ export default function MultiSelect({
                 {group && (
                   <div className="flex items-center justify-between px-3 pb-1 pt-1.5">
                     <span className="text-[10px] font-medium uppercase tracking-wider text-gray-400">{group}</span>
-                    <button
+                    <SurfaceButton
                       onClick={() => {
                         const ids = groupOptions.filter((o) => !o.disabled).map((o) => o.value)
                         const allIn = ids.length > 0 && ids.every((id) => values.includes(id))
@@ -221,13 +221,13 @@ export default function MultiSelect({
                       className="text-[10px] text-gray-400 hover:text-rose-500"
                     >
                       {groupOptions.every((o) => values.includes(o.value)) ? t('ui:cancel') : t('ui:selectAll')}
-                    </button>
+                    </SurfaceButton>
                   </div>
                 )}
                 {groupOptions.map((o) => {
                   const checked = values.includes(o.value)
                   return (
-                    <button
+                    <SurfaceButton
                       key={o.value}
                       type="button"
                       disabled={o.disabled}
@@ -251,7 +251,7 @@ export default function MultiSelect({
                         <span className="block truncate text-[13px] text-gray-700 dark:text-gray-200">{o.label}</span>
                         {o.hint && <span className="block truncate text-[10px] text-gray-400">{o.hint}</span>}
                       </span>
-                    </button>
+                    </SurfaceButton>
                   )
                 })}
               </div>

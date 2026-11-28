@@ -4,6 +4,8 @@ import { FOCUS_DARK, FOCUS_LIGHT, type Tone } from './tones'
 
 export interface InputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'size'> {
   tone?: Tone
+  /** default=完整输入框 / bare=无描边无底色（嵌在自有容器里，仅保留文本与占位符样式） */
+  variant?: 'default' | 'bare'
   /** sm=紧凑（文本 13px）/ md=常规 / lg=亚克力大号（带 glass 材质） */
   size?: 'sm' | 'md' | 'lg'
   /** 亚克力材质；lg 默认开启 */
@@ -44,9 +46,18 @@ const ICON_RIGHT_PAD = { sm: 'pr-8', md: 'pr-9', lg: 'pr-10' } as const
  * 暗色聚焦不再刷白（历史上的暗色输入框 bug 根因就是 focus:bg-white 没有暗色对应项）。
  */
 const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
-  { tone = 'blue', size = 'md', glass, pill = false, icon, iconRight, className, ...rest },
+  { tone = 'blue', variant = 'default', size = 'md', glass, pill = false, icon, iconRight, className, ...rest },
   ref,
 ) {
+  if (variant === 'bare') {
+    return (
+      <input
+        ref={ref}
+        className={cn('w-full bg-transparent text-sm text-inherit outline-none placeholder:text-gray-400', className)}
+        {...rest}
+      />
+    )
+  }
   const useGlass = glass ?? size === 'lg'
   const field = (
     <input

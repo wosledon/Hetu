@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowDown, ArrowUp, Loader2, RefreshCw } from 'lucide-react'
 import { workGitService } from '../../services/workService'
 import type { IWorkSession } from '../../types/work'
+import { SurfaceButton } from '../ui'
 
 /**
  * Git 同步控件（分支选择器右侧）：只展示与上游的领先/落后提交数 + 一个同步按钮。
@@ -80,7 +81,7 @@ export default function WorkGitSyncControl({ session }: { session: IWorkSession 
         {behind}
         {dirty > 0 && <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />}
       </span>
-      <button
+      <SurfaceButton
         onClick={run}
         disabled={busy || !isRepo}
         title={feedback ?? actionHint}
@@ -92,7 +93,7 @@ export default function WorkGitSyncControl({ session }: { session: IWorkSession 
         }`}
       >
         {busy ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
-      </button>
+      </SurfaceButton>
     </div>
   )
 }

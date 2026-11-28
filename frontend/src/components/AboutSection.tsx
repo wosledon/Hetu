@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { BookOpen, Code, GitBranch, Layers, MessageSquare, RefreshCw, ShieldCheck, Star } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { BookOpen, Code, GitBranch, Layers, LayoutGrid, MessageSquare, RefreshCw, ShieldCheck, Star } from 'lucide-react'
 import { systemService } from '../services/systemService'
 import { updateService } from '../services/updateService'
 import { useUpdateStore } from '../stores/updateStore'
 import { openRepo } from '../utils/repo'
 import { isTauri, isTauriAclError } from '../utils/tauri'
-import { Button } from './ui'
+import { Button, SurfaceButton } from './ui'
 
 const ABOUT_FEATURES = [
   { icon: BookOpen, labelKey: 'about.features.notes.label', descKey: 'about.features.notes.desc' },
@@ -27,6 +28,7 @@ const ABOUT_STACK = [
 /** 设置页「关于」：产品定位、核心能力、技术栈与运行环境 */
 export default function AboutSection({ appName }: { appName: string }) {
   const { t } = useTranslation('settings')
+  const navigate = useNavigate()
   const { status, info, error, openPanel } = useUpdateStore()
   const [version, setVersion] = useState<string | null>(null)
   const runtime = useMemo(() => ({
@@ -172,13 +174,20 @@ export default function AboutSection({ appName }: { appName: string }) {
             {t('about.privacy')}
           </span>
         </p>
-        <button
+        <SurfaceButton
           onClick={openRepo}
           className="flex items-center gap-1.5 text-[12px] font-medium text-blue-700 transition-colors hover:text-blue-800 dark:text-blue-300 dark:hover:text-blue-200"
         >
           <Star size={13} />
           {t('about.viewSource')}
-        </button>
+        </SurfaceButton>
+        <SurfaceButton
+          onClick={() => navigate('/components')}
+          className="flex items-center gap-1.5 text-[12px] font-medium text-blue-700 transition-colors hover:text-blue-800 dark:text-blue-300 dark:hover:text-blue-200"
+        >
+          <LayoutGrid size={13} />
+          {t('about.components')}
+        </SurfaceButton>
       </div>
     </section>
   )

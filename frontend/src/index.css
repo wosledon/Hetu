@@ -711,8 +711,10 @@ button {
 
 /* 代码块底色：亮色用纯白、暗色比页面底色略亮一档，让代码块从正文里「浮」出来
    （原先亮色 #f8f9fc / 暗色 #0d1117 都与页面底色几乎一致，只剩一道 4%~6% 的边线，
-   看起来像版面上挖了个黑洞） */
+   看起来像版面上挖了个黑洞）。
+   前景色必须显式覆盖：Typography 默认 pre 前景是给暗底用的浅灰，只改底色会导致白底白字。 */
 .wmde-markdown pre {
+  color: #24292f;
   background: #ffffff !important;
   border-radius: 10px !important;
   border: 1px solid rgba(0,0,0,0.08) !important;
@@ -721,6 +723,7 @@ button {
 }
 
 .wmde-markdown.dark pre {
+  color: #c9d1d9;
   background: #161b27 !important;
   border-color: rgba(255,255,255,0.10) !important;
 }

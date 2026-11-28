@@ -20,7 +20,7 @@ import WorkDiffView from './WorkDiffView'
 import WorkCheckpointDiffView from './WorkCheckpointDiffView'
 import WorkTerminal from './WorkTerminal'
 import WorkPrPanel from './WorkPrPanel'
-import { Button, Card, ContextMenu, IconButton, Input, SearchInput, TreeRow } from '../ui'
+import { Button, Card, ContextMenu, IconButton, Input, SearchInput, TreeRow, SurfaceButton, Checkbox } from '../ui'
 
 interface WorkExplorerProps {
   projectId?: string
@@ -663,7 +663,7 @@ export default function WorkExplorer({ projectId, sessionId, sessionTitle, panel
           const Icon = n.Icon
           const active = activeFeature === n.key
           return (
-            <button
+            <SurfaceButton
               key={n.key}
               onClick={() => activateFeature(n.key)}
               title={n.label}
@@ -675,7 +675,7 @@ export default function WorkExplorer({ projectId, sessionId, sessionTitle, panel
               }`}
             >
               <Icon size={15} />
-            </button>
+            </SurfaceButton>
           )
         })}
         <div className="flex-1" />
@@ -732,7 +732,7 @@ export default function WorkExplorer({ projectId, sessionId, sessionTitle, panel
                   {features.map((f) => {
                     const Icon = f.Icon
                     return (
-                      <button
+                      <SurfaceButton
                         key={f.key}
                         onClick={() => activateFeature(f.key)}
                         disabled={!projectId}
@@ -746,7 +746,7 @@ export default function WorkExplorer({ projectId, sessionId, sessionTitle, panel
                           <span className="block truncate text-[11px] text-gray-400 dark:text-gray-500">{f.desc}</span>
                         </span>
                         <ChevronRight size={13} className="shrink-0 text-gray-300 dark:text-gray-600" />
-                      </button>
+                      </SurfaceButton>
                     )
                   })}
                 </div>
@@ -880,8 +880,7 @@ export default function WorkExplorer({ projectId, sessionId, sessionTitle, panel
                 const checked = gitSelected.has(f.path)
                 return (
                   <div key={f.path} className="mb-0.5 flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-gray-100 dark:hover:bg-white/[0.04]">
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       checked={checked}
                       onChange={() => setGitSelected((prev) => {
                         const next = new Set(prev)
@@ -933,17 +932,17 @@ export default function WorkExplorer({ projectId, sessionId, sessionTitle, panel
                 placeholder={searchMode === 'semantic' ? t('explorer.searchSemanticPlaceholder') : t('explorer.searchTextPlaceholder')}
                 className="min-w-0 flex-1"
               />
-              <button
+              <SurfaceButton
                 onClick={() => setSearchMode(searchMode === 'text' ? 'semantic' : 'text')}
                 title={searchMode === 'text' ? t('explorer.switchToSemantic') : t('explorer.switchToText')}
                 className={`shrink-0 rounded p-0.5 ${searchMode === 'semantic' ? 'text-violet-500' : 'text-gray-400 hover:text-gray-600'}`}
               >
                 <Sparkles size={12} />
-              </button>
+              </SurfaceButton>
               {searchQuery && (
-                <button onClick={() => setSearchQuery('')} className="shrink-0 rounded p-0.5 text-gray-400 hover:text-gray-600">
+                <SurfaceButton onClick={() => setSearchQuery('')} className="shrink-0 rounded p-0.5 text-gray-400 hover:text-gray-600">
                   <X size={11} />
-                </button>
+                </SurfaceButton>
               )}
             </div>
             {searchTerm.length >= 2 ? (

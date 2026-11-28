@@ -10,7 +10,7 @@ import type { AgentTimelineItem } from '../utils/agentTimeline'
 import { formatDateTime } from '../utils/locale'
 import { formatTokens } from '../utils/agentStream'
 import type { IChatMessage } from '../types'
-import { Button, Card, IconButton, Textarea } from './ui'
+import { Button, Card, IconButton, Textarea, SurfaceButton } from './ui'
 
 interface ITimelineSegment {
   kind?: string
@@ -171,13 +171,13 @@ export default memo(function ChatMessageItem({
                 <Button variant="ghost" tone="gray" size="sm" className="rounded px-2 py-1 text-xs text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700" onClick={onCancelEdit}>
                   <X size={14} />
                 </Button>
-                <button
+                <SurfaceButton
                   onClick={onSaveEdit}
                   disabled={!editingContent.trim() || actionsDisabled}
                   className="rounded bg-indigo-600 px-2 py-1 text-xs text-white disabled:opacity-50"
                 >
                   {t('common:save')}
-                </button>
+                </SurfaceButton>
               </div>
             </div>
           ) : (

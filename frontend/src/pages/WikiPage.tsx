@@ -4,11 +4,9 @@ import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createPortal } from 'react-dom'
 import {
-  AlertCircle, BookText, Check, Cpu, Database, Download, FolderInput, Loader2, RefreshCw, Server, Trash2, X,
-} from 'lucide-react'
+  AlertCircle, BookText, Check, Cpu, Database, Download, FolderInput, Loader2, RefreshCw, Server, Trash2, X, } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
 import { projectService } from '../services/projectService'
-import Select from '../components/Select'
 import { wikiService } from '../services/wikiService'
 import { aiModelService } from '../services/aiProviderService'
 import { useConfirm } from '../components/confirm'
@@ -18,7 +16,7 @@ import { recoverableQueryOptions } from '../utils/queryClient'
 import type { IAiModel } from '../types'
 import type { IManagedProject } from '../types/project'
 import type { IWikiSet, IWikiSetPage, IWikiGenerationJob } from '../types/wiki'
-import { Button, IconButton, PageContainer, TreeRow } from '../components/ui'
+import { Button, IconButton, PageContainer, TreeRow, SurfaceButton, WorkbenchColumn } from '../components/ui'
 
 function WikiMarkdownFallback({ source, className }: { source: string; className?: string }) {
   return <pre className={`whitespace-pre-wrap break-words font-sans ${className ?? ''}`}>{source}</pre>
@@ -434,20 +432,6 @@ export default function WikiPage() {
               </div>
             </div>
             <div className="flex w-full flex-wrap items-center justify-start gap-2 sm:justify-end md:w-auto md:flex-nowrap">
-              {/* 窄屏替代左侧项目列（该列 md:flex，<768px 整体隐藏）：项目过滤下拉，保证可达 */}
-              <div className="w-full md:hidden">
-                <Select
-                  value={projectParam ?? ''}
-                  onChange={(value) => selectProject(value ? orderedProjects.find((p) => p.id === value) ?? null : null)}
-                  options={[
-                    { value: '', label: t('wiki.allDocs') },
-                    ...orderedProjects.map((p) => ({ value: p.id, label: p.name })),
-                  ]}
-                  placeholder={t('wiki.projects')}
-                  searchable
-                  triggerClassName="rounded-full py-1.5 text-[13px]"
-                />
-              </div>
               {selectedSet && (
                 <IconButton variant="secondary" size="md" className="rounded-xl" label={t('wiki.syncTitle')} onClick={() => syncMutation.mutate(selectedSet.setId)}
                   disabled={syncMutation.isPending}>
@@ -473,7 +457,7 @@ export default function WikiPage() {
                   <>
                     <div className="fixed inset-0 z-[99998]" onClick={() => setModelPickerOpen(false)} />
                     <div style={modelPanelStyle} className="animate-popover z-[99999] rounded-2xl border border-gray-200/90 bg-white/95 p-1.5 shadow-xl dark:border-white/10 dark:bg-gray-900/95">
-                      <button
+                      <SurfaceButton
                         onClick={() => { setChosenModelId(undefined); setModelPickerOpen(false) }}
                         className={`flex w-full items-center rounded-lg px-3 py-2 text-left text-[13px] transition-colors ${
                           !chosenModelId
@@ -482,9 +466,9 @@ export default function WikiPage() {
                         }`}
                       >
                         {t('wiki.defaultModelCompletion')}
-                      </button>
+                      </SurfaceButton>
                       {chatModels.map((model) => (
-                        <button
+                        <SurfaceButton
                           key={model.id}
                           onClick={() => { setChosenModelId(model.id); setModelPickerOpen(false) }}
                           className={`flex w-full items-center rounded-lg px-3 py-2 text-left text-[13px] transition-colors ${
@@ -496,7 +480,7 @@ export default function WikiPage() {
                           <span className="min-w-0 flex-1 truncate" title={model.displayName}>
                             {model.displayName}
                           </span>
-                        </button>
+                        </SurfaceButton>
                       ))}
                     </div>
                   </>,
@@ -519,144 +503,152 @@ export default function WikiPage() {
           </div>
         </div>
         <div className="flex min-h-0 min-w-0 flex-1">
-        {/* 项目列表 */}
-        <div className="hidden h-full w-44 shrink-0 flex-col border-r border-gray-200/80 bg-white/30 md:flex dark:border-white/[0.07] dark:bg-slate-950/15 xl:w-52">
-          <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
-            <button
-              onClick={() => selectProject(null)}
-              className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[13px] transition-colors ${
-                !projectParam
-                  ? 'bg-blue-50 text-blue-600 shadow-[inset_2px_0_0_#3b82f6] dark:bg-blue-500/10 dark:text-blue-300'
-                  : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/[0.06]'
-              }`}
-            >
-              <BookText size={14} className="shrink-0" />
-              <span className="min-w-0 flex-1">{t('wiki.allDocs')}</span>
-              <span className="shrink-0 text-[11px] text-gray-400">{sets.length}</span>
-            </button>
-
-            <div className="mt-5 px-2.5">
-              <span className="text-[11px] font-medium uppercase tracking-wider text-gray-400">{t('wiki.projects')}</span>
+        {/* 项目列表：固定次级栏（不随窗口宽度隐藏），「全部文档」固定在滚动区上方 */}
+        <WorkbenchColumn
+          role="secondary"
+          title={t('wiki.projects')}
+          count={orderedProjects.length}
+          beforeBody={(
+            <div className="shrink-0 px-2 pt-2">
+              <SurfaceButton
+                onClick={() => selectProject(null)}
+                className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[13px] transition-colors ${
+                  !projectParam
+                    ? 'bg-blue-50 text-blue-600 shadow-[inset_2px_0_0_#3b82f6] dark:bg-blue-500/10 dark:text-blue-300'
+                    : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/[0.06]'
+                }`}
+              >
+                <BookText size={14} className="shrink-0" />
+                <span className="min-w-0 flex-1">{t('wiki.allDocs')}</span>
+                <span className="shrink-0 text-[11px] text-gray-400">{sets.length}</span>
+              </SurfaceButton>
             </div>
+          )}
+        >
+          {projectsError && orderedProjects.length === 0 ? (
+            <div className="px-1.5 py-1">
+              <p className="text-[11px] leading-relaxed text-red-500 dark:text-red-400">{t('wiki.projectsLoadFailed')}</p>
+              <SurfaceButton
+                onClick={() => { void refetchProjects() }}
+                className="mt-1 text-[11px] font-medium text-blue-600 transition-colors hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+              >
+                {t('common:retry')}
+              </SurfaceButton>
+            </div>
+          ) : projectsPending ? (
+            <div className="flex justify-center py-6"><Loader2 size={18} className="animate-spin text-gray-400" /></div>
+          ) : orderedProjects.length === 0 ? (
+            <p className="px-1.5 py-1 text-[11px] leading-relaxed text-gray-400">{t('wiki.noProjects')}</p>
+          ) : (
             <div className="mt-1 space-y-0.5">
-              {projectsError && orderedProjects.length === 0 ? (
-                <div className="px-2.5 py-1">
-                  <p className="text-[11px] leading-relaxed text-red-500 dark:text-red-400">{t('wiki.projectsLoadFailed')}</p>
-                  <button
-                    onClick={() => { void refetchProjects() }}
-                    className="mt-1 text-[11px] font-medium text-blue-600 transition-colors hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+              {orderedProjects.map((project) => {
+                const active = project.id === projectParam
+                const count = sets.filter((s) => s.projectId === project.id).length
+                return (
+                  <SurfaceButton
+                    key={project.id}
+                    onClick={() => selectProject(project)}
+                    className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[13px] transition-colors ${
+                      active
+                        ? 'bg-blue-50 text-blue-600 shadow-[inset_2px_0_0_#3b82f6] dark:bg-blue-500/10 dark:text-blue-300'
+                        : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/[0.06]'
+                    }`}
                   >
-                    {t('common:retry')}
-                  </button>
-                </div>
-              ) : projectsPending ? (
-                <div className="flex justify-center py-6"><Loader2 size={18} className="animate-spin text-gray-400" /></div>
-              ) : orderedProjects.length === 0 ? (
-                <p className="px-2.5 py-1 text-[11px] leading-relaxed text-gray-400">{t('wiki.noProjects')}</p>
-              ) : (
-                orderedProjects.map((project) => {
-                  const active = project.id === projectParam
-                  const count = sets.filter((s) => s.projectId === project.id).length
-                  return (
-                    <button
-                      key={project.id}
-                      onClick={() => selectProject(project)}
-                      className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[13px] transition-colors ${
-                        active
-                          ? 'bg-blue-50 text-blue-600 shadow-[inset_2px_0_0_#3b82f6] dark:bg-blue-500/10 dark:text-blue-300'
-                          : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/[0.06]'
-                      }`}
-                    >
-                      {project.projectType === 'Ssh'
-                        ? <Server size={14} className="shrink-0 text-violet-400" />
-                        : <FolderInput size={14} className="shrink-0 text-gray-400" />}
-                      <span className="min-w-0 flex-1 truncate" title={project.name}>{project.name}</span>
-                      {count > 0 && <span className="shrink-0 text-[11px] text-gray-400">{count}</span>}
-                    </button>
-                  )
-                })
-              )}
+                    {project.projectType === 'Ssh'
+                      ? <Server size={14} className="shrink-0 text-violet-400" />
+                      : <FolderInput size={14} className="shrink-0 text-gray-400" />}
+                    <span className="flex min-w-0 flex-1 flex-col">
+                      <span className="truncate" title={project.name}>{project.name}</span>
+                      {project.description?.trim() && (
+                        <span className="truncate text-[11px] leading-tight text-gray-400 dark:text-gray-500" title={project.description}>
+                          {project.description}
+                        </span>
+                      )}
+                    </span>
+                    {count > 0 && <span className="shrink-0 text-[11px] text-gray-400">{count}</span>}
+                  </SurfaceButton>
+                )
+              })}
             </div>
-          </div>
-        </div>
+          )}
+        </WorkbenchColumn>
 
         {/* Wiki 套件与页面 */}
-        <div className="flex h-full w-48 shrink-0 flex-col border-r border-gray-200/80 dark:border-white/[0.06] xl:w-56">
-          <div className="shrink-0 border-b border-gray-200/80 bg-white/35 px-4 py-2.5 dark:border-white/[0.07] dark:bg-slate-950/20">
-            <h2 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">{t('wiki.sets')}</h2>
-            <p className="mt-0.5 text-[10px] leading-relaxed text-gray-400">{t('wiki.setsHint')}</p>
-          </div>
-          <div className="min-h-0 flex-1 overflow-y-auto py-3">
-            {setsError ? (
-              <div className="px-4 py-8 text-center">
-                <p className="text-[12px] leading-relaxed text-red-500 dark:text-red-400">{t('wiki.setsLoadFailed')}</p>
-                <button
-                  onClick={() => { void refetchSets() }}
-                  className="mt-2 text-[12px] font-medium text-blue-600 transition-colors hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
-                >
-                  {t('common:retry')}
-                </button>
-              </div>
-            ) : setsPending ? (
-              <div className="flex justify-center py-10"><Loader2 size={18} className="animate-spin text-gray-400" /></div>
-            ) : visibleSets.length === 0 ? (
-              <div className="px-4 py-8 text-center">
-                <BookText size={28} className="mx-auto mb-3 text-gray-300 dark:text-gray-600" />
-                <p className="text-[12px] leading-relaxed text-gray-400">
-                  {projectParam ? t('wiki.emptyForProject') : t('wiki.empty')}
-                </p>
-                {selectedProject && selectedProject.projectType === 'Local' && (
-                  <Button variant="primary" tone="emerald" pill className="mt-3 rounded-full bg-emerald-600 px-3.5 py-1.5 text-[12px] font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-50" onClick={() => generateMutation.mutate(selectedProject.id)}
-                    disabled={generating}>
-                    {t('wiki.generateFirstSet')}
-                  </Button>
-                )}
-              </div>
-            ) : (
-              visibleSets.map((set, setIndex) => {
-                const expanded = set.setId === selectedSet?.setId
-                return (
-                  <div key={set.setId} className="group animate-list-item" style={{ animationDelay: `${Math.min(setIndex * 30, 120)}ms` }}>
-                    <div
-                      className={`flex items-center gap-1 px-2 py-2 transition-colors ${
-                        expanded
-                          ? 'bg-emerald-50/60 shadow-[inset_2px_0_0_#10b981] dark:bg-emerald-500/10'
-                          : 'hover:bg-gray-50 dark:hover:bg-white/[0.04]'
-                      }`}
+        <WorkbenchColumn
+          role="list"
+          title={t('wiki.sets')}
+          count={visibleSets.length}
+          toolbar={<p className="text-[10px] leading-relaxed text-gray-400">{t('wiki.setsHint')}</p>}
+        >
+          {setsError ? (
+            <div className="px-2 py-8 text-center">
+              <p className="text-[12px] leading-relaxed text-red-500 dark:text-red-400">{t('wiki.setsLoadFailed')}</p>
+              <SurfaceButton
+                onClick={() => { void refetchSets() }}
+                className="mt-2 text-[12px] font-medium text-blue-600 transition-colors hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+              >
+                {t('common:retry')}
+              </SurfaceButton>
+            </div>
+          ) : setsPending ? (
+            <div className="flex justify-center py-10"><Loader2 size={18} className="animate-spin text-gray-400" /></div>
+          ) : visibleSets.length === 0 ? (
+            <div className="px-2 py-8 text-center">
+              <BookText size={28} className="mx-auto mb-3 text-gray-300 dark:text-gray-600" />
+              <p className="text-[12px] leading-relaxed text-gray-400">
+                {projectParam ? t('wiki.emptyForProject') : t('wiki.empty')}
+              </p>
+              {selectedProject && selectedProject.projectType === 'Local' && (
+                <Button variant="primary" tone="emerald" pill className="mt-3 rounded-full bg-emerald-600 px-3.5 py-1.5 text-[12px] font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-50" onClick={() => generateMutation.mutate(selectedProject.id)}
+                  disabled={generating}>
+                  {t('wiki.generateFirstSet')}
+                </Button>
+              )}
+            </div>
+          ) : (
+            visibleSets.map((set, setIndex) => {
+              const expanded = set.setId === selectedSet?.setId
+              return (
+                <div key={set.setId} className="group animate-list-item" style={{ animationDelay: `${Math.min(setIndex * 30, 120)}ms` }}>
+                  <div
+                    className={`flex items-center gap-1 rounded-lg px-2 py-2 transition-colors ${
+                      expanded
+                        ? 'bg-emerald-50/60 shadow-[inset_2px_0_0_#10b981] dark:bg-emerald-500/10'
+                        : 'hover:bg-gray-50 dark:hover:bg-white/[0.04]'
+                    }`}
+                  >
+                    <SurfaceButton
+                      onClick={() => selectSet(set.setId, set.projectId)}
+                      className="flex min-w-0 flex-1 items-center gap-2 text-left"
                     >
-                      <button
-                        onClick={() => selectSet(set.setId, set.projectId)}
-                        className="flex min-w-0 flex-1 items-center gap-2 text-left"
-                      >
-                        <BookText size={13} className={`shrink-0 ${expanded ? 'text-emerald-500' : 'text-gray-400'}`} />
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate text-[13px] font-medium text-gray-800 dark:text-gray-100" title={set.title}>
-                            {set.title}
-                          </span>
-                          <span className="mt-0.5 block truncate text-[11px] text-gray-400">
-                            {!projectParam && `${set.projectName} · `}
-                            {t('wiki.setMeta', { time: formatTime(set.createdAt), n: set.pageCount })}
-                            {set.isStale && <span className="ml-1 text-amber-500">{t('wiki.setStale')}</span>}
-                          </span>
+                      <BookText size={13} className={`shrink-0 ${expanded ? 'text-emerald-500' : 'text-gray-400'}`} />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[13px] font-medium text-gray-800 dark:text-gray-100" title={set.title}>
+                          {set.title}
                         </span>
-                      </button>
-                      <IconButton variant="ghost" tone="gray" className="shrink-0 rounded p-1 text-gray-400 opacity-0 transition-opacity hover:text-red-500 group-hover:opacity-100" label={t('wiki.deleteSetTooltip')} onClick={() => confirm({
-                          title: t('wiki.deleteSetTitle'),
-                          message: t('wiki.deleteSetMessage', { title: set.title, n: set.pageCount }),
-                          onConfirm: () => deleteSetMutation.mutate(set.setId),
-                        })}
-                        title={t('wiki.deleteSetTooltip')}
-                        aria-label={t('wiki.deleteSetTooltip')}>
-                        <Trash2 size={12} />
-                      </IconButton>
-                    </div>
-                    {expanded && renderSetTree(set)}
+                        <span className="mt-0.5 block truncate text-[11px] text-gray-400">
+                          {!projectParam && `${set.projectName} · `}
+                          {t('wiki.setMeta', { time: formatTime(set.createdAt), n: set.pageCount })}
+                          {set.isStale && <span className="ml-1 text-amber-500">{t('wiki.setStale')}</span>}
+                        </span>
+                      </span>
+                    </SurfaceButton>
+                    <IconButton variant="ghost" tone="gray" className="shrink-0 rounded p-1 text-gray-400 opacity-0 transition-opacity hover:text-red-500 group-hover:opacity-100" label={t('wiki.deleteSetTooltip')} onClick={() => confirm({
+                        title: t('wiki.deleteSetTitle'),
+                        message: t('wiki.deleteSetMessage', { title: set.title, n: set.pageCount }),
+                        onConfirm: () => deleteSetMutation.mutate(set.setId),
+                      })}
+                      title={t('wiki.deleteSetTooltip')}
+                      aria-label={t('wiki.deleteSetTooltip')}>
+                      <Trash2 size={12} />
+                    </IconButton>
                   </div>
-                )
-              })
-            )}
-          </div>
-        </div>
+                  {expanded && renderSetTree(set)}
+                </div>
+              )
+            })
+          )}
+        </WorkbenchColumn>
         <div className="flex min-w-0 flex-1 flex-col">
 
           {/* 提示条 */}
@@ -668,7 +660,7 @@ export default function WikiPage() {
             }`}>
               {toast.ok ? <Check size={13} /> : <AlertCircle size={13} />}
               <span className="min-w-0 flex-1">{toast.text}</span>
-              <button onClick={() => setToast(null)} className="shrink-0 rounded p-0.5 hover:bg-black/5"><X size={12} /></button>
+              <SurfaceButton onClick={() => setToast(null)} className="shrink-0 rounded p-0.5 hover:bg-black/5"><X size={12} /></SurfaceButton>
             </div>
           )}
 
@@ -677,13 +669,13 @@ export default function WikiPage() {
             <div className="flex shrink-0 items-center gap-2 bg-amber-50 px-6 py-2 text-[12px] text-amber-700 dark:bg-amber-950/30 dark:text-amber-300">
               <AlertCircle size={13} />
               <span className="min-w-0 flex-1">{t('wiki.notSyncedHint')}</span>
-              <button
+              <SurfaceButton
                 onClick={() => selectedSet && syncMutation.mutate(selectedSet.setId)}
                 disabled={syncMutation.isPending}
                 className="shrink-0 rounded-full border border-amber-300 px-2.5 py-1 text-[11px] font-medium transition-colors hover:bg-amber-100 disabled:opacity-50 dark:border-amber-700 dark:hover:bg-amber-900/30"
               >
                 {t('wiki.sync')}
-              </button>
+              </SurfaceButton>
             </div>
           )}
 

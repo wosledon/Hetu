@@ -14,7 +14,7 @@ import { segmentButtonClass, segmentTextClass } from '../utils/styles'
 import { useUIStore } from '../stores/uiStore'
 import { getNavItem, resolveNavItems } from '../utils/navItems'
 import { inboxService } from '../services/inboxService'
-import { IconButton, PillTabs, Tooltip } from './ui'
+import { IconButton, PillTabs, Tooltip, SurfaceButton } from './ui'
 import { isTauri } from '../utils/tauri'
 
 interface AppLayoutProps {
@@ -41,7 +41,7 @@ const verticalNavItemClass = (isActive: boolean) =>
 
 /** 垂直导航的分组底槽：与顶部横栏装胶囊的容器同一套背景与圆角 */
 const railTrackClass =
-  'w-14 shrink-0 flex-col gap-0.5 rounded-xl'
+  'w-14 shrink-0 flex-col gap-0.5'
 
 /**
  * 垂直列表（非胶囊）导航项样式：图标与标题一行左对齐，选中态为浅色底块。
@@ -183,7 +183,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
     const label = t(item.labelKey)
     const isActive = location.pathname === item.path
     return (
-      <button
+      <SurfaceButton
         key={item.path}
         onClick={() => navigateTransition(item.path)}
         data-pill-key={item.path}
@@ -193,7 +193,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
         {label}
         {item.path === '/inbox' && <NavUnreadBadge />}
         {item.badgeKey && <NavBadge badgeKey={item.badgeKey} />}
-      </button>
+      </SurfaceButton>
     )
   }
 
@@ -204,7 +204,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
     const label = t(item.labelKey)
     const isActive = location.pathname === item.path
     return (
-      <button
+      <SurfaceButton
         key={item.path}
         onClick={() => navigateTransition(item.path)}
         title={label}
@@ -215,7 +215,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
             ? `relative flex w-full shrink-0 items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-all ${verticalListItemClass(isActive)}`
             : isListIconOnly
               ? `relative flex h-10 w-12 shrink-0 items-center justify-center rounded-lg transition-all ${verticalListItemClass(isActive)}`
-              : `relative flex w-12 shrink-0 flex-col items-center gap-1 rounded-lg py-2 text-[10px] font-medium transition-all ${verticalNavItemClass(isActive)}`
+              : `relative flex w-12 shrink-0 flex-col items-center gap-1 rounded-xl py-2 text-[10px] font-medium transition-all ${verticalNavItemClass(isActive)}`
         }
       >
         <Icon size={isListExpanded ? 16 : 18} />
@@ -225,7 +225,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
         {item.badgeKey && isListIconOnly && (
           <span className={`absolute right-1 top-1 h-1.5 w-1.5 rounded-full ${item.badgeKey === 'nav:new' ? 'bg-blue-500' : 'bg-amber-500'}`} />
         )}
-      </button>
+      </SurfaceButton>
     )
   }
 
@@ -274,7 +274,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
           const Icon = item.icon
           const isActive = location.pathname === item.path
           return (
-            <button
+            <SurfaceButton
               key={item.path}
               onClick={() => { navigateTransition(item.path); setLastMoreItem(item.path); setMoreOpen(false) }}
               className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-[13px] transition-colors ${
@@ -286,7 +286,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
               <Icon size={14} />
               {t(item.labelKey)}
               {item.badgeKey && <NavBadge badgeKey={item.badgeKey} />}
-            </button>
+            </SurfaceButton>
           )
         })}
       </div>
@@ -308,7 +308,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
         orientation="vertical"
         trackId={trackId}
         className={railTrackClass}
-        pillClassName="rounded-lg bg-white shadow-sm dark:bg-white/10"
+        pillClassName="bg-white shadow-sm dark:bg-white/10"
       >
         {children}
       </SlidingPill>
@@ -330,13 +330,13 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
       >
       {isListExpanded ? (
         <div className="mb-1 flex items-center gap-1">
-          <button
+          <SurfaceButton
             onClick={() => navigateTransition('/')}
             title={appName}
             className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-3 py-2 transition-opacity hover:opacity-80"
           >
             <BrandMark size={30} />
-          </button>
+          </SurfaceButton>
           {!desktop && (
             <IconButton
               variant="ghost"
@@ -362,13 +362,13 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
           </IconButton>
           {!desktop && (
             <Tooltip content={t('nav:expandNav')}>
-              <button
+              <SurfaceButton
                 onClick={toggleNav}
                 aria-label={t('nav:expandNav')}
                 className={`flex h-10 w-12 shrink-0 items-center justify-center rounded-lg transition-all ${verticalListItemClass(false)}`}
               >
                 <PanelLeftOpen size={18} />
-              </button>
+              </SurfaceButton>
             </Tooltip>
           )}
         </div>
@@ -393,7 +393,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
           {!railExpanded && lastMoreItemData && renderVerticalNavButton(lastMoreItemData)}
 
           {!railExpanded && unpinnedItems.length > 0 && (
-            <button
+            <SurfaceButton
               ref={moreBtnRef}
               onClick={openMoreMenu}
               title={t('nav:more')}
@@ -410,7 +410,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
                 ? <Ellipsis size={18} />
                 : <ChevronDown size={isListExpanded ? 16 : 18} className={`transition-transform ${moreOpen ? 'rotate-180' : ''}`} />}
               {!isListIconOnly && <span className="max-w-full truncate">{t('nav:more')}</span>}
-            </button>
+            </SurfaceButton>
           )}
         </>
       ))}
@@ -423,7 +423,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
         <>
           <GithubEntry variant={isListExpanded ? 'railList' : isListIconOnly ? 'railIcon' : 'rail'} />
 
-          <button
+          <SurfaceButton
             onClick={() => navigateTransition('/settings')}
             title={t('nav:settings')}
             data-rail-item=""
@@ -438,7 +438,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
           >
             <Settings size={isListExpanded ? 16 : 18} />
             {!isListIconOnly && <span className="max-w-full truncate">{t('nav:settings')}</span>}
-          </button>
+          </SurfaceButton>
 
           <VersionEntry variant={isListExpanded ? 'railList' : isListIconOnly ? 'railIcon' : 'rail'} />
         </>
@@ -456,15 +456,15 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
       {isVertical ? verticalRail : (
       <nav className="grid h-14 shrink-0 grid-cols-[1fr_auto_1fr] items-center border-b border-gray-200/80 px-6 dark:border-white/[0.06]">
         <div className="flex items-center justify-start">
-          <button onClick={() => navigateTransition('/')} className="flex items-center gap-2.5 transition-opacity hover:opacity-80">
+          <SurfaceButton onClick={() => navigateTransition('/')} className="flex items-center gap-2.5 transition-opacity hover:opacity-80">
             <span className="flex h-9 w-9 items-center justify-center rounded-full">
               <BrandMark size={30} />
             </span>
             <span className="text-lg font-bold tracking-tight text-gray-800 dark:text-gray-100">{appName}</span>
-          </button>
+          </SurfaceButton>
         </div>
         <div className="flex items-center justify-center gap-3">
-          <SlidingPill value={location.pathname} trackId="top-main" className="justify-center gap-0.5 rounded-xl" pillClassName="rounded-lg bg-white shadow-sm dark:bg-white/10">
+          <SlidingPill value={location.pathname} trackId="top-main" className="justify-center gap-0.5" pillClassName="bg-white shadow-sm dark:bg-white/10">
           {fixedItems.map(renderNavButton)}
 
           {pinnedItems.length > 0 && (
@@ -484,13 +484,13 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
           {/* "更多" dropdown */}
           {unpinnedItems.length > 0 && (
             <div className="relative">
-              <button
+              <SurfaceButton
                 ref={moreBtnRef}
                 onClick={openMoreMenu}
                 className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[13px] font-medium transition-all ${segmentButtonClass(moreOpen)}`}
               >
                 {t('nav:more')}
-                <ChevronDown size={12} className={`transition-transform ${moreOpen ? 'rotate-180' : ''}`} />              </button>
+                <ChevronDown size={12} className={`transition-transform ${moreOpen ? 'rotate-180' : ''}`} />              </SurfaceButton>
             </div>
           )}
           </SlidingPill>
@@ -499,7 +499,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
           <PillTabs
             value={location.pathname}
             trackId="top-secondary"
-            className="justify-center gap-0.5 rounded-xl"
+            className="justify-center gap-0.5"
             onSelect={(key) => navigateTransition(key)}
             items={secondaryNavItems.map((item) => {
               const Icon = item.icon
@@ -520,7 +520,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
         </div>
         <div className="flex items-center justify-end gap-1.5">
           <GithubEntry variant="top" />
-          <button
+          <SurfaceButton
             onClick={() => navigateTransition('/settings')}
             className={`rounded-lg p-2 transition-all ${
               location.pathname === '/settings'
@@ -530,7 +530,7 @@ export default function AppLayout({ children, mainContent, showSidebar = true }:
             title={t('nav:settings')}
           >
             <Settings size={17} />
-          </button>
+          </SurfaceButton>
           <VersionEntry variant="top" />
         </div>
         </nav>

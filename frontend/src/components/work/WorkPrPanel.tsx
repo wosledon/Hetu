@@ -6,7 +6,8 @@ import { workGitService } from '../../services/workService'
 import { useConfirm } from '../confirm'
 import { openExternal } from '../../utils/tauri'
 import type { IWorkPrActionRequest, IWorkPrCheck, IWorkPrFeedback, IWorkPrInfo, IWorkPrStatus } from '../../types/work'
-import { Button, IconButton, Input, Textarea } from '../ui'
+import { Button, IconButton, Input, Textarea, SurfaceButton, Checkbox } from '../ui'
+import Select from '../Select'
 
 /** PR 状态色：草稿/合并/关闭/进行中 */
 function stateClass(state: string, isDraft: boolean): string {
@@ -291,12 +292,12 @@ export default function WorkPrPanel({ projectId, sessionId, sessionTitle, onHand
               </div>
             )}
             {status.installUrl && (
-              <button
+              <SurfaceButton
                 onClick={() => open(status.installUrl!)}
                 className="inline-flex items-center gap-1 text-[11px] text-amber-700 underline-offset-2 hover:underline dark:text-amber-300"
               >
                 <ExternalLink size={11} />{t('pr.installDocs')}
-              </button>
+              </SurfaceButton>
             )}
           </div>
         )}
@@ -403,13 +404,18 @@ export default function WorkPrPanel({ projectId, sessionId, sessionTitle, onHand
               {prOpen && (
                 <div className="space-y-1.5 rounded-lg bg-gray-50 p-2 dark:bg-white/[0.04]">
                   <div className="flex items-center gap-1.5">
-                    <select value={mergeMethod} onChange={(e) => setMergeMethod(e.target.value as 'merge' | 'squash' | 'rebase')}
-                      className="min-w-0 flex-1 rounded-lg border border-gray-200 bg-white px-1.5 py-1 text-[11px] text-gray-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
-                      aria-label={t('pr.mergeMethodLabel')}>
-                      <option value="squash">{t('pr.mergeMethod.squash')}</option>
-                      <option value="merge">{t('pr.mergeMethod.merge')}</option>
-                      <option value="rebase">{t('pr.mergeMethod.rebase')}</option>
-                    </select>
+                    <Select
+                      value={mergeMethod}
+                      onChange={(v) => setMergeMethod(v as 'merge' | 'squash' | 'rebase')}
+                      ariaLabel={t('pr.mergeMethodLabel')}
+                      options={[
+                        { value: 'squash', label: t('pr.mergeMethod.squash') },
+                        { value: 'merge', label: t('pr.mergeMethod.merge') },
+                        { value: 'rebase', label: t('pr.mergeMethod.rebase') },
+                      ]}
+                      className="min-w-0 flex-1"
+                      triggerClassName="flex w-full items-center justify-between gap-2 rounded-lg border border-gray-200 bg-white px-1.5 py-1 text-[11px] text-gray-600 outline-none transition-all dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300"
+                    />
                     <Button variant="primary" tone="blue" className="shrink-0 rounded-lg bg-blue-500 px-2 py-1 text-[11px] font-medium text-white transition-colors hover:bg-blue-600 disabled:opacity-50"
                       onClick={() => confirm({
                         message: t('pr.mergeConfirm', { number: pr.number, target: pr.baseBranch ?? '', method: t(`pr.mergeMethod.${mergeMethod}`) }),
@@ -420,7 +426,7 @@ export default function WorkPrPanel({ projectId, sessionId, sessionTitle, onHand
                     </Button>
                   </div>
                   <label className="flex items-center gap-1.5 text-[11px] text-gray-500 dark:text-gray-400">
-                    <input type="checkbox" checked={deleteBranch} onChange={(e) => setDeleteBranch(e.target.checked)} />{t('pr.deleteBranch')}
+                    <Checkbox checked={deleteBranch} onChange={(e) => setDeleteBranch(e.target.checked)} />{t('pr.deleteBranch')}
                   </label>
                   {blocked && (
                     <p className="text-[10px] leading-4 text-amber-700 dark:text-amber-300">
@@ -488,7 +494,7 @@ export default function WorkPrPanel({ projectId, sessionId, sessionTitle, onHand
                 />
               </div>
               <label className="flex items-center gap-1.5 text-[11px] text-gray-500 dark:text-gray-400">
-                <input type="checkbox" checked={draft} onChange={(e) => patch({ draft: e.target.checked })} />{t('pr.draft')}
+                <Checkbox checked={draft} onChange={(e) => patch({ draft: e.target.checked })} />{t('pr.draft')}
               </label>
               {!status.branchPushed && (
                 <p className="rounded-lg border border-amber-200 bg-amber-50/60 px-2 py-1.5 text-[11px] text-amber-700 dark:border-amber-800/60 dark:bg-amber-950/20 dark:text-amber-300">

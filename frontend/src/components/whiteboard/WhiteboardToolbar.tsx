@@ -1,13 +1,11 @@
 import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
-  Circle, Copy, Diamond, Download, Eraser, Focus, Grid3x3, Hand, Image, LayoutGrid, Maximize,
-  MousePointer2, Palette, PenLine, Redo2, Route as RouteIcon, Square, Trash2, Type, Undo2, ZoomIn, ZoomOut,
-} from 'lucide-react'
+  Circle, Copy, Diamond, Download, Eraser, Focus, Grid3x3, Hand, Image, LayoutGrid, Maximize, MousePointer2, Palette, PenLine, Redo2, Route as RouteIcon, Square, Trash2, Type, Undo2, ZoomIn, ZoomOut, } from 'lucide-react'
 import type { ConnectorRouteMode, IWhiteboardStyle, WhiteboardTool } from '../../types/whiteboard'
 import { FILL_COLORS, STROKE_COLORS, type AutoLayoutDirection } from '../../utils/whiteboard'
 import { useDismissOnOutside } from '../../hooks/useDismissOnOutside'
-import { Button, IconButton } from '../ui'
+import { Button, IconButton, SurfaceButton } from '../ui'
 import Select, { type SelectOption } from '../Select'
 
 const STROKE_WIDTHS = [1, 2, 4, 6]
@@ -182,7 +180,7 @@ export default function WhiteboardToolbar({
                 <p className="mb-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">{t('strokeColor')}</p>
                 <div className="flex flex-wrap items-center gap-1.5">
                   {STROKE_COLORS.map((color) => (
-                    <button
+                    <SurfaceButton
                       key={color}
                       type="button"
                       aria-label={t('strokeColor')}
@@ -197,7 +195,7 @@ export default function WhiteboardToolbar({
                 <p className="mb-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">{t('fillColor')}</p>
                 <div className="flex flex-wrap items-center gap-1.5">
                   {FILL_COLORS.map((color) => (
-                    <button
+                    <SurfaceButton
                       key={color}
                       type="button"
                       aria-label={t('fillColor')}
@@ -290,7 +288,7 @@ export default function WhiteboardToolbar({
       </div>
 
       <div className="ml-auto flex items-center gap-1.5">
-        <button
+        <SurfaceButton
           type="button"
           className="rounded px-1.5 py-0.5 text-xs text-gray-400 transition-colors enabled:text-amber-600 enabled:hover:bg-amber-50 dark:enabled:text-amber-400 dark:enabled:hover:bg-amber-950/30"
           disabled={saveState !== 'dirty'}
@@ -298,7 +296,7 @@ export default function WhiteboardToolbar({
           onClick={onSave}
         >
           {saveState === 'saving' ? t('saving') : saveState === 'dirty' ? t('unsaved') : t('saved')}
-        </button>
+        </SurfaceButton>
         <Button variant="secondary" size="sm" className="gap-1.5" onClick={onExportPng}>
           <Image size={14} /> {t('exportPng')}
         </Button>

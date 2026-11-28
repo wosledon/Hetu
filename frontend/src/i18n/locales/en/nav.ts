@@ -18,6 +18,7 @@ export default {
   models: 'Models',
   foundryLocal: 'Local models',
   workflows: 'Workflows',
+  components: 'Component library',
   proxy: 'Proxy',
   usage: 'Usage',
   inbox: 'Inbox',

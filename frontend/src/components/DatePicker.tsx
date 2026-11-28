@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react'
-import { Button, IconButton } from './ui'
+import { Button, IconButton, SurfaceButton } from './ui'
 
 export interface DatePickerProps {
   /** YYYY-MM-DD，空字符串表示未选择 */
@@ -103,7 +103,7 @@ export default function DatePicker({
 
   return (
     <div className={`relative ${className}`}>
-      <button
+      <SurfaceButton
         ref={triggerRef}
         type="button"
         disabled={disabled}
@@ -117,7 +117,7 @@ export default function DatePicker({
           </span>
         </span>
         <ChevronDown size={14} className={`shrink-0 text-gray-400 transition-transform dark:text-gray-500 ${open ? 'rotate-180' : ''}`} />
-      </button>
+      </SurfaceButton>
 
       {open && createPortal(
         <div
@@ -149,7 +149,7 @@ export default function DatePicker({
 
           <div className="grid grid-cols-7 gap-y-0.5">
             {cells.map((date, i) => date ? (
-              <button
+              <SurfaceButton
                 key={i}
                 type="button"
                 onClick={() => { onChange(toISO(date)); close() }}
@@ -158,7 +158,7 @@ export default function DatePicker({
                 }`}
               >
                 {date.getDate()}
-              </button>
+              </SurfaceButton>
             ) : (
               <span key={i} />
             ))}

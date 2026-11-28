@@ -1,30 +1,15 @@
 import { useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, keepPreviousData } from '@tanstack/react-query'
-import ReactEChartsCore from 'echarts-for-react/esm/core'
-import echarts from '../utils/echarts'
 import {
-  Gauge,
-  Zap,
-  Clock,
-  CalendarDays,
-  Calendar,
-  CalendarClock,
-  Cpu,
-  DatabaseZap,
-  Layers,
-  Minimize2,
-  Bot,
-  ChevronLeft,
-  ChevronRight,
-  X,
-} from 'lucide-react'
+  Gauge, Zap, Clock, CalendarDays, Calendar, CalendarClock, Cpu, DatabaseZap, Layers, Minimize2, Bot, ChevronLeft, ChevronRight, X, } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
 import { usageService, type IUsageLog, type IUsageModelDayStat, type IUsageSourceModelStat } from '../services/usageService'
 import { WeekHourHeatmap, YearHeatmap } from '../components/UsageHeatmap'
+import UsageChart from '../components/usage/UsageChart'
 import { useIsDark } from '../hooks/useIsDark'
 import Select from '../components/Select'
-import { Card, PageContainer, PillTabs } from '../components/ui'
+import { Card, PageContainer, PillTabs, SurfaceButton } from '../components/ui'
 
 type HeatTab = 'week' | 'year'
 type Metric = 'messages' | 'tokens' | 'logs'
@@ -320,7 +305,7 @@ const bySource = stats?.bySource ?? []
                 {cards.map((c: typeof cards[number] & { subValue?: string }) => {
                   const Icon = c.icon
                   return (
-                    <Card key={c.label} padded={false} className="border-gray-200/70 bg-white/70 px-3 py-3 shadow-sm dark:border-white/[0.07] dark:bg-slate-900/35">
+                    <Card key={c.label} padded={false} className="px-3 py-3">
                       <div className="flex items-center gap-2 text-[11px] text-gray-500 dark:text-gray-400">
                         <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${c.bg}`}>
                           <Icon size={13} className={c.color} />
@@ -336,7 +321,7 @@ const bySource = stats?.bySource ?? []
               </div>
 
               {/* 活跃热力：第二行整行 */}
-              <Card className="border-gray-200/70 bg-white/70 shadow-sm dark:border-white/[0.07] dark:bg-slate-900/35">
+              <Card className="border-gray-200/70 bg-white/70">
                 <div className="mb-4 flex items-center justify-between">
                   <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-gray-200">
                     <Calendar size={15} className="text-emerald-500" />
@@ -359,7 +344,7 @@ const bySource = stats?.bySource ?? []
               </Card>
 
               {/* 全局时间选择 + 指标切换（作用于热力图下方的趋势 / 模型分布 / 调用来源） */}
-              <div className="flex flex-wrap items-center justify-end gap-2 rounded-2xl border border-gray-200/70 bg-white/45 p-1.5 dark:border-white/[0.07] dark:bg-white/[0.025]">
+              <div className="flex flex-wrap items-center justify-end gap-2 rounded-2xl border border-gray-200/70 bg-white/70 glass glass-soft p-1.5 dark:border-white/[0.07] dark:bg-slate-900/35">
                 <PillTabs
                   value={dateRange}
                   onSelect={(key) => setDateRange(key as typeof dateRange)}
@@ -386,18 +371,18 @@ const bySource = stats?.bySource ?? []
                 <>
                   <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
                     {/* 趋势 */}
-                    <Card className="border-gray-200/70 bg-white/70 shadow-sm dark:border-white/[0.07] dark:bg-slate-900/35 lg:col-span-2">
+                    <Card className="lg:col-span-2">
                       <div className="mb-2 flex items-center justify-between">
                         <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-gray-200">
                           <CalendarClock size={15} className="text-blue-500" />
                           {t('usage.trend', { range: rangeLabel })}
                         </h3>
                       </div>
-                      <ReactEChartsCore echarts={echarts} option={trendOption} style={{ height: 260, width: '100%' }} notMerge />
+                      <UsageChart option={trendOption} height={260} />
                     </Card>
 
                     {/* 模型分布 */}
-                    <Card className="border-gray-200/70 bg-white/70 shadow-sm dark:border-white/[0.07] dark:bg-slate-900/35">
+                    <Card className="border-gray-200/70 bg-white/70">
                       <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-gray-200">
                         <Cpu size={15} className="text-violet-500" />
                         {t('usage.modelDistribution')}
@@ -405,12 +390,12 @@ const bySource = stats?.bySource ?? []
                       {byModel.length === 0 ? (
                         <p className="flex h-[220px] items-center justify-center text-xs text-gray-400 dark:text-gray-500">{t('common:empty')}</p>
                       ) : (
-                        <ReactEChartsCore echarts={echarts} option={pieOption} style={{ height: 220, width: '100%' }} notMerge />
+                        <UsageChart option={pieOption} height={220} />
                       )}
                     </Card>
 
                     {/* 来源分布：对话 / 编码会话 / 任务看板 / Wiki / ... */}
-                    <Card className="border-gray-200/70 bg-white/70 shadow-sm dark:border-white/[0.07] dark:bg-slate-900/35 lg:col-span-3">
+                    <Card className="lg:col-span-3">
                       <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-gray-200">
                         <Layers size={15} className="text-sky-500" />
                         {t('usage.callSources')}
@@ -418,7 +403,7 @@ const bySource = stats?.bySource ?? []
                       {bySource.length === 0 ? (
                         <p className="flex h-[120px] items-center justify-center text-xs text-gray-400 dark:text-gray-500">{t('common:empty')}</p>
                       ) : (
-                        <ReactEChartsCore echarts={echarts} option={sourceOption} style={{ height: sourceChartHeight, width: '100%' }} notMerge />
+                        <UsageChart option={sourceOption} height={sourceChartHeight} />
                       )}
                     </Card>
                   </div>
@@ -483,20 +468,20 @@ function UsageLogs() {
     'flex items-center gap-1 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.06]'
 
   return (
-    <Card className="border-gray-200/70 bg-white/70 shadow-sm dark:border-white/[0.07] dark:bg-slate-900/35">
+    <Card className="border-gray-200/70 bg-white/70">
       <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-gray-200">
         <CalendarClock size={15} className="text-blue-500" />
         {t('usage.logs')}
         <div className="ml-auto flex items-center gap-2">
           {turnFilter ? (
-            <button
+            <SurfaceButton
               onClick={() => changeTurn('')}
               title={t('usage.clearTurn')}
               className="flex items-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-2 py-1 text-[11px] font-medium text-blue-600 transition-colors hover:bg-blue-100 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-300 dark:hover:bg-blue-500/20"
             >
               {t('usage.turnFilter', { id: turnFilter.slice(0, 8) })}
               <X size={12} />
-            </button>
+            </SurfaceButton>
           ) : null}
           <Select
             value={sourceFilter}
@@ -569,7 +554,7 @@ function UsageLogs() {
                         <td className="whitespace-nowrap px-3 py-2">
                           <div className="flex items-center gap-1">
                             {log.iteration != null && turnId ? (
-                              <button
+                              <SurfaceButton
                                 onClick={() => changeTurn(turnId === turnFilter ? '' : turnId)}
                                 title={t('usage.iterationHint')}
                                 className={`rounded px-1.5 py-0.5 text-[10px] font-medium tabular-nums transition-colors ${
@@ -579,7 +564,7 @@ function UsageLogs() {
                                 }`}
                               >
                                 {t('usage.iteration', { n: log.iteration })}
-                              </button>
+                              </SurfaceButton>
                             ) : (
                               <span className="text-[10px] text-gray-300 dark:text-gray-600">—</span>
                             )}
@@ -660,22 +645,22 @@ function UsageLogs() {
               {t('usage.pageInfo', { page, totalPages })} · {t('usage.totalLogs', { count: data?.totalCount ?? 0 })}
             </span>
             <div className="flex items-center gap-2">
-              <button
+              <SurfaceButton
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page <= 1 || isPlaceholderData}
                 className={pageBtnClass}
               >
                 <ChevronLeft size={13} />
                 {t('usage.prevPage')}
-              </button>
-              <button
+              </SurfaceButton>
+              <SurfaceButton
                 onClick={() => setPage((p) => p + 1)}
                 disabled={page >= totalPages || isPlaceholderData}
                 className={pageBtnClass}
               >
                 {t('usage.nextPage')}
                 <ChevronRight size={13} />
-              </button>
+              </SurfaceButton>
             </div>
           </div>
         </>

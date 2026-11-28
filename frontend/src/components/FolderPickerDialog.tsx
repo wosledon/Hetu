@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { ChevronRight, Folder, FolderOpen, HardDrive, Home, Loader2, CornerLeftUp, X } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { systemService } from '../services/systemService'
-import { Button, Modal } from './ui'
+import { Button, Modal, SurfaceButton } from './ui'
 
 interface FolderPickerDialogProps {
   /** 初始路径（已有目录时定位到这里） */
@@ -59,7 +59,7 @@ export default function FolderPickerDialog({ initialPath, title, onClose, onPick
             </div>
             <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">{dialogTitle}</h3>
           </div>
-          <button onClick={onClose} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700"><X size={18} /></button>
+          <SurfaceButton onClick={onClose} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700"><X size={18} /></SurfaceButton>
         </div>
 
         {/* 面包屑 */}
@@ -109,7 +109,7 @@ export default function FolderPickerDialog({ initialPath, title, onClose, onPick
                 <div className="py-10 text-center text-xs text-gray-400">{t('ui:folderPicker.empty')}</div>
               )}
               {data?.dirs.map((d) => (
-                <button
+                <SurfaceButton
                   key={d.path}
                   onClick={() => setSelectedPath(d.path)}
                   onDoubleClick={() => open(d.path)}
@@ -122,7 +122,7 @@ export default function FolderPickerDialog({ initialPath, title, onClose, onPick
                   <Folder size={14} className={`shrink-0 ${selected === d.path ? 'text-amber-500' : 'text-gray-400'}`} />
                   <span className="min-w-0 flex-1 truncate">{isRootList ? d.path : d.name}</span>
                   {selected !== d.path && <ChevronRight size={12} className="shrink-0 text-gray-300 dark:text-gray-600" />}
-                </button>
+                </SurfaceButton>
               ))}
             </>
           )}

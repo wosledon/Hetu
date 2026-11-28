@@ -2,42 +2,7 @@ import { confirm } from '../components/confirm'
 import { useState, useRef, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  AlertCircle,
-  Bot,
-  BookOpen,
-  Brain,
-  CalendarClock,
-  ClipboardList,
-  Download,
-  Edit2,
-  FileEdit,
-  FolderInput,
-  FolderOpen,
-  FolderSearch,
-  FolderTree,
-  Globe,
-  HelpCircle,
-  History,
-  Import,
-  Library,
-  List,
-  ListChecks,
-  Loader2,
-  Network,
-  PenLine,
-  Plus,
-  RefreshCw,
-  RotateCcw,
-  Save,
-  Search,
-  Settings,
-  Sparkles,
-  Tags,
-  Terminal,
-  Trash2,
-  X,
-  Zap,
-} from 'lucide-react'
+  AlertCircle, Bot, BookOpen, Brain, CalendarClock, ClipboardList, Download, Edit2, FileEdit, FolderInput, FolderOpen, FolderSearch, FolderTree, Globe, HelpCircle, History, Import, Library, List, ListChecks, Loader2, Network, PenLine, Plus, RefreshCw, RotateCcw, Save, Search, Settings, Sparkles, Tags, Terminal, Trash2, X, Zap, } from 'lucide-react'
 import { Trans, useTranslation } from 'react-i18next'
 import AppLayout from '../components/AppLayout'
 import FolderPickerDialog from '../components/FolderPickerDialog'
@@ -48,7 +13,7 @@ import { skillService } from '../services/skillService'
 import { aiModelService } from '../services/aiProviderService'
 import type { ILocalPromptPreset, IPromptPreset } from '../types'
 import type { CreatePromptPresetRequest, UpdatePromptPresetRequest } from '../services/promptPresetService'
-import { Button, Card, IconButton, Input, Modal, PageContainer, SearchInput, Textarea } from '../components/ui'
+import { Button, Card, IconButton, Input, Modal, PageContainer, SearchInput, Textarea, SurfaceButton, Checkbox, FileInput } from '../components/ui'
 
 const CATEGORY_COLORS: Record<string, string> = {
   通用: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
@@ -534,7 +499,8 @@ export default function AgentsPage() {
       <Card
         key={p.id}
         padded={false}
-        className="group flex min-h-[176px] flex-col p-4 transition-all hover:-translate-y-0.5 hover:border-rose-200/70 hover:shadow-md dark:hover:border-rose-400/20"
+        interactive
+        className="group flex min-h-[176px] flex-col p-4"
       >
         <div className="flex items-start gap-3">
           <div className={"flex h-9 w-9 shrink-0 items-center justify-center rounded-xl " + (isProfessionalAgent ? "bg-violet-50 dark:bg-violet-500/10" : "bg-rose-50 dark:bg-rose-500/10")}>
@@ -639,24 +605,24 @@ export default function AgentsPage() {
       </div>
 
       {/* 工具栏：分类筛选 + 搜索 + 操作 */}
-      <div className="mb-5 flex flex-wrap items-center gap-2 rounded-2xl border border-gray-200/70 bg-white/45 p-2.5 dark:border-white/[0.07] dark:bg-white/[0.025]">
+      <div className="mb-5 flex flex-wrap items-center gap-2 rounded-2xl border border-gray-200/70 bg-white/70 glass glass-soft p-2.5 dark:border-white/[0.07] dark:bg-slate-900/35">
         <div className="flex flex-wrap items-center gap-1">
-          <button
+          <SurfaceButton
             onClick={() => setActiveCategory(null)}
             className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-medium transition-all ${filterPill(activeCategory === null)}`}
           >
             {t('common:all')}
             <span className="text-[11px] opacity-70">{allPresets.length}</span>
-          </button>
+          </SurfaceButton>
           {categories.map(([cat, count]) => (
-            <button
+            <SurfaceButton
               key={cat}
               onClick={() => setActiveCategory(activeCategory === cat ? null : cat)}
               className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-medium transition-all ${filterPill(activeCategory === cat)}`}
             >
               {cat}
               <span className="text-[11px] opacity-70">{count}</span>
-            </button>
+            </SurfaceButton>
           ))}
         </div>
         <div className="relative ml-auto min-w-[180px] max-w-xs flex-1">
@@ -667,9 +633,8 @@ export default function AgentsPage() {
             className="w-full"
           />
         </div>
-        <input
+        <FileInput
           ref={fileInputRef}
-          type="file"
           accept=".json"
           className="hidden"
           onChange={handleImport}
@@ -774,7 +739,7 @@ export default function AgentsPage() {
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-rose-100 dark:bg-rose-900/30"><Bot size={16} className="text-rose-600 dark:text-rose-400" /></div>
                 <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">{editingId ? t('form.editAgent') : t('page.newAgent')}</h3>
               </div>
-              <button onClick={closeForm} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700"><X size={18} /></button>
+              <SurfaceButton onClick={closeForm} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700"><X size={18} /></SurfaceButton>
             </div>
             <div className="space-y-4 px-5 py-4">
               <div className="grid grid-cols-2 gap-3">
@@ -798,7 +763,7 @@ export default function AgentsPage() {
                     const Icon = typeItem.icon
                     const active = form.agentType === typeItem.key
                     return (
-                      <button
+                      <SurfaceButton
                         key={typeItem.key}
                         onClick={() => setForm({ ...form, agentType: typeItem.key })}
                         className={`flex items-start gap-2 rounded-xl border p-3 text-left transition-all ${
@@ -812,7 +777,7 @@ export default function AgentsPage() {
                           <div className={`text-xs font-semibold ${active ? 'text-violet-700 dark:text-violet-300' : 'text-gray-700 dark:text-gray-300'}`}>{t(typeItem.labelKey)}</div>
                           <div className="mt-0.5 text-[10px] leading-relaxed text-gray-400">{t(typeItem.descKey)}</div>
                         </div>
-                      </button>
+                      </SurfaceButton>
                     )
                   })}
                 </div>
@@ -930,8 +895,8 @@ export default function AgentsPage() {
                   <label className="text-xs font-medium text-gray-600 dark:text-gray-400">{t('form.availableTools')}</label>
                   <span className="text-[11px] text-gray-400">{t('form.enabledCount', { done: enabledTools.length, total: AVAILABLE_TOOLS.length })}</span>
                   <div className="ml-auto flex items-center gap-2">
-                    <button onClick={() => setEnabledTools(AVAILABLE_TOOLS.map(tool => tool.name))} className="text-[11px] text-gray-400 transition-colors hover:text-rose-500">{t('common:selectAll')}</button>
-                    <button onClick={() => setEnabledTools([])} className="text-[11px] text-gray-400 transition-colors hover:text-rose-500">{t('form.clear')}</button>
+                    <SurfaceButton onClick={() => setEnabledTools(AVAILABLE_TOOLS.map(tool => tool.name))} className="text-[11px] text-gray-400 transition-colors hover:text-rose-500">{t('common:selectAll')}</SurfaceButton>
+                    <SurfaceButton onClick={() => setEnabledTools([])} className="text-[11px] text-gray-400 transition-colors hover:text-rose-500">{t('form.clear')}</SurfaceButton>
                   </div>
                 </div>
                 <div className="relative mb-2">
@@ -950,12 +915,12 @@ export default function AgentsPage() {
                         <span className="text-[10px] text-gray-300 dark:text-gray-600">
                           {tools.filter(tool => enabledTools.includes(tool.name)).length}/{tools.length}
                         </span>
-                        <button
+                        <SurfaceButton
                           onClick={() => toggleToolGroup(tools)}
                           className="ml-auto text-[10px] text-gray-400 transition-colors hover:text-rose-500"
                         >
                           {tools.every(tool => enabledTools.includes(tool.name)) ? t('form.deselectAll') : t('common:selectAll')}
-                        </button>
+                        </SurfaceButton>
                       </div>
                       <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
                         {tools.map(tool => {
@@ -964,14 +929,14 @@ export default function AgentsPage() {
                           return (
                             <div key={tool.name} className="flex items-center justify-between rounded-md px-2 py-1.5 hover:bg-white dark:hover:bg-gray-700/50">
                               <label className="flex items-center gap-2 cursor-pointer">
-                                <input
-                                  type="checkbox"
+                                <Checkbox
+                                  tone="rose"
                                   checked={isEnabled}
                                   onChange={(e) => {
                                     if (e.target.checked) setEnabledTools(prev => [...prev, tool.name])
                                     else setEnabledTools(prev => prev.filter(n => n !== tool.name))
                                   }}
-                                  className="rounded border-gray-300 text-rose-600 focus:ring-rose-500"
+                                  className="rounded border-gray-300"
                                 />
                                 <span className="text-xs">{renderToolIcon(tool.name)}</span>
                                 <span className="text-xs text-gray-700 dark:text-gray-300">{t(tool.labelKey)}</span>
@@ -1019,7 +984,7 @@ export default function AgentsPage() {
                   <p className="text-xs text-gray-500">{t('dir.hint')}</p>
                 </div>
               </div>
-              <button onClick={() => setShowDirConfig(false)} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700"><X size={18} /></button>
+              <SurfaceButton onClick={() => setShowDirConfig(false)} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700"><X size={18} /></SurfaceButton>
             </div>
             <div className="space-y-3 px-5 py-4">
               <div className="flex gap-2">
@@ -1048,7 +1013,7 @@ export default function AgentsPage() {
                   directories.map(dir => (
                     <div key={dir} className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 px-3 py-2 dark:border-gray-700 dark:bg-gray-800">
                       <span className="truncate text-xs text-gray-700 dark:text-gray-300" title={dir}>{dir}</span>
-                      <button onClick={() => handleRemoveDir(dir)} className="ml-2 shrink-0 text-gray-400 hover:text-red-500"><Trash2 size={12} /></button>
+                      <SurfaceButton onClick={() => handleRemoveDir(dir)} className="ml-2 shrink-0 text-gray-400 hover:text-red-500"><Trash2 size={12} /></SurfaceButton>
                     </div>
                   ))
                 )}

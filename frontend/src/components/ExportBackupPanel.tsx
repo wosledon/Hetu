@@ -2,6 +2,7 @@ import { useState, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Download, Database, Upload, AlertCircle, Loader2 } from 'lucide-react'
 import { exportService } from '../services/exportService'
+import { SurfaceButton, FileInput } from './ui'
 
 export default function ExportBackupPanel() {
   const { t } = useTranslation('settings')
@@ -66,7 +67,7 @@ export default function ExportBackupPanel() {
 
       {/* Action Cards */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <button
+        <SurfaceButton
           onClick={handleExportNotes}
           disabled={isLoading}
           className="group flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50/70 px-4 py-4 text-left shadow-sm transition-all hover:border-blue-300 hover:bg-blue-50 dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-blue-400/40 dark:hover:bg-blue-500/[0.06] disabled:cursor-not-allowed disabled:opacity-50"
@@ -78,9 +79,9 @@ export default function ExportBackupPanel() {
             <div className="text-sm font-medium text-gray-800 dark:text-gray-200">{t('backup.exportMarkdown')}</div>
             <div className="text-xs text-gray-400 dark:text-gray-500">{t('backup.exportMarkdownDesc')}</div>
           </div>
-        </button>
+        </SurfaceButton>
 
-        <button
+        <SurfaceButton
           onClick={handleBackup}
           disabled={isLoading}
           className="group flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50/70 px-4 py-4 text-left shadow-sm transition-all hover:border-emerald-300 hover:bg-emerald-50 dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-emerald-400/40 dark:hover:bg-emerald-500/[0.06] disabled:cursor-not-allowed disabled:opacity-50"
@@ -92,7 +93,7 @@ export default function ExportBackupPanel() {
             <div className="text-sm font-medium text-gray-800 dark:text-gray-200">{t('backup.backupDatabase')}</div>
             <div className="text-xs text-gray-400 dark:text-gray-500">{t('backup.backupDatabaseDesc')}</div>
           </div>
-        </button>
+        </SurfaceButton>
       </div>
 
       {/* Restore Section */}
@@ -108,9 +109,8 @@ export default function ExportBackupPanel() {
           <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-amber-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm shadow-amber-600/20 transition-all hover:bg-amber-700 hover:shadow-md active:scale-[0.98]">
             <Upload size={14} />
             {t('backup.chooseFile')}
-            <input
+            <FileInput
               ref={fileRef}
-              type="file"
               accept=".db"
               onChange={handleRestore}
               disabled={isLoading}
